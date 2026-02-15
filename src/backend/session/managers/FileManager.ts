@@ -208,7 +208,9 @@ export class FileManager extends SyncedManager {
    */
   private getTimeManager(): TimeManager {
     if (!this._timeManager) {
-      const timezone = (this._session as any)?.settings?.timezone ?? undefined;
+      const timezone = (this._session as any).appSession?.settings?.getMentraOS(
+        "userTimezone",
+      ) as string | undefined;
       this._timeManager = new TimeManager(timezone);
     }
     return this._timeManager;
