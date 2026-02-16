@@ -20,6 +20,8 @@ import {
   PhotoManager,
 } from "./managers";
 import { InputManager } from "./managers/InputManager";
+import { createUserState } from "../services/userState.service";
+import { TimeManager } from "./managers/TimeManager";
 import type { AppSession } from "@mentra/sdk";
 
 export class NotesSession extends SyncedSession {
@@ -78,6 +80,17 @@ export class NotesSession extends SyncedSession {
       this.broadcastStateChange("session", "hasGlassesConnected", true);
       // Wire up button + touch listeners for this user's session
       this.input.setup(appSession);
+
+      // Now that glasses are connected, persist the user's IANA timezone
+      const timezone = appSession.settings.getMentraOS<string>("userTimezone");
+      if (timezone) {
+        const timeManager = new TimeManager(timezone);
+        const endOfDay = new Date(timeManager.endOfDay());
+        createUserState(this.userId, endOfDay, timezone).catch((err) =>
+          console.error(`[NotesSession] Failed to update timezone:`, err),
+        );
+      }
+
       // Note: FileManager is hydrated once during session creation.
       // We no longer re-hydrate on glasses connect to avoid
       // race conditions with user filter selections.

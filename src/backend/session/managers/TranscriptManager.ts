@@ -208,7 +208,10 @@ export class TranscriptManager extends SyncedManager {
       console.log(
         `[TranscriptManager] Ensuring UserState exists for ${userId}, default EOD: ${defaultEndOfDay.toISOString()}`,
       );
-      await createUserState(userId, defaultEndOfDay);
+      const timezone = (this._session as any).appSession?.settings?.getMentraOS(
+        "userTimezone",
+      ) as string | undefined;
+      await createUserState(userId, defaultEndOfDay, timezone);
 
       this.userStateInitialized = true;
       console.log(

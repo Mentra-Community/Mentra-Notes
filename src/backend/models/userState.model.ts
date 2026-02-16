@@ -14,6 +14,12 @@ const userStateSchema = new Schema({
     description: "Date and time when transcriptions are batched and sent to R2 Cloudflare (user's local timezone)",
   },
 
+  timezone: {
+    type: String,
+    default: null,
+    description: "User's IANA timezone (e.g. 'America/New_York')",
+  },
+
   createdAt: {
     type: Date,
     default: Date.now,
