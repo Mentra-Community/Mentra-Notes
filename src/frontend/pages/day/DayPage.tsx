@@ -105,8 +105,10 @@ export function DayPage() {
   // Data is loading when the transcript hasn't loaded for this date yet,
   // or when the server is still fetching from R2. This prevents flicker
   // between old data → skeleton → empty → new data when switching dates.
+  // Once loadedDate matches, the server has the data ready — trust it.
   const isLoadingHistory = session?.transcript?.isLoadingHistory ?? false;
-  const isDataLoading = loadedDate !== dateString || isLoadingHistory || isLoadingTranscript;
+  const serverHasData = loadedDate === dateString && !isLoadingHistory;
+  const isDataLoading = !serverHasData && (loadedDate !== dateString || isLoadingHistory || isLoadingTranscript);
 
   // Find the file for this date to get favourite status
   const currentFile = useMemo(() => {
