@@ -223,14 +223,17 @@ export class FileManager extends SyncedManager {
 
   /**
    * Get TimeManager instance for timezone-aware date operations.
-   * Uses user's timezone from settings if available.
+   * Uses user's timezone from SettingsManager (hydrated from MongoDB),
+   * falling back to appSession MentraOS settings if available.
    */
   private getTimeManager(): TimeManager {
     if (!this._timeManager) {
-      const timezone = (this._session as any).appSession?.settings?.getMentraOS(
+      // Prefer SettingsManager timezone (available during hydration, before glasses connect)
+      const settingsTimezone = (this._session as any)?.settings?.timezone as string | null;
+      const appTimezone = (this._session as any).appSession?.settings?.getMentraOS(
         "userTimezone",
       ) as string | undefined;
-      this._timeManager = new TimeManager(timezone);
+      this._timeManager = new TimeManager(settingsTimezone || appTimezone);
     }
     return this._timeManager;
   }

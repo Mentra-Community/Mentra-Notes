@@ -96,11 +96,12 @@ export class TranscriptManager extends SyncedManager {
 
   private getTimeManager(): TimeManager {
     if (!this.timeManager) {
-      const timezone = (this._session as any).appSession?.settings?.getMentraOS(
+      // Prefer SettingsManager timezone (available during hydration, before glasses connect)
+      const settingsTimezone = (this._session as any)?.settings?.timezone as string | null;
+      const appTimezone = (this._session as any).appSession?.settings?.getMentraOS(
         "userTimezone",
       ) as string | undefined;
-
-      this.timeManager = new TimeManager(timezone);
+      this.timeManager = new TimeManager(settingsTimezone || appTimezone);
     }
     return this.timeManager;
   }
