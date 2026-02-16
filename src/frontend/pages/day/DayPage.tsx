@@ -67,6 +67,9 @@ export function DayPage() {
   const [activeTab, setActiveTab] = useState<TabType>("transcript");
   const lastLoadedDateRef = useRef<string | null>(null);
   const [isLoadingTranscript, setIsLoadingTranscript] = useState(false);
+  // Snapshot segment count when a historical date finishes loading,
+  // so new live segments don't bleed into the old file's view
+  const historicalSegmentCountRef = useRef<number | null>(null);
 
   // Super collapsed mode from persisted settings
   const isCompactMode = session?.settings?.superCollapsed ?? false;
@@ -175,17 +178,35 @@ export function DayPage() {
     });
   }, [allNotes, dateString]);
 
+  // Snapshot segment count when a historical date finishes loading.
+  // This prevents live transcription segments from bleeding into the old file's view.
+  useEffect(() => {
+    if (!isDataLoading && loadedDate === dateString) {
+      if (isToday) {
+        historicalSegmentCountRef.current = null; // no cap for today
+      } else {
+        historicalSegmentCountRef.current = allSegments.length;
+      }
+    }
+  }, [isDataLoading, loadedDate, dateString, isToday, allSegments.length]);
+
+  // Reset snapshot when navigating to a new date
+  useEffect(() => {
+    historicalSegmentCountRef.current = null;
+  }, [dateString]);
+
   // Filter transcript segments for this day
-  // Segments are loaded for "today" from the server, so we filter by comparing
-  // the segment's local timestamp date with the selected date
   const daySegments = useMemo(() => {
     // While loading, return empty to prevent stale data from flashing
     if (isDataLoading) return [];
 
-    // Server loaded data for this date — use all segments as-is.
-    // The server handles timezone-aware date loading, so no client-side
-    // filtering is needed — it would break due to UTC vs local timezone mismatch.
+    // Server loaded data for this date
     if (loadedDate === dateString) {
+      // For historical dates, cap to the snapshot count to prevent
+      // live transcription segments from appearing in old files
+      if (!isToday && historicalSegmentCountRef.current !== null) {
+        return allSegments.slice(0, historicalSegmentCountRef.current);
+      }
       return allSegments;
     }
 
@@ -197,7 +218,7 @@ export function DayPage() {
         : String(segment.timestamp);
       return iso.slice(0, 10) === dateString;
     });
-  }, [allSegments, dateString, loadedDate, isDataLoading]);
+  }, [allSegments, dateString, loadedDate, isDataLoading, isToday]);
 
   if (!session) {
     return <DayPageSkeleton />;
@@ -352,7 +373,7 @@ export function DayPage() {
               <TranscriptTab
                 segments={daySegments}
                 hourSummaries={hourSummaries}
-                interimText={interimText}
+                interimText={isToday ? interimText : ""}
                 currentHour={isToday ? currentHour : undefined}
                 dateString={dateString}
                 onGenerateSummary={session?.transcript?.generateHourSummary}
