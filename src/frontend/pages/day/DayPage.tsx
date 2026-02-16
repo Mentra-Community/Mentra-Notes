@@ -102,12 +102,13 @@ export function DayPage() {
   const loadedDate = session?.transcript?.loadedDate ?? "";
   const files = session?.file?.files ?? [];
 
-  // Data is loading when the server is actively fetching (R2 or MongoDB).
-  // We trust that if segments exist and nothing is loading, the data is ready.
+  // Data is loading when the server hasn't confirmed this date's data yet.
+  // loadedDate is the source of truth for which date's segments are loaded.
+  // isLoadingTranscript gates the transition period when switching dates.
   const isLoadingHistory = session?.transcript?.isLoadingHistory ?? false;
-  const hasSegments = allSegments.length > 0;
-  const serverHasData = (loadedDate === dateString || hasSegments) && !isLoadingHistory;
-  const isDataLoading = !serverHasData && (isLoadingHistory || isLoadingTranscript);
+  const dateMatchesServer = loadedDate === dateString;
+  const isActivelyLoading = isLoadingHistory || isLoadingTranscript;
+  const isDataLoading = isActivelyLoading || !dateMatchesServer;
 
   // Find the file for this date to get favourite status
   const currentFile = useMemo(() => {
@@ -181,10 +182,10 @@ export function DayPage() {
     // While loading, return empty to prevent stale data from flashing
     if (isDataLoading) return [];
 
-    // If server has data (loadedDate matches OR segments exist), use them.
+    // Server loaded data for this date — use all segments as-is.
     // The server handles timezone-aware date loading, so no client-side
     // filtering is needed — it would break due to UTC vs local timezone mismatch.
-    if (loadedDate === dateString || allSegments.length > 0) {
+    if (loadedDate === dateString) {
       return allSegments;
     }
 
