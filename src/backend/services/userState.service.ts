@@ -25,12 +25,37 @@ export async function createUserState(
     });
     console.log( `[UserStateService] Created new UserState for ${userEmail} with EOD: ${transcriptionBatchEndOfDay.toISOString()}, timezone: ${timezone ?? "not set"}` );
   } else {
+    let needsSave = false;
+
     // Update timezone if provided and different
     if (timezone && userState.timezone !== timezone) {
       userState.timezone = timezone;
-      await userState.save();
+      needsSave = true;
       console.log( `[UserStateService] Updated timezone for ${userEmail}: ${timezone}` );
     }
+
+    // Fix stale batch end date — if the stored EOD is in the past OR doesn't match
+    // today's expected EOD, correct it to the caller's computed value
+    const storedEOD = userState.transcriptionBatchEndOfDay.toISOString();
+    const expectedEOD = transcriptionBatchEndOfDay.toISOString();
+    const nowISO = new Date().toISOString();
+
+    if (storedEOD < nowISO) {
+      // Batch end is in the past — stale from a previous day
+      console.log( `[UserStateService] Fixing stale EOD for ${userEmail}: ${storedEOD} -> ${expectedEOD} (was in the past)` );
+      userState.transcriptionBatchEndOfDay = transcriptionBatchEndOfDay;
+      needsSave = true;
+    } else if (storedEOD !== expectedEOD && storedEOD > expectedEOD) {
+      // Batch end is further in the future than expected — also wrong
+      console.log( `[UserStateService] Fixing future EOD for ${userEmail}: ${storedEOD} -> ${expectedEOD} (was too far ahead)` );
+      userState.transcriptionBatchEndOfDay = transcriptionBatchEndOfDay;
+      needsSave = true;
+    }
+
+    if (needsSave) {
+      await userState.save();
+    }
+
     console.log( `[UserStateService] Found existing UserState for ${userEmail} with EOD: ${userState.transcriptionBatchEndOfDay.toISOString()}` );
   }
 

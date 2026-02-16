@@ -127,6 +127,25 @@ export class FileManager extends SyncedManager {
       const today = this.today();
       console.log(`[FileManager] Today's date: ${today}`);
 
+      // Step 4.5: Clean up future dates (e.g. "2026-02-16" when today is "2026-02-15")
+      // These can appear from stale batch end-of-day calculations
+      const futureMongoDates = mongoDbDates.filter((d) => d > today);
+      if (futureMongoDates.length > 0) {
+        console.log(`[FileManager] Cleaning up ${futureMongoDates.length} future dates:`, futureMongoDates);
+        for (const date of futureMongoDates) {
+          // Delete the DailyTranscript for this future date
+          await deleteDailyTranscript(userId, date);
+          // Delete the File record if it exists
+          if (existingDates.has(date)) {
+            await deleteFileFromDb(userId, date, true);
+            existingDates.delete(date);
+          }
+          console.log(`[FileManager] Removed future date: ${date}`);
+        }
+        // Remove future dates from the list
+        mongoDbDates = mongoDbDates.filter((d) => d <= today);
+      }
+
       // Step 5: Find dates that need File records created
       const allDates = new Set([...r2Dates, ...mongoDbDates, today]);
       const missingDates = Array.from(allDates).filter(
