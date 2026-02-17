@@ -34,19 +34,19 @@ export async function createUserState(
       console.log( `[UserStateService] Updated timezone for ${userEmail}: ${timezone}` );
     }
 
-    // Fix stale batch end date — if the stored EOD is in the past OR doesn't match
-    // today's expected EOD, correct it to the caller's computed value
+    // Only fix EOD if it's in the future beyond what's expected (clock drift, etc.)
+    // Do NOT overwrite a past EOD — that means there are unbatched transcripts
+    // that need to be processed first. The batch flow will advance it after upload.
     const storedEOD = userState.transcriptionBatchEndOfDay.toISOString();
     const expectedEOD = transcriptionBatchEndOfDay.toISOString();
     const nowISO = new Date().toISOString();
 
     if (storedEOD < nowISO) {
-      // Batch end is in the past — stale from a previous day
-      console.log( `[UserStateService] Fixing stale EOD for ${userEmail}: ${storedEOD} -> ${expectedEOD} (was in the past)` );
-      userState.transcriptionBatchEndOfDay = transcriptionBatchEndOfDay;
-      needsSave = true;
+      // Batch end is in the past — there are unbatched transcripts pending.
+      // Do NOT overwrite — let setBatchDate() handle the catch-up.
+      console.log( `[UserStateService] Stale EOD for ${userEmail}: ${storedEOD} (in the past). Keeping it so batch can catch up.` );
     } else if (storedEOD !== expectedEOD && storedEOD > expectedEOD) {
-      // Batch end is further in the future than expected — also wrong
+      // Batch end is further in the future than expected — fix it
       console.log( `[UserStateService] Fixing future EOD for ${userEmail}: ${storedEOD} -> ${expectedEOD} (was too far ahead)` );
       userState.transcriptionBatchEndOfDay = transcriptionBatchEndOfDay;
       needsSave = true;

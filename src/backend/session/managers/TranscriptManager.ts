@@ -207,21 +207,23 @@ export class TranscriptManager extends SyncedManager {
 
       // Load or create transcriptionBatchEndOfDay from MongoDB
       const defaultEndOfDay = new Date(this.getTimeManager().endOfDay());
-      this.transcriptionBatchEndOfDay = new Date(
-        this.getTimeManager().endOfDay(),
-      );
       console.log(
         `[TranscriptManager] Ensuring UserState exists for ${userId}, default EOD: ${defaultEndOfDay.toISOString()}`,
       );
       const timezone = (this._session as any).appSession?.settings?.getMentraOS(
         "userTimezone",
       ) as string | undefined;
-      await createUserState(userId, defaultEndOfDay, timezone);
+      const userState = await createUserState(userId, defaultEndOfDay, timezone);
 
+      // Use the DB value — it may be older than today if there are unbatched transcripts
+      this.transcriptionBatchEndOfDay = userState.transcriptionBatchEndOfDay;
       this.userStateInitialized = true;
       console.log(
         `[TranscriptManager] Loaded batch end of day from DB: ${this.transcriptionBatchEndOfDay}`,
       );
+
+      // Catch up on any missed batches (e.g. old transcripts from previous days)
+      await this.setBatchDate();
 
       this.startRollingSummaryTimer();
     } catch (error) {
