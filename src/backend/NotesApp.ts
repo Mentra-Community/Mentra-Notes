@@ -99,7 +99,7 @@ export class NotesApp extends AppServer {
     // Show initial ready state
     setTimeout(() => {
       if (notesSession.settings.showLiveTranscript) {
-        session.dashboard.content.write("📝 Notes - Recording");
+        session.dashboard.content.write("Notes - Recording");
       }
     }, 2000);
 

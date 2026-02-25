@@ -188,7 +188,7 @@ export function SettingsPage() {
         <div className="flex items-center">
           <button
             onClick={handleBack}
-            className="p-2 -ml-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 transition-colors md:hidden"
+            className="p-2 -ml-2 min-w-11 min-h-11 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 transition-colors md:hidden"
           >
             <ChevronLeft size={24} />
           </button>
@@ -202,7 +202,7 @@ export function SettingsPage() {
       <div className="flex-1 overflow-y-auto">
         <div className="px-4 md:px-6 pb-24">
           {/* General Section */}
-          <div className="mt-6 mb-2">
+          {/* <div className="mt-6 mb-2">
             <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">
               General
             </h3>
@@ -218,7 +218,7 @@ export function SettingsPage() {
               type="link"
               onClick={() => {}}
             />
-          </div>
+          </div> */}
 
           {/* Recording Section */}
           <div className="mt-8 mb-2">

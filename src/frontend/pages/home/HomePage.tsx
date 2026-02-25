@@ -201,7 +201,7 @@ export function HomePage() {
           <div className="flex items-center justify-between">
             <button
               onClick={() => setIsFilterOpen(true)}
-              className="flex items-center gap-1.5 group -ml-2 px-2 py-1 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+              className="flex items-center gap-1.5 group -ml-2 px-2 py-1 min-h-11 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
             >
               <h1 className="text-xl font-normal text-zinc-900 dark:text-white tracking-tight">
                 {getFilterLabel()}
@@ -286,7 +286,7 @@ export function HomePage() {
         <div className="flex items-center justify-between">
           <button
             onClick={() => setIsFilterOpen(true)}
-            className="flex items-center gap-1.5 group -ml-2 px-2 py-1 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+            className="flex items-center gap-1.5 group -ml-2 px-2 py-1 min-w-31 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
           >
             <h1 className="text-xl font-normal text-zinc-900 dark:text-white tracking-tight">
               {getFilterLabel()}

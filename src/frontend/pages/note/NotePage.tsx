@@ -239,7 +239,7 @@ export function NotePage() {
         <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
           <button
             onClick={() => setLocation("/")}
-            className="p-2 -ml-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 transition-colors"
+            className="p-2 -ml-2 min-w-11 min-h-11 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 transition-colors"
           >
             <ChevronLeft size={24} />
           </button>
