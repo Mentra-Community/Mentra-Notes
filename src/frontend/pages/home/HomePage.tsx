@@ -215,10 +215,10 @@ export function HomePage() {
               />
             </button>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 ">
               <button
                 onClick={handleCalendarToggle}
-                className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                className=" w-10 h-10 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
               >
                 <Calendar size={20} strokeWidth={1.5} />
               </button>
@@ -289,7 +289,7 @@ export function HomePage() {
         <div className="flex items-center justify-between">
           <button
             onClick={() => setIsFilterOpen(true)}
-            className="flex items-center gap-1.5 group -ml-2 px-2 py-1 min-w-31 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+            className="flex items-center gap-1.5 group -ml-2 px-2 py-1 min-w-31 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors  pr-[20px]"
           >
             <h1 className="text-xl font-normal text-zinc-900 dark:text-white tracking-tight">
               {getFilterLabel()}
@@ -300,7 +300,7 @@ export function HomePage() {
             />
           </button>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 ">
             {/* Empty Trash button - only shown when viewing trash */}
             {activeFilter === "trash" && filterCounts.trash > 0 && (
               <button
@@ -318,7 +318,7 @@ export function HomePage() {
 
             <button
               onClick={handleCalendarToggle}
-              className={clsx("w-10 h-10 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors", newMentraUI && "mr-[100px]")}
+              className={clsx("min-w-20 h-10 flex items-center justify-end rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors", newMentraUI && "mr-[100px]")}
             >
               <Calendar size={20} strokeWidth={1.5} />
             </button>

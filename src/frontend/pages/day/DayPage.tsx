@@ -239,10 +239,10 @@ export function DayPage() {
       {/* Header */}
       <div className="shrink-0 border-b border-zinc-200 dark:border-zinc-800">
         {/* Top row with back button and actions */}
-        <div className={clsx("flex items-center justify-between px-[10px] pt-4 pb-2", newMentraUI && "mr-[100px]")}>
+        <div className={clsx("relative flex items-center justify-center px-[10px] pt-4 pb-2", newMentraUI && "mr-[100px]")}>
           <button
             onClick={handleBack}
-            className="p-2 -ml-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 transition-colors"
+            className="absolute left-[10px] p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 transition-colors w-[100px]"
           >
             <ChevronLeft size={24} />
           </button>
@@ -251,7 +251,7 @@ export function DayPage() {
             {formatHeaderDate()}
           </h1>
 
-          <div className="flex items-center gap-1">
+          <div className="absolute right-[10px] flex items-center gap-1">
             <button
               onClick={() => {
                 if (!session?.file) return;
@@ -262,7 +262,7 @@ export function DayPage() {
                 }
               }}
               className={clsx(
-                "p-2 rounded-lg transition-colors",
+                "p-2 rounded-lg transition-colors bg-red-600 w-[60px] flex justify-end items-end",
                 isStarred
                   ? "text-yellow-500"
                   : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300",
@@ -315,7 +315,7 @@ export function DayPage() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={clsx(
-                "relative pb-3 text-sm font-medium transition-colors",
+                `relative pb-3 text-sm font-medium transition-colors bg-red-700 ${tab.id === "notes" && "pr-2"}`,
                 activeTab === tab.id
                   ? "text-zinc-900 dark:text-white"
                   : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300",
@@ -337,7 +337,7 @@ export function DayPage() {
             <button
               onClick={() => setIsCompactMode(!isCompactMode)}
               className={clsx(
-                "ml-auto pb-3 p-1 rounded",
+                "ml-auto pb-3 p-1 rounded bg-red-700 pl-[40px]",
                 isCompactMode
                   ? "text-zinc-900 dark:text-white"
                   : "text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300",

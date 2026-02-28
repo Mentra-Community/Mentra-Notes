@@ -11,7 +11,7 @@
 import { ReactNode, useState } from "react";
 import { useLocation } from "wouter";
 import { clsx } from "clsx";
-import { Home, Settings, Wifi, WifiOff, Zap } from "lucide-react";
+import { Home, PencilLine, Settings, Wifi, WifiOff } from "lucide-react";
 import { useSynced } from "../../hooks/useSynced";
 import { useMentraAuth } from "@mentra/react";
 import type { SessionI } from "../../../shared/types";
@@ -110,7 +110,7 @@ export function Shell({ children }: ShellProps) {
       {/* Mobile Bottom Navigation - hidden on detail pages */}
       {!hideBottomNav && (
       <div className="fixed bottom-0 left-0 right-0 md:hidden bg-white dark:bg-zinc-950  border-zinc-200 dark:border-zinc-800  z-30">
-        <div className="flex items-center justify-between h-[72px] px-12 mb-[5px]">
+        <div className="flex items-center justify-between h-[72px] px-12">
           {/* Home */}
           <button
             onClick={() => setLocation("/")}
@@ -128,16 +128,15 @@ export function Shell({ children }: ShellProps) {
             />
           </button>
 
-          {/* Center Action Button - Lightning */}
+          {/* Center Action Button - Pencil */}
           <button
             onClick={() => setShowQuickActions(true)}
             className="w-12 h-12 rounded-full bg-zinc-900 dark:bg-white flex items-center justify-center shadow-sm hover:scale-105 active:scale-95 transition-all"
             title="Quick Actions"
           >
-            <Zap
+            <PencilLine
               size={24}
               strokeWidth={2}
-              fill="currentColor"
               className="text-white dark:text-zinc-900"
             />
           </button>
