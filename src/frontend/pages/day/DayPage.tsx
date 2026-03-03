@@ -8,7 +8,7 @@
  * - AI: AI chat interface for this day's content
  */
 
-import { useState, useMemo, useEffect, useRef, useTransition } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
 import { useMentraAuth } from "@mentra/react";
 import { format, parse } from "date-fns";
@@ -42,6 +42,7 @@ import { AITab } from "./components/tabs/AITab";
 import { TranscribingIndicator } from "../../components/shared/TranscribingIndicator";
 import { DropdownMenu, type DropdownMenuOption } from "../../components/shared/DropdownMenu";
 import { DayPageSkeleton } from "../../components/shared/SkeletonLoader";
+import { useFeatureFlag } from "../../lib/posthog";
 
 type TabType = "notes" | "transcript" | "audio" | "ai";
 
@@ -64,21 +65,38 @@ export function DayPage() {
   const { userId } = useMentraAuth();
   const { session, isConnected } = useSynced<SessionI>(userId || "");
 
-  const [activeTab, setActiveTab] = useState<TabType>("transcript");
+  const newMentraUI = useFeatureFlag('new-mentraos-ui-miniapps');
+  const [activeTab, setActiveTab] = useState<TabType>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return (params.get("tab") as TabType) || "transcript";
+  });
   const lastLoadedDateRef = useRef<string | null>(null);
   const [isLoadingTranscript, setIsLoadingTranscript] = useState(false);
   // Snapshot segment count when a historical date finishes loading,
   // so new live segments don't bleed into the old file's view
   const historicalSegmentCountRef = useRef<number | null>(null);
 
-  // Super collapsed mode from persisted settings
-  const isCompactMode = session?.settings?.superCollapsed ?? false;
-  const [, startTransition] = useTransition();
-  const setIsCompactMode = (value: boolean) => {
-    startTransition(() => {
-      session?.settings?.updateSettings({ superCollapsed: value });
-    });
-  };
+  // Super collapsed mode — optimistic local state + debounced server sync
+  const serverCompactMode = session?.settings?.superCollapsed ?? false;
+  const [optimisticCompact, setOptimisticCompact] = useState<boolean | null>(null);
+  const compactDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isCompactMode = optimisticCompact ?? serverCompactMode;
+
+  useEffect(() => {
+    if (optimisticCompact !== null && serverCompactMode === optimisticCompact) {
+      setOptimisticCompact(null);
+    }
+  }, [serverCompactMode, optimisticCompact]);
+
+  const toggleCompactMode = useCallback(() => {
+    const newValue = !isCompactMode;
+    setOptimisticCompact(newValue);
+
+    if (compactDebounceRef.current) clearTimeout(compactDebounceRef.current);
+    compactDebounceRef.current = setTimeout(() => {
+      session?.settings?.updateSettings({ superCollapsed: newValue });
+    }, 300);
+  }, [isCompactMode, session?.settings]);
 
   // Parse the date from URL params
   const dateString = params.date || "";
@@ -117,9 +135,36 @@ export function DayPage() {
   const currentFile = useMemo(() => {
     return files.find((f) => f.date === dateString);
   }, [files, dateString]);
-  const isStarred = currentFile?.isFavourite ?? false;
+  const serverStarred = currentFile?.isFavourite ?? false;
   const isArchived = currentFile?.isArchived ?? false;
   const isTrashed = currentFile?.isTrashed ?? false;
+
+  // Optimistic star toggle with debounce
+  const [optimisticStarred, setOptimisticStarred] = useState<boolean | null>(null);
+  const starDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isStarred = optimisticStarred ?? serverStarred;
+
+  // Sync optimistic state back to server value once it catches up
+  useEffect(() => {
+    if (optimisticStarred !== null && serverStarred === optimisticStarred) {
+      setOptimisticStarred(null);
+    }
+  }, [serverStarred, optimisticStarred]);
+
+  const toggleStar = useCallback(() => {
+    if (!session?.file) return;
+    const newValue = !isStarred;
+    setOptimisticStarred(newValue);
+
+    if (starDebounceRef.current) clearTimeout(starDebounceRef.current);
+    starDebounceRef.current = setTimeout(() => {
+      if (newValue) {
+        session.file.favouriteFile(dateString);
+      } else {
+        session.file.unfavouriteFile(dateString);
+      }
+    }, 300);
+  }, [isStarred, session?.file, dateString]);
 
   // Get current hour for determining which hour is "in progress"
   const currentHour = new Date().getHours();
@@ -237,30 +282,23 @@ export function DayPage() {
       {/* Header */}
       <div className="shrink-0 border-b border-zinc-200 dark:border-zinc-800">
         {/* Top row with back button and actions */}
-        <div className="flex items-center justify-between px-[10px] pt-4 pb-2">
+        <div className={clsx("relative flex items-center justify-center  pt-4 pb-2", newMentraUI && "mr-[100px]")}>
           <button
             onClick={handleBack}
-            className="p-2 -ml-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 transition-colors"
+            className="absolute left-[0px]  py-2 pl-[24px] pr-[10px] rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 transition-colors "
           >
-            <ChevronLeft size={24} />
+            <ChevronLeft size={24} className="-ml-[5px]" />
           </button>
 
           <h1 className="text-lg font-semibold text-zinc-900 dark:text-white">
             {formatHeaderDate()}
           </h1>
 
-          <div className="flex items-center gap-1">
+          <div className="absolute right-[0px] flex items-center gap-1 ">
             <button
-              onClick={() => {
-                if (!session?.file) return;
-                if (isStarred) {
-                  session.file.unfavouriteFile(dateString);
-                } else {
-                  session.file.favouriteFile(dateString);
-                }
-              }}
+              onClick={toggleStar}
               className={clsx(
-                "p-2 rounded-lg transition-colors",
+                "py-2 rounded-lg transition-colors  w-[60px] flex justify-end items-end pr-[24px] ",
                 isStarred
                   ? "text-yellow-500"
                   : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300",
@@ -307,13 +345,13 @@ export function DayPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center px-4 gap-6">
+        <div className="flex items-center gap-6">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={clsx(
-                "relative pb-3 text-sm font-medium transition-colors",
+                `relative pb-3 text-sm font-medium transition-colors ${tab.id === "notes" ? "pr-2" : tab.id === "transcript" ? "pl-6" : ""}`,
                 activeTab === tab.id
                   ? "text-zinc-900 dark:text-white"
                   : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300",
@@ -323,7 +361,10 @@ export function DayPage() {
               {activeTab === tab.id && (
                 <motion.div
                   layoutId="tab-underline"
-                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-zinc-900 dark:bg-white rounded-full"
+                  className={clsx(
+                    "absolute bottom-0 h-0.5 bg-zinc-900 dark:bg-white rounded-full",
+                    tab.id === "notes" ? "left-0 right-2" : tab.id === "transcript" ? "left-6 right-0" : "left-0 right-0",
+                  )}
                   transition={{ duration: 0.2, ease: "easeInOut" }}
                 />
               )}
@@ -333,9 +374,9 @@ export function DayPage() {
           {/* Compact mode toggle - only shown on transcript tab */}
           {activeTab === "transcript" && (
             <button
-              onClick={() => setIsCompactMode(!isCompactMode)}
+              onClick={toggleCompactMode}
               className={clsx(
-                "ml-auto pb-3 p-1 rounded",
+                "ml-auto m-h-[12px] p-1 rounded pr-[24px] pl-[40px] flex ",
                 isCompactMode
                   ? "text-zinc-900 dark:text-white"
                   : "text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300",
@@ -349,7 +390,7 @@ export function DayPage() {
 
         {/* Recording indicator */}
         {isToday && isRecording && (
-          <div className="px-4 py-2 bg-zinc-100 dark:bg-zinc-900 border-t border-zinc-100 dark:border-zinc-800">
+          <div className="px-6 py-2 bg-zinc-100 dark:bg-zinc-900 border-t border-zinc-100 dark:border-zinc-800">
             <TranscribingIndicator size="sm" />
           </div>
         )}
@@ -367,7 +408,7 @@ export function DayPage() {
             className="h-full"
           >
             {activeTab === "notes" && (
-              <NotesTab notes={dayNotes} dateString={dateString} isLoading={isDataLoading} />
+              <NotesTab notes={dayNotes} isLoading={isDataLoading} />
             )}
             {activeTab === "transcript" && (
               <TranscriptTab
@@ -376,6 +417,7 @@ export function DayPage() {
                 interimText={isToday ? interimText : ""}
                 currentHour={isToday ? currentHour : undefined}
                 dateString={dateString}
+                timezone={session?.settings?.timezone ?? undefined}
                 onGenerateSummary={session?.transcript?.generateHourSummary}
                 isCompactMode={isCompactMode}
                 isSyncingPhoto={isToday ? isSyncingPhoto : false}

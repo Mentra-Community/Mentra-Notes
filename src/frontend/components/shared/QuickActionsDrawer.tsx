@@ -24,11 +24,13 @@ import type { SessionI } from "../../../shared/types";
 interface QuickActionsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
+  dateString?: string;
 }
 
 export function QuickActionsDrawer({
   isOpen,
   onClose,
+  dateString,
 }: QuickActionsDrawerProps) {
   const { userId } = useMentraAuth();
   const { session } = useSynced<SessionI>(userId || "");
@@ -37,8 +39,20 @@ export function QuickActionsDrawer({
   const [showTimeRangePicker, setShowTimeRangePicker] = useState(false);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
+  const [error, setError] = useState("");
 
   const generating = session?.notes?.generating ?? false;
+
+  // Determine label: "today" or formatted date like "Feb 27"
+  const dateLabel = (() => {
+    if (!dateString) return "today";
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    if (dateString === todayStr) return "today";
+    const [y, m, d] = dateString.split("-").map(Number);
+    const date = new Date(y, m - 1, d);
+    return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  })();
 
   // Set default times to current hour when opening time picker
   useEffect(() => {
@@ -57,6 +71,7 @@ export function QuickActionsDrawer({
   useEffect(() => {
     if (!isOpen) {
       setShowTimeRangePicker(false);
+      setError("");
     }
   }, [isOpen]);
 
@@ -74,26 +89,25 @@ export function QuickActionsDrawer({
 
   const handleGenerateNote = async () => {
     if (!session?.notes?.generateNote) return;
+    setError("");
 
     try {
-      const now = new Date();
       const [startHour, startMin] = startTime.split(":").map(Number);
       const [endHour, endMin] = endTime.split(":").map(Number);
 
-      const startDate = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        startHour,
-        startMin,
-      );
-      const endDate = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        endHour,
-        endMin,
-      );
+      // Use the dateString if on a DayPage, otherwise default to today
+      let year: number, month: number, day: number;
+      if (dateString) {
+        [year, month, day] = dateString.split("-").map(Number);
+      } else {
+        const now = new Date();
+        year = now.getFullYear();
+        month = now.getMonth() + 1;
+        day = now.getDate();
+      }
+
+      const startDate = new Date(year, month - 1, day, startHour, startMin);
+      const endDate = new Date(year, month - 1, day, endHour, endMin);
 
       const note = await session.notes.generateNote(
         undefined,
@@ -104,8 +118,14 @@ export function QuickActionsDrawer({
       if (note?.id) {
         setLocation(`/note/${note.id}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("[QuickActionsDrawer] Failed to generate note:", err);
+      const msg = err?.message || String(err);
+      if (msg.includes("No transcript content")) {
+        setError("No transcription available for this time period. Please select a different range.");
+      } else {
+        setError("Failed to generate note. Please try again.");
+      }
     }
   };
 
@@ -118,10 +138,13 @@ export function QuickActionsDrawer({
           <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-zinc-300 dark:bg-zinc-700 mt-4 mb-2" />
 
           {/* Header */}
-          <div className="px-6 pb-4">
+          <div className="px-6 pb-4 flex items-center justify-between">
             <Drawer.Title className="text-lg font-semibold text-zinc-900 dark:text-white">
               {showTimeRangePicker ? "Generate Summary" : "Quick Actions"}
             </Drawer.Title>
+            <span className="text-sm text-zinc-500 dark:text-zinc-400">
+              {dateLabel === "today" ? `Today, ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : dateLabel}
+            </span>
             <Drawer.Description className="sr-only">
               {showTimeRangePicker
                 ? "Select a time range to generate a summary"
@@ -177,10 +200,17 @@ export function QuickActionsDrawer({
                   </div>
                 </div>
 
+                {/* Error message */}
+                {error && (
+                  <p className="text-sm text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-950/30 px-4 py-3 rounded-xl">
+                    {error}
+                  </p>
+                )}
+
                 {/* Actions */}
                 <div className="flex gap-3">
                   <button
-                    onClick={() => setShowTimeRangePicker(false)}
+                    onClick={() => { setShowTimeRangePicker(false); setError(""); }}
                     className="flex-1 py-4 rounded-xl font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
                   >
                     Back
@@ -225,7 +255,7 @@ export function QuickActionsDrawer({
                   </div>
                   <div>
                     <span className="font-medium text-zinc-900 dark:text-white block">
-                      Add notes for today
+                      Add note
                     </span>
                     <span className="text-sm text-zinc-500 dark:text-zinc-400">
                       Create a new blank note
@@ -246,7 +276,7 @@ export function QuickActionsDrawer({
                   </div>
                   <div>
                     <span className="font-medium text-zinc-900 dark:text-white block">
-                      Generate notes AI for today
+                      Generate AI note
                     </span>
                     <span className="text-sm text-zinc-500 dark:text-zinc-400">
                       AI summary from your transcript

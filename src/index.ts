@@ -47,7 +47,7 @@ console.log(
   `   • AI Provider: ${hasAI ? (hasGemini ? "✅ Gemini" : "✅ Anthropic") : "⚠️  (Optional - Set GEMINI_API_KEY or ANTHROPIC_API_KEY for AI summaries)"}`,
 );
 console.log(
-  `   • MongoDB:     ${hasMongoDB ? "✅" : "⚠️  (Optional - Set MONGODB_URI for persistence)"}`,
+  `   • MongoDB:     ${hasMongoDB ? "✅ MongoDB URI" : "⚠️  (Optional - Set MONGODB_URI for persistence)"}`,
 );
 console.log("");
 

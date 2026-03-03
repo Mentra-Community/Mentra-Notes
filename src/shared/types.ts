@@ -149,6 +149,7 @@ export interface FileData {
   date: string; // YYYY-MM-DD
   noteCount: number;
   transcriptSegmentCount: number;
+  transcriptHourCount: number;
   hasTranscript: boolean;
   hasNotes: boolean;
   isArchived: boolean;

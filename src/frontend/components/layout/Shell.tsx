@@ -8,10 +8,10 @@
  * Handles responsive breakpoints and connection status display.
  */
 
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { clsx } from "clsx";
-import { Home, Settings, Wifi, WifiOff, Zap } from "lucide-react";
+import { Home, Loader2, PencilLine, Settings, Wifi, WifiOff } from "lucide-react";
 import { useSynced } from "../../hooks/useSynced";
 import { useMentraAuth } from "@mentra/react";
 import type { SessionI } from "../../../shared/types";
@@ -44,9 +44,26 @@ const navItems: NavItem[] = [
 
 export function Shell({ children }: ShellProps) {
   const { userId } = useMentraAuth();
-  const { isConnected } = useSynced<SessionI>(userId || "");
+  const { isConnected, session } = useSynced<SessionI>(userId || "");
   const [location, setLocation] = useLocation();
   const [showQuickActions, setShowQuickActions] = useState(false);
+  const wasOnDayPageRef = useRef(false);
+
+  const generating = session?.notes?.generating ?? false;
+
+  // Extract dateString from route if on a DayPage (e.g. /day/2026-02-27)
+  const onDayPage = location.startsWith("/day/");
+  const dayPageDate = onDayPage ? location.replace("/day/", "") : undefined;
+
+  // Reset to today's transcript when navigating away from a DayPage
+  useEffect(() => {
+    if (onDayPage) {
+      wasOnDayPageRef.current = true;
+    } else if (wasOnDayPageRef.current) {
+      wasOnDayPageRef.current = false;
+      session?.transcript?.loadTodayTranscript?.();
+    }
+  }, [onDayPage, session?.transcript]);
 
   const isActive = (item: NavItem): boolean => {
     if (location === item.path) return true;
@@ -56,8 +73,8 @@ export function Shell({ children }: ShellProps) {
     return false;
   };
 
-  // Hide bottom nav when viewing a day or note (detail pages)
-  const hideBottomNav = location.startsWith("/day/") || location.startsWith("/note/");
+  // Hide bottom nav only on note editor pages
+  const hideBottomNav = location.startsWith("/note/");
 
   return (
     <div className="flex h-screen w-full bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-100">
@@ -110,7 +127,7 @@ export function Shell({ children }: ShellProps) {
       {/* Mobile Bottom Navigation - hidden on detail pages */}
       {!hideBottomNav && (
       <div className="fixed bottom-0 left-0 right-0 md:hidden bg-white dark:bg-zinc-950  border-zinc-200 dark:border-zinc-800  z-30">
-        <div className="flex items-center justify-between h-[72px] px-12 mb-[5px]">
+        <div className="flex items-center justify-between h-[72px] px-12 pb-[15px]">
           {/* Home */}
           <button
             onClick={() => setLocation("/")}
@@ -128,18 +145,21 @@ export function Shell({ children }: ShellProps) {
             />
           </button>
 
-          {/* Center Action Button - Lightning */}
+          {/* Center Action Button - Pencil */}
           <button
-            onClick={() => setShowQuickActions(true)}
-            className="w-12 h-12 rounded-full bg-zinc-900 dark:bg-white flex items-center justify-center shadow-sm hover:scale-105 active:scale-95 transition-all"
+            onClick={() => !generating && setShowQuickActions(true)}
+            disabled={generating}
+            className={clsx(
+              "w-12 h-12 rounded-full bg-zinc-900 dark:bg-white flex items-center justify-center shadow-sm transition-all",
+              generating ? "opacity-70 cursor-not-allowed" : "hover:scale-105 active:scale-95",
+            )}
             title="Quick Actions"
           >
-            <Zap
-              size={24}
-              strokeWidth={2}
-              fill="currentColor"
-              className="text-white dark:text-zinc-900"
-            />
+            {generating ? (
+              <Loader2 size={24} className="text-white dark:text-zinc-900 animate-spin" />
+            ) : (
+              <PencilLine size={24} strokeWidth={2} className="text-white dark:text-zinc-900" />
+            )}
           </button>
 
           {/* Settings */}
@@ -162,6 +182,7 @@ export function Shell({ children }: ShellProps) {
       <QuickActionsDrawer
         isOpen={showQuickActions}
         onClose={() => setShowQuickActions(false)}
+        dateString={dayPageDate}
       />
     </div>
   );

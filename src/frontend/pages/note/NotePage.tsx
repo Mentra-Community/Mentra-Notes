@@ -268,12 +268,12 @@ export function NotePage() {
     // Use the note's date field (folder date) for navigation
     // This ensures we go back to the correct folder, not derived from createdAt
     if (note.date) {
-      setLocation(`/day/${note.date}`);
+      setLocation(`/day/${note.date}?tab=notes`);
     } else if (note.createdAt) {
       // Fallback for old notes without date field
       const date = new Date(note.createdAt);
       const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-      setLocation(`/day/${dateString}`);
+      setLocation(`/day/${dateString}?tab=notes`);
     } else {
       setLocation("/");
     }

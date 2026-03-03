@@ -15,13 +15,13 @@ import { clsx } from "clsx";
 import {
   ChevronLeft,
   ChevronRight,
-  Bell,
-  Database,
-  Glasses,
-  Check,
+  // Bell,
+  // Database,
+  // Glasses,
+  // Check,
 } from "lucide-react";
 import { useSynced } from "../../hooks/useSynced";
-import type { SessionI, GlassesDisplayMode } from "../../../shared/types";
+import type { SessionI /*, GlassesDisplayMode */ } from "../../../shared/types";
 import { useTheme } from "../../App";
 import { SettingsPageSkeleton } from "../../components/shared/SkeletonLoader";
 
@@ -102,34 +102,34 @@ function SettingsRow({
   );
 }
 
-interface DisplayModeOption {
-  value: GlassesDisplayMode;
-  label: string;
-  description: string;
-}
+// interface DisplayModeOption {
+//   value: GlassesDisplayMode;
+//   label: string;
+//   description: string;
+// }
 
-const displayModeOptions: DisplayModeOption[] = [
-  {
-    value: "off",
-    label: "Off",
-    description: "Nothing shown on glasses",
-  },
-  {
-    value: "live_transcript",
-    label: "Live Transcript",
-    description: "Real-time transcription text",
-  },
-  {
-    value: "hour_summary",
-    label: "Hour Summary",
-    description: "Rolling summary of the current hour",
-  },
-  {
-    value: "key_points",
-    label: "Key Points Only",
-    description: "Only show important moments",
-  },
-];
+// const displayModeOptions: DisplayModeOption[] = [
+//   {
+//     value: "off",
+//     label: "Off",
+//     description: "Nothing shown on glasses",
+//   },
+//   {
+//     value: "live_transcript",
+//     label: "Live Transcript",
+//     description: "Real-time transcription text",
+//   },
+//   {
+//     value: "hour_summary",
+//     label: "Hour Summary",
+//     description: "Rolling summary of the current hour",
+//   },
+//   {
+//     value: "key_points",
+//     label: "Key Points Only",
+//     description: "Only show important moments",
+//   },
+// ];
 
 export function SettingsPage() {
   const [, setLocation] = useLocation();
@@ -140,8 +140,8 @@ export function SettingsPage() {
   // Get settings from session
   const persistentTranscription =
     session?.settings?.showLiveTranscript ?? false;
-  const glassesDisplayMode =
-    session?.settings?.glassesDisplayMode ?? "live_transcript";
+  // const glassesDisplayMode =
+  //   session?.settings?.glassesDisplayMode ?? "live_transcript";
   const savedTimezone = session?.settings?.timezone;
 
   // Timezone is now auto-synced at connection time in useSynced hook
@@ -159,18 +159,17 @@ export function SettingsPage() {
     }
   };
 
-  // Change glasses display mode
-  const handleChangeDisplayMode = async (mode: GlassesDisplayMode) => {
-    if (!session?.settings?.updateSettings) return;
-
-    try {
-      await session.settings.updateSettings({
-        glassesDisplayMode: mode,
-      });
-    } catch (err) {
-      console.error("[SettingsPage] Failed to change display mode:", err);
-    }
-  };
+  // Change glasses display mode — commented out for now
+  // const handleChangeDisplayMode = async (mode: GlassesDisplayMode) => {
+  //   if (!session?.settings?.updateSettings) return;
+  //   try {
+  //     await session.settings.updateSettings({
+  //       glassesDisplayMode: mode,
+  //     });
+  //   } catch (err) {
+  //     console.error("[SettingsPage] Failed to change display mode:", err);
+  //   }
+  // };
 
   const handleBack = () => {
     setLocation("/");
@@ -184,15 +183,15 @@ export function SettingsPage() {
   return (
     <div className="h-full flex flex-col bg-white dark:bg-black">
       {/* Header */}
-      <div className="shrink-0 border-b border-zinc-200 dark:border-zinc-800 px-4 py-3">
+      <div className="shrink-0 border-b border-zinc-200 dark:border-zinc-800 py-3">
         <div className="flex items-center">
           <button
             onClick={handleBack}
-            className="p-2 -ml-2 min-w-11 min-h-11 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 transition-colors md:hidden"
+            className="p-2 -ml-2 min-w-11 min-h-11 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 transition-colors md:hidden pl-6"
           >
             <ChevronLeft size={24} />
           </button>
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-white ml-2 md:ml-0">
+          <h1 className="text-xl font-normal text-zinc-900 dark:text-white tracking-tight md:ml-0">
             Settings
           </h1>
         </div>
@@ -200,7 +199,7 @@ export function SettingsPage() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="px-4 md:px-6 pb-24">
+        <div className="px-6 md:px-6 pb-24">
           {/* General Section */}
           {/* <div className="mt-6 mb-2">
             <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">
@@ -238,7 +237,7 @@ export function SettingsPage() {
             </p>
           </div>
 
-          {/* Glasses Display Section */}
+          {/* Glasses Display Section — commented out for now
           <div className="mt-8 mb-2">
             <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">
               Glasses Display
@@ -287,7 +286,7 @@ export function SettingsPage() {
                 </button>
               ))}
             </div>
-          </div>
+          </div> */}
 
           {/* Preferences Section */}
           <div className="mt-8 mb-2">

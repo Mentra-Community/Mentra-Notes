@@ -11,7 +11,9 @@
 
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { clsx } from "clsx";
+import { AnimatePresence, motion } from "motion/react";
 import { ArrowDown, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { DotsSpinner } from "../../../../components/shared/DotsSpinner";
 import type {
   TranscriptSegment,
   HourSummary,
@@ -23,6 +25,7 @@ interface TranscriptTabProps {
   interimText?: string;
   currentHour?: number; // Only provided for "today" - undefined for historical days
   dateString: string;
+  timezone?: string; // IANA timezone for correct hour grouping (e.g., "America/Los_Angeles")
   onGenerateSummary?: (hour: number) => Promise<HourSummary>;
   isCompactMode?: boolean; // When true, all hours show in minimal/compact view
   isSyncingPhoto?: boolean; // When true, a photo is being uploaded/analyzed
@@ -53,6 +56,7 @@ export function TranscriptTab({
   interimText = "",
   currentHour,
   dateString,
+  timezone,
   onGenerateSummary,
   isCompactMode = false,
   isSyncingPhoto = false,
@@ -60,8 +64,13 @@ export function TranscriptTab({
 }: TranscriptTabProps) {
   // Track expanded state for each hour (only used when not in compact mode)
   const [expandedHours, setExpandedHours] = useState<Set<string>>(new Set());
+  // Hours currently showing spinner (min 2s before content reveals)
+  const [loadingHours, setLoadingHours] = useState<Set<string>>(new Set());
+  // Measured spinner height per hour (header bottom → container bottom)
+  const [spinnerHeights, setSpinnerHeights] = useState<Map<string, number>>(new Map());
   const [generatingHour, setGeneratingHour] = useState<number | null>(null);
-  const [loadingHour, setLoadingHour] = useState<string | null>(null);
+  // Track which hour banners have their body text fully expanded
+  const [expandedBodies, setExpandedBodies] = useState<Set<string>>(new Set());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const headerRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
@@ -88,12 +97,23 @@ export function TranscriptTab({
     return `${hour.toString().padStart(2, "0")}:00|${hour12} ${ampm}`;
   };
 
+  // Extract hour (0-23) from a timestamp in the user's timezone
+  const getHourInTimezone = (timestamp: Date | string): number => {
+    const date = typeof timestamp === "string" ? new Date(timestamp) : timestamp;
+    if (timezone) {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        hour: "2-digit",
+        hour12: false,
+        timeZone: timezone,
+      }).formatToParts(date);
+      return parseInt(parts.find((p) => p.type === "hour")?.value || "0", 10);
+    }
+    return date.getHours();
+  };
+
   // Parse timestamp and return hour key for grouping
   const getHourKey = (timestamp: Date | string): string => {
-    const date =
-      typeof timestamp === "string" ? new Date(timestamp) : timestamp;
-    const hour = date.getHours();
-    return createHourKey(hour);
+    return createHourKey(getHourInTimezone(timestamp));
   };
 
   // Format timestamp for display (12-hour with AM/PM)
@@ -104,10 +124,12 @@ export function TranscriptTab({
       hour: "numeric",
       minute: "2-digit",
       hour12: true,
+      ...(timezone && { timeZone: timezone }),
     });
   };
 
   // Group segments by hour (memoized to avoid re-computing on every render)
+  // Also ensures the current hour appears even if only interim text exists (no final segments yet)
   const { groupedSegments, sortedHours } = useMemo(() => {
     const grouped: GroupedSegments = segments.reduce((acc, segment) => {
       if (!segment.timestamp) return acc;
@@ -119,6 +141,15 @@ export function TranscriptTab({
       return acc;
     }, {} as GroupedSegments);
 
+    // If there's interim text and a current hour, ensure that hour exists in the groups
+    // so the hour section renders immediately (before any final segment arrives)
+    if (currentHour !== undefined && interimText.trim().length > 0) {
+      const currentHourKey = createHourKey(currentHour);
+      if (!grouped[currentHourKey]) {
+        grouped[currentHourKey] = [];
+      }
+    }
+
     const sorted = Object.keys(grouped).sort((a, b) => {
       const { hour24: hourA } = parseHourKey(a);
       const { hour24: hourB } = parseHourKey(b);
@@ -126,7 +157,7 @@ export function TranscriptTab({
     });
 
     return { groupedSegments: grouped, sortedHours: sorted };
-  }, [segments]);
+  }, [segments, currentHour, interimText]);
 
   // Get summary for a specific hour
   const getHourSummary = (hour: number): HourSummary | undefined => {
@@ -153,6 +184,19 @@ export function TranscriptTab({
     return {
       title: lines[0].trim(),
       body: lines.slice(1).join(" ").trim(),
+    };
+  };
+
+  /**
+   * Truncate text to a max word count
+   */
+  const truncateBody = (text: string, maxWords = 20): { truncated: string; isTruncated: boolean } => {
+    if (!text) return { truncated: "", isTruncated: false };
+    const words = text.split(/\s+/);
+    if (words.length <= maxWords) return { truncated: text, isTruncated: false };
+    return {
+      truncated: words.slice(0, maxWords).join(" ") + "...",
+      isTruncated: true,
     };
   };
 
@@ -246,55 +290,125 @@ export function TranscriptTab({
     }
   }, [scrollToEndOfHour]);
 
-  // When loadingHour clears (content rendered), scroll to the end of that hour
-  const pendingScrollRef = useRef<string | null>(null);
+  // Called when content mounts after spinner — immediately scroll to bottom of that hour
+  const handleContentReady = useCallback((hourKey: string) => {
+    // Stop the pin loop now that content is laid out
+    pinningHourRef.current = null;
+    suppressAutoScrollRef.current = false;
 
-  useEffect(() => {
-    if (pendingScrollRef.current && !loadingHour) {
-      const hourKey = pendingScrollRef.current;
-      pendingScrollRef.current = null;
-      activeScrollHourRef.current = hourKey;
-      // Double rAF to ensure layout is complete after React render
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          scrollToEndOfHour(hourKey);
-        });
-      });
+    activeScrollHourRef.current = hourKey;
+    // Use rAF to ensure DOM has painted the content before measuring
+    requestAnimationFrame(() => {
+      scrollToEndOfHour(hourKey);
       // Stop re-scrolling on image loads after a generous timeout
       setTimeout(() => {
         if (activeScrollHourRef.current === hourKey) {
           activeScrollHourRef.current = null;
         }
       }, 3000);
-    }
-  }, [loadingHour, scrollToEndOfHour]);
+    });
+  }, [scrollToEndOfHour]);
+
+  // Scroll a header to the top of the scroll container
+  const scrollHeaderToTop = useCallback((hourKey: string, behavior: ScrollBehavior = "smooth") => {
+    const container = scrollContainerRef.current;
+    const header = headerRefs.current.get(hourKey);
+    if (!container || !header) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const headerRect = header.getBoundingClientRect();
+    const targetScroll = headerRect.top - containerRect.top + container.scrollTop;
+
+    container.scrollTo({
+      top: targetScroll,
+      behavior,
+    });
+  }, []);
+
+  // rAF loop that continuously pins a header to the top during content animation
+  const pinningHourRef = useRef<string | null>(null);
+
+  const startPinningHeader = useCallback((hourKey: string) => {
+    pinningHourRef.current = hourKey;
+
+    const pin = () => {
+      if (pinningHourRef.current !== hourKey) return;
+      scrollHeaderToTop(hourKey, "instant");
+      requestAnimationFrame(pin);
+    };
+    requestAnimationFrame(pin);
+  }, [scrollHeaderToTop]);
 
   // Toggle between collapsed/veryCollapsed and expanded
   const toggleHour = (hourKey: string) => {
     const wasExpanded = expandedHours.has(hourKey);
 
     if (wasExpanded) {
-      // Collapsing — clear any active scroll tracking
+      // Collapsing — clear all tracking: pin loop, auto-scroll suppression, active scroll
+      pinningHourRef.current = null;
       activeScrollHourRef.current = null;
+      suppressAutoScrollRef.current = false;
+      setLoadingHours((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(hourKey);
+        return newSet;
+      });
       setExpandedHours((prev) => {
         const newSet = new Set(prev);
         newSet.delete(hourKey);
         return newSet;
       });
+      setExpandedBodies((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(hourKey);
+        return newSet;
+      });
     } else {
-      // Expanding — show spinner first, then render content + scroll
-      setLoadingHour(hourKey);
+      // Calculate spinner height as: container height - header height
+      // This is the exact space below the header once it's pinned to the top
+      const container = scrollContainerRef.current;
+      const header = headerRefs.current.get(hourKey);
+      if (container && header) {
+        const containerHeight = container.clientHeight;
+        const headerHeight = header.getBoundingClientRect().height;
+        setSpinnerHeights((prev) => new Map(prev).set(hourKey, Math.max(containerHeight - headerHeight, 200)));
+      }
+
+      // Expanding — pin header to top, show spinner for min 2s
       setExpandedHours((prev) => {
         const newSet = new Set(prev);
         newSet.add(hourKey);
         return newSet;
       });
-      pendingScrollRef.current = hourKey;
-
-      // Brief delay to let the spinner show, then clear loading to render segments
-      requestAnimationFrame(() => {
-        setLoadingHour(null);
+      setLoadingHours((prev) => {
+        const newSet = new Set(prev);
+        newSet.add(hourKey);
+        return newSet;
       });
+
+      // Suppress MutationObserver auto-scroll so it doesn't fight our scroll-to-header
+      suppressAutoScrollRef.current = true;
+
+      // Smooth-scroll header to top after React renders the expanded state
+      requestAnimationFrame(() => {
+        scrollHeaderToTop(hourKey);
+      });
+
+      // Clear loading after 2 seconds — content is already rendered (hidden), animation will then play
+      setTimeout(() => {
+        // Start rAF loop to keep header pinned during content animation
+        startPinningHeader(hourKey);
+
+        setLoadingHours((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(hourKey);
+          return newSet;
+        });
+        // Re-enable auto-scroll after content animation starts
+        setTimeout(() => {
+          suppressAutoScrollRef.current = false;
+        }, 400);
+      }, 1000);
     }
   };
 
@@ -393,7 +507,7 @@ export function TranscriptTab({
     );
   }
 
-  if (segments.length === 0) {
+  if (segments.length === 0 && sortedHours.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-center py-12 text-zinc-400">
@@ -428,7 +542,7 @@ export function TranscriptTab({
             <div
               key={hourKey}
               data-hour-section={hourKey}
-              className="border-b border-zinc-100 dark:border-[#3f4147] last:border-0"
+              className="border-b border-zinc-100 dark:border-[#3f4147] last:border-0 "
             >
               {/* Hour Header - Sticky when expanded */}
               <button
@@ -437,7 +551,7 @@ export function TranscriptTab({
                 }}
                 onClick={() => toggleHour(hourKey)}
                 className={clsx(
-                  "w-full flex items-start gap-3 px-4 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-900/30 text-left",
+                  "w-full flex items-start gap-3 px-4 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-900/30 text-left  px-6",
                   isExpanded && "bg-[#f1f1f1] dark:bg-[#2b2d31] sticky top-0 z-10",
                 )}
               >
@@ -469,11 +583,32 @@ export function TranscriptTab({
                         <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
                           {banner.title}
                         </p>
-                        {banner.body && (
-                          <p className="text-[10px] text-zinc-500 dark:text-zinc-400 line-clamp-2 mt-0.5">
-                            {banner.body}
-                          </p>
-                        )}
+                        {banner.body && (() => {
+                          const { truncated, isTruncated } = truncateBody(banner.body);
+                          const isBodyExpanded = expandedBodies.has(hourKey);
+                          return (
+                            <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                              {isBodyExpanded ? banner.body : truncated}
+                              {isTruncated && (
+                                <span
+                                  role="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setExpandedBodies((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(hourKey)) next.delete(hourKey);
+                                      else next.add(hourKey);
+                                      return next;
+                                    });
+                                  }}
+                                  className="ml-1 text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 cursor-pointer font-medium"
+                                >
+                                  {isBodyExpanded ? "Less" : "More"}
+                                </span>
+                              )}
+                            </p>
+                          );
+                        })()}
                       </>
                     ) : (
                       /* Preview (when no summary) */
@@ -527,16 +662,37 @@ export function TranscriptTab({
                         {banner.title}
                       </p>
                     )}
-                    {banner.body && (
-                      <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                        {banner.body}
-                      </p>
-                    )}
+                    {banner.body && (() => {
+                      const { truncated, isTruncated } = truncateBody(banner.body);
+                      const isBodyExpanded = expandedBodies.has(hourKey);
+                      return (
+                        <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                          {isBodyExpanded ? banner.body : truncated}
+                          {isTruncated && (
+                            <span
+                              role="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedBodies((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(hourKey)) next.delete(hourKey);
+                                  else next.add(hourKey);
+                                  return next;
+                                });
+                              }}
+                              className="ml-1 text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 cursor-pointer font-medium"
+                            >
+                              {isBodyExpanded ? "Less" : "More"}
+                            </span>
+                          )}
+                        </p>
+                      );
+                    })()}
                   </div>
                 )}
 
                 {/* Expand indicator */}
-                <div className="text-zinc-400 dark:text-zinc-500 shrink-0 ml-auto">
+                <div className="text-zinc-400 dark:text-zinc-500 shrink-0 ml-auto ">
                   {isExpanded ? (
                     <ChevronDown size={18} />
                   ) : (
@@ -545,75 +701,99 @@ export function TranscriptTab({
                 </div>
               </button>
 
-              {/* Expanded Segments */}
+              {/* Expanded Segments — wrapper keeps min-height to prevent layout collapse during transition */}
               {isExpanded && (
-                <div className="px-4 pb-4 bg-zinc-50/50 dark:bg-[#313338]/20">
-                  {loadingHour === hourKey ? (
-                    <div className="flex items-center justify-center py-6">
-                      <Loader2 size={18} className="animate-spin text-zinc-400" />
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {hourSegments.map((segment, idx) => {
-                        const segId = segment.id || `idx-${idx}`;
-                        return (
-                          <div
-                            key={segId}
-                            className="flex gap-3"
-                          >
-                            {/* Timestamp */}
-                            <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500 w-16 shrink-0 pt-0.5">
-                              {segment.timestamp ? formatTime(segment.timestamp) : ""}
-                            </span>
+                <div style={{ minHeight: loadingHours.has(hourKey) ? (spinnerHeights.get(hourKey) ?? 300) : undefined }}>
+                  {/* Loading spinner — fades out */}
+                  <AnimatePresence>
+                    {loadingHours.has(hourKey) && (
+                      <motion.div
+                        key={`loader-${hourKey}`}
+                        initial={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="flex flex-col items-center justify-center gap-3"
+                        style={{ height: spinnerHeights.get(hourKey) ?? 300 }}
+                      >
+                        <DotsSpinner size={24} className="text-zinc-300 dark:text-zinc-600" />
+                        <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Loading transcription...</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-                            {/* Content */}
-                            <div className="flex-1 min-w-0">
-                              {segment.type === "photo" && segment.photoUrl ? (
-                                <div className="w-full max-w-xs">
-                                  <img
-                                    src={getPhotoSrc(segment.photoUrl)}
-                                    alt="Photo capture"
-                                    className="block rounded-lg w-full min-h-24 object-cover border border-zinc-200 dark:border-zinc-700"
-                                    loading="lazy"
-                                    onLoad={(e) => handleImageLoad(e, hourKey)}
-                                  />
-                                </div>
-                              ) : (
-                                <>
-                                  <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                                    {segment.text}
-                                  </p>
-                                  {segment.speakerId && (
-                                    <span className="text-xs text-zinc-400 dark:text-zinc-500 mt-1 block">
-                                      Speaker {segment.speakerId}
-                                    </span>
+                  {/* Content — fades in after spinner, scrolls to bottom on mount */}
+                  {!loadingHours.has(hourKey) && (
+                    <motion.div
+                      key={`expand-${hourKey}`}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.3, ease: "easeInOut" }}
+                      ref={() => handleContentReady(hourKey)}
+                    >
+                      <div className="px-6 pb-4 bg-zinc-50/50 dark:bg-[#313338]/20">
+                        <div className="space-y-3">
+                          {hourSegments.map((segment, idx) => {
+                            const segId = segment.id || `idx-${idx}`;
+                            return (
+                              <div
+                                key={segId}
+                                className="flex gap-3"
+                              >
+                                {/* Timestamp */}
+                                <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500 w-16 shrink-0 pt-0.5">
+                                  {segment.timestamp ? formatTime(segment.timestamp) : ""}
+                                </span>
+
+                                {/* Content */}
+                                <div className="flex-1 min-w-0">
+                                  {segment.type === "photo" && segment.photoUrl ? (
+                                    <div className="w-full max-w-xs">
+                                      <img
+                                        src={getPhotoSrc(segment.photoUrl)}
+                                        alt="Photo capture"
+                                        className="block rounded-lg w-full min-h-24 object-cover border border-zinc-200 dark:border-zinc-700"
+                                        loading="lazy"
+                                        onLoad={(e) => handleImageLoad(e, hourKey)}
+                                      />
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                                        {segment.text}
+                                      </p>
+                                      {segment.speakerId && (
+                                        <span className="text-xs text-zinc-400 dark:text-zinc-500 mt-1 block">
+                                          Speaker {segment.speakerId}
+                                        </span>
+                                      )}
+                                    </>
                                   )}
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
+                                </div>
+                              </div>
+                            );
+                          })}
 
-                      {/* Show interim text at the bottom for current hour */}
-                      {isCurrentHour && (
-                        <div
-                          className={clsx(
-                            "flex gap-3 transition-all duration-300 ease-out overflow-hidden",
-                            interimText.trim()
-                              ? "opacity-70 "
-                              : "opacity-0 max-h-0",
+                          {/* Show interim text at the bottom for current hour */}
+                          {isCurrentHour && (
+                            <div
+                              className={clsx(
+                                "flex gap-3 transition-all duration-300 ease-out overflow-hidden",
+                                interimText.trim()
+                                  ? "opacity-70 "
+                                  : "opacity-0 max-h-0",
+                              )}
+                            >
+                              <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500 w-16 shrink-0 pt-0.5">
+                                now
+                              </span>
+                              <p className="flex-1 text-sm text-zinc-400 dark:text-zinc-500 font-light italic leading-relaxed">
+                                {interimText || "\u00A0"}
+                              </p>
+                            </div>
                           )}
-                        >
-                          <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500 w-16 shrink-0 pt-0.5">
-                            now
-                          </span>
-                          <p className="flex-1 text-sm text-zinc-400 dark:text-zinc-500 font-light italic leading-relaxed">
-                            {interimText || "\u00A0"}
-                          </p>
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    </motion.div>
                   )}
                 </div>
               )}

@@ -369,6 +369,7 @@ export class TranscriptManager extends SyncedManager {
       timestamp: new Date(),
       isFinal: true,
       speakerId,
+      timezone: this.getTimeManager().getTimezone(),
     };
 
     this.segments.mutate((s) => s.push(segment));

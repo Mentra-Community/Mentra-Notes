@@ -28,7 +28,7 @@ export async function connectDB(): Promise<void> {
       dbName: "notes",
     });
     isConnected = true;
-    console.log("[DB] Connected to MongoDB");
+    console.log("[DB] ✅ Connected to MongoDB");
   } catch (error) {
     console.error("[DB] Connection failed:", error);
     throw error;
