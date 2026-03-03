@@ -452,7 +452,7 @@ export function TranscriptTab({
             <div
               key={hourKey}
               data-hour-section={hourKey}
-              className="border-b border-zinc-100 dark:border-[#3f4147] last:border-0"
+              className="border-b border-zinc-100 dark:border-[#3f4147] last:border-0 "
             >
               {/* Hour Header - Sticky when expanded */}
               <button
@@ -461,7 +461,7 @@ export function TranscriptTab({
                 }}
                 onClick={() => toggleHour(hourKey)}
                 className={clsx(
-                  "w-full flex items-start gap-3 px-4 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-900/30 text-left",
+                  "w-full flex items-start gap-3 px-4 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-900/30 text-left  px-6",
                   isExpanded && "bg-[#f1f1f1] dark:bg-[#2b2d31] sticky top-0 z-10",
                 )}
               >
@@ -560,7 +560,7 @@ export function TranscriptTab({
                 )}
 
                 {/* Expand indicator */}
-                <div className="text-zinc-400 dark:text-zinc-500 shrink-0 ml-auto">
+                <div className="text-zinc-400 dark:text-zinc-500 shrink-0 ml-auto ">
                   {isExpanded ? (
                     <ChevronDown size={18} />
                   ) : (
@@ -571,7 +571,7 @@ export function TranscriptTab({
 
               {/* Expanded Segments */}
               {isExpanded && (
-                <div className="px-4 pb-4 bg-zinc-50/50 dark:bg-[#313338]/20">
+                <div className="px-6 pb-4 bg-zinc-50/50 dark:bg-[#313338]/20">
                   {loadingHour === hourKey ? (
                     <div className="flex items-center justify-center py-6">
                       <Loader2 size={18} className="animate-spin text-zinc-400" />

@@ -132,7 +132,7 @@ export function AITab({ date, isLoading = false }: AITabProps) {
       {/* Chat Area */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 py-6 space-y-6 pb-32"
+        className="flex-1 overflow-y-auto px-6 py-6 space-y-6 pb-32"
       >
         {/* Welcome message if no messages */}
         {messages.length === 0 && (

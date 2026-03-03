@@ -66,7 +66,7 @@ export function FolderList({ folders, onSelectFolder }: FolderListProps) {
         <div key={monthKey}>
           {/* Month divider - skip for current month if it's the first */}
           {monthIndex > 0 && (
-            <div className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
+            <div className="px-4 py-3 border-zinc-200 dark:border-zinc-800">
               <span className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
                 {monthKey}
               </span>
@@ -77,7 +77,7 @@ export function FolderList({ folders, onSelectFolder }: FolderListProps) {
             <button
               key={folder.id}
               onClick={() => onSelectFolder(folder)}
-              className="w-full text-left py-[16px] px-[14px] border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-white dark:hover:bg-zinc-900/50 transition-colors"
+              className="w-full text-left py-[16px] px-6 border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-white dark:hover:bg-zinc-900/50 transition-colors"
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex-1 min-w-0">

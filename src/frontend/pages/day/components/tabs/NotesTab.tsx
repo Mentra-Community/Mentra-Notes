@@ -70,7 +70,7 @@ export function NotesTab({ notes, isLoading = false }: NotesTabProps) {
 
   return (
     <div className="h-full overflow-y-auto pb-32">
-      <div className="p-4 pt-6">
+      <div className="p-6 pt-6">
         {/* Masonry Grid */}
         <ResponsiveMasonry columnsCountBreakPoints={{ 350: 2, 750: 3 }}>
           <Masonry gutter="10px">

@@ -242,19 +242,19 @@ export function DayPage() {
       {/* Header */}
       <div className="shrink-0 border-b border-zinc-200 dark:border-zinc-800">
         {/* Top row with back button and actions */}
-        <div className={clsx("relative flex items-center justify-center px-[10px] pt-4 pb-2", newMentraUI && "mr-[100px]")}>
+        <div className={clsx("relative flex items-center justify-center  pt-4 pb-2", newMentraUI && "mr-[100px]")}>
           <button
             onClick={handleBack}
-            className="absolute left-[10px] p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 transition-colors w-[100px]"
+            className="absolute left-[0px]  py-2 pl-[24px] pr-[10px] rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 transition-colors "
           >
-            <ChevronLeft size={24} />
+            <ChevronLeft size={24} className="-ml-[5px]" />
           </button>
 
           <h1 className="text-lg font-semibold text-zinc-900 dark:text-white">
             {formatHeaderDate()}
           </h1>
 
-          <div className="absolute right-[10px] flex items-center gap-1">
+          <div className="absolute right-[0px] flex items-center gap-1 ">
             <button
               onClick={() => {
                 if (!session?.file) return;
@@ -265,7 +265,7 @@ export function DayPage() {
                 }
               }}
               className={clsx(
-                "p-2 rounded-lg transition-colors bg-red-600 w-[60px] flex justify-end items-end",
+                "py-2 rounded-lg transition-colors  w-[60px] flex justify-end items-end pr-[24px] ",
                 isStarred
                   ? "text-yellow-500"
                   : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300",
@@ -312,13 +312,13 @@ export function DayPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center px-4 gap-6">
+        <div className="flex items-center gap-6">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={clsx(
-                `relative pb-3 text-sm font-medium transition-colors bg-red-700 ${tab.id === "notes" && "pr-2"}`,
+                `relative pb-3 text-sm font-medium transition-colors ${tab.id === "notes" ? "pr-2" : tab.id === "transcript" ? "pl-6" : ""}`,
                 activeTab === tab.id
                   ? "text-zinc-900 dark:text-white"
                   : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300",
@@ -328,7 +328,10 @@ export function DayPage() {
               {activeTab === tab.id && (
                 <motion.div
                   layoutId="tab-underline"
-                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-zinc-900 dark:bg-white rounded-full"
+                  className={clsx(
+                    "absolute bottom-0 h-0.5 bg-zinc-900 dark:bg-white rounded-full",
+                    tab.id === "notes" ? "left-0 right-2" : tab.id === "transcript" ? "left-6 right-0" : "left-0 right-0",
+                  )}
                   transition={{ duration: 0.2, ease: "easeInOut" }}
                 />
               )}
@@ -340,7 +343,7 @@ export function DayPage() {
             <button
               onClick={() => setIsCompactMode(!isCompactMode)}
               className={clsx(
-                "ml-auto pb-3 p-1 rounded bg-red-700 pl-[40px]",
+                "ml-auto m-h-[12px] p-1 rounded pr-[24px] pl-[40px] flex ",
                 isCompactMode
                   ? "text-zinc-900 dark:text-white"
                   : "text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300",
@@ -354,7 +357,7 @@ export function DayPage() {
 
         {/* Recording indicator */}
         {isToday && isRecording && (
-          <div className="px-4 py-2 bg-zinc-100 dark:bg-zinc-900 border-t border-zinc-100 dark:border-zinc-800">
+          <div className="px-6 py-2 bg-zinc-100 dark:bg-zinc-900 border-t border-zinc-100 dark:border-zinc-800">
             <TranscribingIndicator size="sm" />
           </div>
         )}

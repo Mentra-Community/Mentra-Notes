@@ -285,11 +285,11 @@ export function HomePage() {
   return (
     <div className="flex h-full flex-col bg-zinc-50 dark:bg-black overflow-hidden">
       {/* Header */}
-      <div className="px-[10px] pt-4 pb-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shrink-0">
+      <div className=" pt-4 pb-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shrink-0">
         <div className="flex items-center justify-between">
           <button
             onClick={() => setIsFilterOpen(true)}
-            className="flex items-center gap-1.5 group -ml-2 px-2 py-1 min-w-31 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors  pr-[20px]"
+            className="flex items-center gap-1.5 group  px-2 py-1 min-w-31 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors  pr-[20px] pl-6"
           >
             <h1 className="text-xl font-normal text-zinc-900 dark:text-white tracking-tight">
               {getFilterLabel()}
@@ -318,7 +318,7 @@ export function HomePage() {
 
             <button
               onClick={handleCalendarToggle}
-              className={clsx("min-w-20 h-10 flex items-center justify-end rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors", newMentraUI && "mr-[100px]")}
+              className={clsx(" pr-6  py-2 pl-5", newMentraUI && "mr-[100px]")}
             >
               <Calendar size={20} strokeWidth={1.5} />
             </button>
