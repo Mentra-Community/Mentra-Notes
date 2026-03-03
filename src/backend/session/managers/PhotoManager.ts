@@ -75,7 +75,7 @@ export class PhotoManager extends SyncedManager {
     this.isCapturing = true;
 
     try {
-      const photo = await appSession.camera.requestPhoto({ size: "small" });
+      const photo = await appSession.camera.requestPhoto({ size: "large" });
       console.log(`[PhotoManager] Photo captured: ${photo.filename} (${photo.size} bytes)`);
 
       const todayDate = this.getTimeManager().today();
