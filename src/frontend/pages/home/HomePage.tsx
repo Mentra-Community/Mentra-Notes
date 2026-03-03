@@ -92,6 +92,7 @@ export function HomePage() {
         isTranscribing: isToday && isRecording,
         noteCount: file.noteCount,
         transcriptCount: file.transcriptSegmentCount,
+        transcriptHourCount: file.transcriptHourCount ?? 0,
         hasTranscript: file.hasTranscript,
       };
     });

@@ -23,6 +23,7 @@ export interface DailyFolder {
   isTranscribing: boolean;
   noteCount: number;
   transcriptCount: number;
+  transcriptHourCount: number;
   hasTranscript?: boolean; // For historical dates with transcripts
 }
 
@@ -106,24 +107,16 @@ export function FolderList({ folders, onSelectFolder }: FolderListProps) {
                     </span>
                   )}
 
-                  {/* Transcript indicator - for today show count, for historical show icon */}
-                  {folder.transcriptCount > 0 && !folder.isTranscribing && (
-                    <div className="flex items-center gap-1 text-zinc-400">
-                      <Mic size={14} />
-                      <span className="text-xs">
-                        {folder.transcriptCount > 60
-                          ? `${Math.floor(folder.transcriptCount / 60)}h ${folder.transcriptCount % 60}m`
-                          : `${folder.transcriptCount}m`}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Historical transcript indicator */}
-                  {folder.hasTranscript &&
-                    folder.transcriptCount === 0 &&
+                  {/* Transcript indicator */}
+                  {(folder.hasTranscript || folder.transcriptCount > 0) &&
                     !folder.isTranscribing && (
                       <div className="flex items-center gap-1 text-zinc-400">
                         <Mic size={14} />
+                        {folder.transcriptHourCount > 0 && (
+                          <span className="text-xs">
+                            {folder.transcriptHourCount}h
+                          </span>
+                        )}
                       </div>
                     )}
 

@@ -18,6 +18,7 @@ import {
   deleteDailyTranscript,
   deleteNotesByDate,
   deleteChatHistory,
+  HourSummary,
   type FileI,
 } from "../../models";
 import { deleteFromR2 } from "../../services/r2Upload.service";
@@ -32,6 +33,7 @@ export interface FileData {
   date: string;
   noteCount: number;
   transcriptSegmentCount: number;
+  transcriptHourCount: number;
   hasTranscript: boolean;
   hasNotes: boolean;
   isArchived: boolean;
@@ -246,12 +248,13 @@ export class FileManager extends SyncedManager {
     return this.getTimeManager().today();
   }
 
-  private toFileData(file: FileI): FileData {
+  private toFileData(file: FileI, hourCount?: number): FileData {
     return {
       id: file._id?.toString() || file.date,
       date: file.date,
       noteCount: file.noteCount,
       transcriptSegmentCount: file.transcriptSegmentCount,
+      transcriptHourCount: hourCount ?? 0,
       hasTranscript: file.hasTranscript,
       hasNotes: file.hasNotes,
       isArchived: file.isArchived,
@@ -492,7 +495,16 @@ export class FileManager extends SyncedManager {
     }
 
     const files = await getFiles(userId, filterOptions);
-    return files.map((f) => this.toFileData(f));
+
+    // Batch query distinct hour counts per date from HourSummary
+    const dates = files.map((f) => f.date);
+    const hourCounts = await HourSummary.aggregate<{ _id: string; count: number }>([
+      { $match: { userId, date: { $in: dates } } },
+      { $group: { _id: "$date", count: { $sum: 1 } } },
+    ]);
+    const hourCountMap = new Map(hourCounts.map((h) => [h._id, h.count]));
+
+    return files.map((f) => this.toFileData(f, hourCountMap.get(f.date)));
   }
 
   @rpc
