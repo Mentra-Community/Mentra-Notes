@@ -8,7 +8,7 @@
  * - AI: AI chat interface for this day's content
  */
 
-import { useState, useMemo, useEffect, useRef, useTransition } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
 import { useMentraAuth } from "@mentra/react";
 import { format, parse } from "date-fns";
@@ -76,14 +76,27 @@ export function DayPage() {
   // so new live segments don't bleed into the old file's view
   const historicalSegmentCountRef = useRef<number | null>(null);
 
-  // Super collapsed mode from persisted settings
-  const isCompactMode = session?.settings?.superCollapsed ?? false;
-  const [, startTransition] = useTransition();
-  const setIsCompactMode = (value: boolean) => {
-    startTransition(() => {
-      session?.settings?.updateSettings({ superCollapsed: value });
-    });
-  };
+  // Super collapsed mode — optimistic local state + debounced server sync
+  const serverCompactMode = session?.settings?.superCollapsed ?? false;
+  const [optimisticCompact, setOptimisticCompact] = useState<boolean | null>(null);
+  const compactDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isCompactMode = optimisticCompact ?? serverCompactMode;
+
+  useEffect(() => {
+    if (optimisticCompact !== null && serverCompactMode === optimisticCompact) {
+      setOptimisticCompact(null);
+    }
+  }, [serverCompactMode, optimisticCompact]);
+
+  const toggleCompactMode = useCallback(() => {
+    const newValue = !isCompactMode;
+    setOptimisticCompact(newValue);
+
+    if (compactDebounceRef.current) clearTimeout(compactDebounceRef.current);
+    compactDebounceRef.current = setTimeout(() => {
+      session?.settings?.updateSettings({ superCollapsed: newValue });
+    }, 300);
+  }, [isCompactMode, session?.settings]);
 
   // Parse the date from URL params
   const dateString = params.date || "";
@@ -122,9 +135,36 @@ export function DayPage() {
   const currentFile = useMemo(() => {
     return files.find((f) => f.date === dateString);
   }, [files, dateString]);
-  const isStarred = currentFile?.isFavourite ?? false;
+  const serverStarred = currentFile?.isFavourite ?? false;
   const isArchived = currentFile?.isArchived ?? false;
   const isTrashed = currentFile?.isTrashed ?? false;
+
+  // Optimistic star toggle with debounce
+  const [optimisticStarred, setOptimisticStarred] = useState<boolean | null>(null);
+  const starDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isStarred = optimisticStarred ?? serverStarred;
+
+  // Sync optimistic state back to server value once it catches up
+  useEffect(() => {
+    if (optimisticStarred !== null && serverStarred === optimisticStarred) {
+      setOptimisticStarred(null);
+    }
+  }, [serverStarred, optimisticStarred]);
+
+  const toggleStar = useCallback(() => {
+    if (!session?.file) return;
+    const newValue = !isStarred;
+    setOptimisticStarred(newValue);
+
+    if (starDebounceRef.current) clearTimeout(starDebounceRef.current);
+    starDebounceRef.current = setTimeout(() => {
+      if (newValue) {
+        session.file.favouriteFile(dateString);
+      } else {
+        session.file.unfavouriteFile(dateString);
+      }
+    }, 300);
+  }, [isStarred, session?.file, dateString]);
 
   // Get current hour for determining which hour is "in progress"
   const currentHour = new Date().getHours();
@@ -256,14 +296,7 @@ export function DayPage() {
 
           <div className="absolute right-[0px] flex items-center gap-1 ">
             <button
-              onClick={() => {
-                if (!session?.file) return;
-                if (isStarred) {
-                  session.file.unfavouriteFile(dateString);
-                } else {
-                  session.file.favouriteFile(dateString);
-                }
-              }}
+              onClick={toggleStar}
               className={clsx(
                 "py-2 rounded-lg transition-colors  w-[60px] flex justify-end items-end pr-[24px] ",
                 isStarred
@@ -341,7 +374,7 @@ export function DayPage() {
           {/* Compact mode toggle - only shown on transcript tab */}
           {activeTab === "transcript" && (
             <button
-              onClick={() => setIsCompactMode(!isCompactMode)}
+              onClick={toggleCompactMode}
               className={clsx(
                 "ml-auto m-h-[12px] p-1 rounded pr-[24px] pl-[40px] flex ",
                 isCompactMode
