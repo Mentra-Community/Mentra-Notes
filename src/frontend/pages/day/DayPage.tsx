@@ -27,6 +27,7 @@ import {
   RotateCcw,
   ListCollapse,
   AlignJustify,
+  Mail,
 } from "lucide-react";
 import { useSynced } from "../../hooks/useSynced";
 import type {
@@ -56,7 +57,7 @@ const tabs: TabConfig[] = [
   { id: "transcript", label: "Transcript", icon: MessageSquare },
   { id: "notes", label: "Notes", icon: FileText },
   // { id: "audio", label: "Audio", icon: Headphones }, // TODO: Enable when audio feature is implemented
-  { id: "ai", label: "AI", icon: Sparkles },
+  // { id: "ai", label: "AI", icon: Sparkles },
 ];
 
 export function DayPage() {
@@ -306,10 +307,65 @@ export function DayPage() {
             >
               <Star size={20} fill={isStarred ? "currentColor" : "none"} />
             </button>
-            {/* Only show options menu for past dates, not today */}
-            {!isToday && (
-              <DropdownMenu
-                options={[
+            <DropdownMenu
+              options={[
+                {
+                  id: "send-transcript",
+                  label: "Send Transcript",
+                  icon: Mail,
+                  onClick: async () => {
+                    if (daySegments.length === 0) {
+                      alert("No transcript segments to send");
+                      return;
+                    }
+                    const finalSegments = daySegments
+                      .filter((s) => s.isFinal && s.type !== "photo")
+                      .map((s) => ({
+                        timestamp: new Date(s.timestamp).toLocaleTimeString("en-US", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: false,
+                        }),
+                        text: s.text,
+                      }));
+                    if (finalSegments.length === 0) {
+                      alert("No final transcript segments to send");
+                      return;
+                    }
+                    const noteDate = new Date(dateString + "T00:00:00");
+                    const sessionDate = noteDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+                    const firstSeg = daySegments.find((s) => s.isFinal);
+                    const lastSeg = [...daySegments].reverse().find((s) => s.isFinal);
+                    const startTime = firstSeg
+                      ? new Date(firstSeg.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+                      : "";
+                    const endTime = lastSeg
+                      ? new Date(lastSeg.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+                      : "";
+                    try {
+                      const res = await fetch("/api/transcript/email", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        credentials: "include",
+                        body: JSON.stringify({
+                          to: "aryan@mentraglass.com",
+                          userId,
+                          date: dateString,
+                          sessionDate,
+                          sessionStartTime: startTime,
+                          sessionEndTime: endTime,
+                          segments: finalSegments,
+                        }),
+                      });
+                      const data = await res.json();
+                      alert(data.success ? "Transcript email sent!" : "Failed: " + data.error);
+                    } catch (err) {
+                      alert("Error sending transcript email");
+                    }
+                  },
+                },
+                ...(!isToday ? [
+                  { type: "divider" } as const,
                   {
                     id: "archive",
                     label: isArchived ? "Unarchive" : "Archive",
@@ -323,7 +379,7 @@ export function DayPage() {
                       }
                     },
                   },
-                  { type: "divider" },
+                  { type: "divider" } as const,
                   {
                     id: "trash",
                     label: isTrashed ? "Restore" : "Move to Trash",
@@ -338,9 +394,9 @@ export function DayPage() {
                       }
                     },
                   },
-                ] as DropdownMenuOption[]}
-              />
-            )}
+                ] : []),
+              ] as DropdownMenuOption[]}
+            />
           </div>
         </div>
 
@@ -386,7 +442,57 @@ export function DayPage() {
               {isCompactMode ? <ListCollapse size={15} /> : <AlignJustify size={15} />}
             </button>
           )}
+          <button
+            onClick={async () => {
+              if (dayNotes.length === 0) {
+                alert("No notes to email");
+                return;
+              }
+              const note = dayNotes[0];
+              const noteDate = new Date(dateString + "T00:00:00");
+              const sessionDate = noteDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+              const createdAt = note.createdAt ? new Date(note.createdAt) : new Date();
+              const noteTimestamp = createdAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+              const startTime = note.transcriptRange?.startTime
+                ? new Date(note.transcriptRange.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+                : noteTimestamp;
+              const endTime = note.transcriptRange?.endTime
+                ? new Date(note.transcriptRange.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+                : "";
+
+              try {
+                const res = await fetch("/api/email/send", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "include",
+                  body: JSON.stringify({
+                    to: "aryan@mentraglass.com",
+                    noteId: note.id,
+                    sessionDate,
+                    sessionStartTime: startTime,
+                    sessionEndTime: endTime,
+                    noteTimestamp,
+                    noteTitle: note.title,
+                    noteContent: note.content,
+                    noteType: note.isAIGenerated ? "AI Generated" : "Manual",
+                  }),
+                });
+                const data = await res.json();
+                if (data.success) {
+                  alert("Email sent!");
+                } else {
+                  alert("Failed: " + data.error);
+                }
+              } catch (err) {
+                alert("Error sending email");
+              }
+            }}
+            className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Test Email
+          </button>
         </div>
+        
 
         {/* Recording indicator */}
         {isToday && isRecording && (

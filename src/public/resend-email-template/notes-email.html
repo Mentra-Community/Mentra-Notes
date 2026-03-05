@@ -1,0 +1,141 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html dir="ltr" lang="en">
+<head>
+  <meta content="width=device-width" name="viewport" />
+  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+  <meta name="x-apple-disable-message-reformatting" />
+  <meta content="IE=edge" http-equiv="X-UA-Compatible" />
+  <meta content="telephone=no,address=no,email=no,date=no,url=no" name="format-detection" />
+</head>
+<body style="margin:0;padding:0;background-color:#f0f0ee;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f0f0ee;">
+    <tr>
+      <td align="center" style="padding:20px 0;">
+        <table width="620" cellpadding="0" cellspacing="0" border="0" style="background-color:#FFFFFF;width:620px;max-width:620px;">
+
+          <!-- HEADER -->
+          <tr>
+            <td align="center" style="padding:48px 40px 32px;">
+              <table cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="padding-right:10px;vertical-align:middle;">
+                    <table cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td align="center" valign="middle" style="background-color:#1A1A1A;border-radius:8px;width:36px;height:36px;">
+                          <span style="color:#FFFFFF;font-size:18px;line-height:36px;">&#9998;</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td style="vertical-align:middle;">
+                    <span style="color:#1A1A1A;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;letter-spacing:-0.02em;line-height:28px;">Mentra Notes</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- INTRO TEXT -->
+          <tr>
+            <td style="padding:0 40px;">
+              <p style="margin:0 0 8px 0;color:#555555;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;line-height:22px;">Hi there,</p>
+              <p style="margin:0;color:#555555;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;line-height:22px;">Here are your notes from your recent session. You can review them below.</p>
+            </td>
+          </tr>
+
+          <!-- SESSION INFO -->
+          <tr>
+            <td style="padding:32px 40px 0;">
+              <p style="margin:0 0 4px 0;color:#999999;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:13px;font-weight:500;letter-spacing:0.06em;line-height:16px;text-transform:uppercase;">Session</p>
+              <p style="margin:0 0 4px 0;color:#1A1A1A;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:20px;font-weight:600;letter-spacing:-0.01em;line-height:24px;">{{sessionDate}}</p>
+              <p style="margin:0;color:#888888;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;line-height:18px;">{{sessionTimeRange}}</p>
+            </td>
+          </tr>
+
+          <!-- YOUR NOTES HEADER + DOWNLOAD BUTTONS -->
+          <tr>
+            <td style="padding:32px 40px 16px;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="vertical-align:middle;">
+                    <span style="color:#1A1A1A;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:17px;font-weight:600;line-height:22px;">Your Notes</span>
+                  </td>
+                  <td align="right" style="vertical-align:middle;">
+                    <table cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td align="center" style="background-color:#1A1A1A;border-radius:6px;padding:6px 12px;">
+                          <a href="{{downloadBase}}/pdf" style="color:#FFFFFF;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;font-weight:500;line-height:16px;text-decoration:none;">PDF</a>
+                        </td>
+                        <td width="6"></td>
+                        <td align="center" style="background-color:#1A1A1A;border-radius:6px;padding:6px 12px;">
+                          <a href="{{downloadBase}}/txt" style="color:#FFFFFF;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;font-weight:500;line-height:16px;text-decoration:none;">TXT</a>
+                        </td>
+                        <td width="6"></td>
+                        <td align="center" style="background-color:#1A1A1A;border-radius:6px;padding:6px 12px;">
+                          <a href="{{downloadBase}}/docx" style="color:#FFFFFF;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;font-weight:500;line-height:16px;text-decoration:none;">Word</a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- NOTES CARD -->
+          <tr>
+            <td style="padding:0 40px;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F7F7F5;border:1px solid #EBEBEB;border-radius:12px;">
+                <tr>
+                  <td style="padding:28px;">
+
+                    <!-- Badge + timestamp -->
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px;">
+                      <tr>
+                        <td>
+                          <table cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                              <td style="background-color:{{badgeBg}};border-radius:4px;padding:3px 8px;">
+                                <span style="color:{{badgeColor}};font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.04em;line-height:14px;text-transform:uppercase;">{{noteType}}</span>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                        <td align="right">
+                          <span style="color:#999999;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:16px;">{{noteTimestamp}}</span>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Note title -->
+                    <p style="margin:0 0 20px 0;color:#1A1A1A;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;letter-spacing:-0.02em;line-height:28px;">{{noteTitle}}</p>
+
+                    <!-- Note content -->
+                    <div style="color:#3A3A3A;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;line-height:22px;">{{noteContent}}</div>
+
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td style="padding:40px 40px 48px;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="border-top:1px solid #EBEBEB;padding-top:16px;">
+                    <p style="margin:0 0 12px 0;color:#AAAAAA;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:18px;text-align:center;">You&rsquo;re receiving this because you requested your notes from Mentra Notes. If you didn&rsquo;t request this, you can safely ignore this email.</p>
+                    <p style="margin:0;color:#AAAAAA;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:16px;text-align:center;">Mentra Inc.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

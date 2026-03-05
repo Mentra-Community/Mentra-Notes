@@ -675,6 +675,344 @@ api.get("/photos/:date/:filename", authMiddleware, async (c) => {
 });
 
 // =============================================================================
+// Email Endpoints
+// =============================================================================
+
+/**
+ * POST /email/send - Send a hello world email
+ */
+api.post("/email/send", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { to, noteId, sessionDate, sessionStartTime, sessionEndTime, noteTimestamp, noteTitle, noteContent, noteType } = body;
+
+    if (!to) {
+      return c.json({ error: "\"to\" email address is required" }, 400);
+    }
+    if (!noteTitle || !noteContent || !noteId) {
+      return c.json({ error: "noteId, noteTitle, and noteContent are required" }, 400);
+    }
+
+    const { sendNoteEmail } = await import("../services/resend.service");
+    const result = await sendNoteEmail({
+      to,
+      noteId,
+      sessionDate: sessionDate || "Unknown Date",
+      sessionStartTime: sessionStartTime || "",
+      sessionEndTime: sessionEndTime || "",
+      noteTimestamp: noteTimestamp || "",
+      noteTitle,
+      noteContent,
+      noteType: noteType || "AI Generated",
+    });
+
+    return c.json({ success: true, data: result });
+  } catch (err: any) {
+    console.error("[Email Send] Error:", err);
+    return c.json({ error: err.message || "Failed to send email", details: String(err) }, 500);
+  }
+});
+
+// =============================================================================
+// Note Download Endpoints (linked from emails)
+// =============================================================================
+
+/**
+ * GET /notes/:id/download/:format - Download a note as TXT, PDF, or DOCX
+ */
+api.get("/notes/:id/download/:format", async (c) => {
+  try {
+    const noteId = c.req.param("id");
+    const format = c.req.param("format");
+
+    if (!["txt", "pdf", "docx"].includes(format)) {
+      return c.json({ error: "Invalid format. Use txt, pdf, or docx" }, 400);
+    }
+
+    // Try session first, then DB
+    let noteData: { title: string; content: string; date?: string; isAIGenerated?: boolean; createdAt?: Date } | null = null;
+
+    for (const uid of sessions.getActiveUserIds()) {
+      const session = sessions.get(uid);
+      if (!session) continue;
+      const found = session.notes.notes.find((n: any) => n.id === noteId);
+      if (found) {
+        noteData = found;
+        break;
+      }
+    }
+
+    if (!noteData) {
+      const dbNote = await NoteModel.findById(noteId);
+      if (dbNote) {
+        noteData = {
+          title: dbNote.title,
+          content: dbNote.content,
+          date: dbNote.date,
+          isAIGenerated: dbNote.isAIGenerated,
+          createdAt: dbNote.createdAt as Date,
+        };
+      }
+    }
+
+    if (!noteData) {
+      return c.json({ error: "Note not found" }, 404);
+    }
+
+    const { generateTxt, generatePdf, generateDocx } = await import("../services/noteExport.service");
+
+    const noteDate = noteData.date
+      ? new Date(noteData.date + "T00:00:00").toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+      : undefined;
+    const noteTimestamp = noteData.createdAt
+      ? new Date(noteData.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+      : undefined;
+    const noteType = noteData.isAIGenerated ? "AI Generated" : "Manual";
+
+    // Rewrite private R2 URLs to public URLs so images can be fetched
+    const publicContent = noteData.content.replaceAll(
+      "https://3c764e987404b8a1199ce5fdc3544a94.r2.cloudflarestorage.com/mentra-notes/",
+      "https://pub-b5f134142a0f4fbdb5c05a2f75fc8624.r2.dev/",
+    );
+
+    const exportData = {
+      title: noteData.title,
+      content: publicContent,
+      sessionDate: noteDate,
+      noteType,
+      noteTimestamp,
+    };
+
+    const safeTitle = noteData.title.replace(/[^a-zA-Z0-9-_ ]/g, "").substring(0, 50).trim() || "note";
+
+    if (format === "txt") {
+      const buffer = generateTxt(exportData);
+      return new Response(new Uint8Array(buffer), {
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Content-Disposition": `attachment; filename="${safeTitle}.txt"`,
+        },
+      });
+    }
+
+    if (format === "pdf") {
+      const pdfBytes = await generatePdf(exportData);
+      return new Response(new Uint8Array(pdfBytes), {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${safeTitle}.pdf"`,
+        },
+      });
+    }
+
+    if (format === "docx") {
+      const docxBuffer = await generateDocx(exportData);
+      return new Response(new Uint8Array(docxBuffer), {
+        headers: {
+          "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "Content-Disposition": `attachment; filename="${safeTitle}.docx"`,
+        },
+      });
+    }
+
+    return c.json({ error: "Invalid format" }, 400);
+  } catch (err: any) {
+    console.error("[Note Download] Error:", err);
+    return c.json({ error: err.message || "Failed to generate download" }, 500);
+  }
+});
+
+// =============================================================================
+// Transcript Email & Download Endpoints
+// =============================================================================
+
+/**
+ * POST /transcript/email - Send transcript via email
+ */
+api.post("/transcript/email", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { to, userId, date, sessionDate, sessionStartTime, sessionEndTime, segments } = body;
+
+    if (!to) {
+      return c.json({ error: '"to" email address is required' }, 400);
+    }
+    if (!userId || !date) {
+      return c.json({ error: "userId and date are required" }, 400);
+    }
+    if (!segments || !Array.isArray(segments) || segments.length === 0) {
+      return c.json({ error: "segments array is required" }, 400);
+    }
+
+    const { sendTranscriptEmail } = await import("../services/resend.service");
+    const transcriptId = `${userId}:${date}`;
+
+    const result = await sendTranscriptEmail({
+      to,
+      transcriptId,
+      sessionDate: sessionDate || date,
+      sessionStartTime: sessionStartTime || "",
+      sessionEndTime: sessionEndTime || "",
+      segments,
+    });
+
+    return c.json({ success: true, data: result });
+  } catch (err: any) {
+    console.error("[Transcript Email] Error:", err);
+    return c.json({ error: err.message || "Failed to send email", details: String(err) }, 500);
+  }
+});
+
+/**
+ * GET /transcripts/:transcriptId/download/:format - Download transcript as TXT, PDF, or DOCX
+ * transcriptId format: userId:YYYY-MM-DD
+ */
+api.get("/transcripts/:transcriptId/download/:format", async (c) => {
+  try {
+    const transcriptId = c.req.param("transcriptId");
+    const format = c.req.param("format");
+
+    if (!["txt", "pdf", "docx"].includes(format)) {
+      return c.json({ error: "Invalid format. Use txt, pdf, or docx" }, 400);
+    }
+
+    // Parse composite ID
+    const colonIdx = transcriptId.indexOf(":");
+    if (colonIdx === -1) {
+      return c.json({ error: "Invalid transcript ID" }, 400);
+    }
+    const userId = transcriptId.substring(0, colonIdx);
+    const date = transcriptId.substring(colonIdx + 1);
+
+    // Try 3 sources: in-memory session → MongoDB → R2
+    let segments: { text: string; timestamp: Date; isFinal: boolean; type?: string }[] = [];
+
+    // 1. In-memory session (today's live transcript)
+    const session = sessions.get(userId);
+    if (session) {
+      const liveSegs = session.transcript.segments || [];
+      const dateSegs = liveSegs.filter((s: any) => {
+        if (!s.timestamp) return false;
+        const iso = s.timestamp instanceof Date ? s.timestamp.toISOString() : String(s.timestamp);
+        return iso.slice(0, 10) === date;
+      });
+      if (dateSegs.length > 0) {
+        segments = dateSegs.filter((s: any) => s.isFinal && s.type !== "photo");
+      }
+    }
+
+    // 2. MongoDB
+    if (segments.length === 0) {
+      const transcript = await getOrCreateDailyTranscript(userId, date);
+      const dbSegs = (transcript.segments || []).filter(
+        (s) => s.isFinal && s.type !== "photo"
+      );
+      if (dbSegs.length > 0) {
+        segments = dbSegs;
+      }
+    }
+
+    // 3. R2 (historical transcripts)
+    if (segments.length === 0) {
+      const { fetchTranscriptFromR2 } = await import("../services/r2Fetch.service");
+      const r2Result = await fetchTranscriptFromR2({ userId, date });
+      if (r2Result.success && r2Result.data?.segments) {
+        segments = r2Result.data.segments
+          .filter((s) => s.isFinal && s.type !== "photo")
+          .map((s) => ({
+            text: s.text,
+            timestamp: new Date(s.timestamp),
+            isFinal: s.isFinal,
+            type: s.type,
+          }));
+      }
+    }
+
+    if (segments.length === 0) {
+      return c.json({ error: "No transcript segments found" }, 404);
+    }
+
+    // Format segments for export
+    const formattedSegments = segments.map((s) => ({
+      timestamp: new Date(s.timestamp).toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }),
+      text: s.text,
+    }));
+
+    const sessionDate = new Date(date + "T00:00:00").toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    const firstTime = new Date(segments[0].timestamp).toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    const lastTime = new Date(segments[segments.length - 1].timestamp).toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    const sessionTimeRange = `${firstTime} \u2014 ${lastTime}`;
+
+    const exportData = {
+      sessionDate,
+      sessionTimeRange,
+      segments: formattedSegments,
+    };
+
+    const safeDate = date.replace(/[^a-zA-Z0-9-]/g, "");
+    const filename = `Transcript-${safeDate}`;
+
+    const {
+      generateTranscriptTxt,
+      generateTranscriptPdf,
+      generateTranscriptDocx,
+    } = await import("../services/transcriptExport.service");
+
+    if (format === "txt") {
+      const buffer = generateTranscriptTxt(exportData);
+      return new Response(new Uint8Array(buffer), {
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Content-Disposition": `attachment; filename="${filename}.txt"`,
+        },
+      });
+    }
+
+    if (format === "pdf") {
+      const pdfBytes = await generateTranscriptPdf(exportData);
+      return new Response(new Uint8Array(pdfBytes), {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${filename}.pdf"`,
+        },
+      });
+    }
+
+    if (format === "docx") {
+      const docxBuffer = await generateTranscriptDocx(exportData);
+      return new Response(new Uint8Array(docxBuffer), {
+        headers: {
+          "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "Content-Disposition": `attachment; filename="${filename}.docx"`,
+        },
+      });
+    }
+
+    return c.json({ error: "Invalid format" }, 400);
+  } catch (err: any) {
+    console.error("[Transcript Download] Error:", err);
+    return c.json({ error: err.message || "Failed to generate download" }, 500);
+  }
+});
+
+// =============================================================================
 // Catch-all for unknown routes
 // =============================================================================
 
