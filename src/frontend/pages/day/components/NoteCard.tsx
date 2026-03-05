@@ -11,11 +11,14 @@
  */
 
 import { clsx } from "clsx";
+import { Check } from "lucide-react";
 import type { Note } from "../../../../shared/types";
 
 interface NoteCardProps {
   note: Note;
   onClick: () => void;
+  selectionMode?: boolean;
+  isSelected?: boolean;
 }
 
 /**
@@ -81,7 +84,7 @@ function getPreviewText(note: Note): string {
   return plainText;
 }
 
-export function NoteCard({ note, onClick }: NoteCardProps) {
+export function NoteCard({ note, onClick, selectionMode = false, isSelected = false }: NoteCardProps) {
   // Use the isAIGenerated field, fallback to checking transcriptRange for old notes
   const isAIGenerated = note.isAIGenerated ?? !!note.transcriptRange;
   const previewText = getPreviewText(note);
@@ -116,8 +119,30 @@ export function NoteCard({ note, onClick }: NoteCardProps) {
   return (
     <div
       onClick={onClick}
-      className="w-full bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 shadow-sm rounded-2xl p-4 cursor-pointer transition-all duration-200 flex flex-col gap-2"
+      className={clsx(
+        "relative w-full bg-white dark:bg-zinc-900 shadow-sm rounded-2xl p-4 cursor-pointer transition-all duration-200 flex flex-col gap-2",
+        selectionMode && !isSelected && "animate-note-shake",
+        selectionMode ? "border-2" : "border-2",
+        !selectionMode && "hover:border-zinc-300 dark:hover:border-zinc-700",
+        isSelected
+          ? "border-zinc-900 dark:border-white"
+          : "border-zinc-100 dark:border-zinc-800",
+      )}
     >
+      {/* Selection circle */}
+      {selectionMode && (
+        <div
+          className={clsx(
+            "absolute -top-2 -right-2 w-6 h-6 rounded-full border-2 flex items-center justify-center z-10 transition-colors",
+            isSelected
+              ? "bg-zinc-900 border-zinc-900 dark:bg-white dark:border-white shadow-sm"
+              : "bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600",
+          )}
+        >
+          {isSelected && <Check size={14} className="text-white dark:text-zinc-900" strokeWidth={3} />}
+        </div>
+      )}
+
       {/* Title */}
       <h3 className="font-semibold text-sm leading-snug text-zinc-900 dark:text-white line-clamp-2">
         {note.title || "Untitled Note"}

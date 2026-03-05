@@ -6,6 +6,7 @@
  */
 
 import { useLocation } from "wouter";
+import { clsx } from "clsx";
 import { FileText } from "lucide-react";
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
 import type { Note } from "../../../../../shared/types";
@@ -14,12 +15,19 @@ import { NoteCard } from "../NoteCard";
 interface NotesTabProps {
   notes: Note[];
   isLoading?: boolean;
+  selectionMode?: boolean;
+  selectedNoteIds?: Set<string>;
+  onToggleSelection?: (noteId: string) => void;
 }
 
-export function NotesTab({ notes, isLoading = false }: NotesTabProps) {
+export function NotesTab({ notes, isLoading = false, selectionMode = false, selectedNoteIds, onToggleSelection }: NotesTabProps) {
   const [, setLocation] = useLocation();
 
   const handleNoteClick = (note: Note) => {
+    if (selectionMode && onToggleSelection) {
+      onToggleSelection(note.id);
+      return;
+    }
     setLocation(`/note/${note.id}`);
   };
 
@@ -70,13 +78,18 @@ export function NotesTab({ notes, isLoading = false }: NotesTabProps) {
 
   return (
     <div className="h-full overflow-y-auto pb-32">
-      <div className="p-6 pt-6">
+      <div className={clsx("p-6 pt-6", selectionMode && "pt-6")}>
         {/* Masonry Grid */}
         <ResponsiveMasonry columnsCountBreakPoints={{ 350: 2, 750: 3 }}>
           <Masonry gutter="10px">
             {notes.map((note) => (
               <div key={note.id} className="w-full">
-                <NoteCard note={note} onClick={() => handleNoteClick(note)} />
+                <NoteCard
+                  note={note}
+                  onClick={() => handleNoteClick(note)}
+                  selectionMode={selectionMode}
+                  isSelected={selectedNoteIds?.has(note.id) ?? false}
+                />
               </div>
             ))}
           </Masonry>

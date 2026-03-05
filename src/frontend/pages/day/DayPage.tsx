@@ -28,6 +28,9 @@ import {
   ListCollapse,
   AlignJustify,
   Mail,
+  Upload,
+  ClipboardCopy,
+  X,
 } from "lucide-react";
 import { useSynced } from "../../hooks/useSynced";
 import type {
@@ -41,7 +44,11 @@ import { TranscriptTab } from "./components/tabs/TranscriptTab";
 // import { AudioTab } from "./components/tabs/AudioTab"; // TODO: Enable when audio feature is implemented
 import { AITab } from "./components/tabs/AITab";
 import { TranscribingIndicator } from "../../components/shared/TranscribingIndicator";
-import { DropdownMenu, type DropdownMenuOption } from "../../components/shared/DropdownMenu";
+import {
+  DropdownMenu,
+  type DropdownMenuOption,
+} from "../../components/shared/DropdownMenu";
+import { EmailDrawer } from "../../components/shared/EmailDrawer";
 import { DayPageSkeleton } from "../../components/shared/SkeletonLoader";
 import { useFeatureFlag } from "../../lib/posthog";
 
@@ -66,7 +73,7 @@ export function DayPage() {
   const { userId } = useMentraAuth();
   const { session, isConnected } = useSynced<SessionI>(userId || "");
 
-  const newMentraUI = useFeatureFlag('new-mentraos-ui-miniapps');
+  const newMentraUI = useFeatureFlag("new-mentraos-ui-miniapps");
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     const params = new URLSearchParams(window.location.search);
     return (params.get("tab") as TabType) || "transcript";
@@ -79,7 +86,9 @@ export function DayPage() {
 
   // Super collapsed mode — optimistic local state + debounced server sync
   const serverCompactMode = session?.settings?.superCollapsed ?? false;
-  const [optimisticCompact, setOptimisticCompact] = useState<boolean | null>(null);
+  const [optimisticCompact, setOptimisticCompact] = useState<boolean | null>(
+    null,
+  );
   const compactDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isCompactMode = optimisticCompact ?? serverCompactMode;
 
@@ -98,6 +107,34 @@ export function DayPage() {
       session?.settings?.updateSettings({ superCollapsed: newValue });
     }, 300);
   }, [isCompactMode, session?.settings]);
+
+  // Note selection mode
+  const [noteSelectionMode, setNoteSelectionMode] = useState<"email" | "copy" | null>(null);
+  const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set());
+
+  // Email drawer state
+  const [showEmailDrawer, setShowEmailDrawer] = useState(false);
+  const [emailDrawerAction, setEmailDrawerAction] = useState<"notes" | "transcript" | "send-transcript">("notes");
+  const emailDrawerItemLabel = emailDrawerAction === "notes"
+    ? `${selectedNoteIds.size} Note${selectedNoteIds.size !== 1 ? "s" : ""}`
+    : "Transcript";
+
+  const toggleNoteSelection = useCallback((noteId: string) => {
+    setSelectedNoteIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(noteId)) {
+        next.delete(noteId);
+      } else {
+        next.add(noteId);
+      }
+      return next;
+    });
+  }, []);
+
+  const exitSelectionMode = useCallback(() => {
+    setNoteSelectionMode(null);
+    setSelectedNoteIds(new Set());
+  }, []);
 
   // Parse the date from URL params
   const dateString = params.date || "";
@@ -141,7 +178,9 @@ export function DayPage() {
   const isTrashed = currentFile?.isTrashed ?? false;
 
   // Optimistic star toggle with debounce
-  const [optimisticStarred, setOptimisticStarred] = useState<boolean | null>(null);
+  const [optimisticStarred, setOptimisticStarred] = useState<boolean | null>(
+    null,
+  );
   const starDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isStarred = optimisticStarred ?? serverStarred;
 
@@ -191,14 +230,16 @@ export function DayPage() {
 
     if (dateString === todayString) {
       // Switch back to today
-      session.transcript.loadTodayTranscript()
+      session.transcript
+        .loadTodayTranscript()
         .catch((err) => {
           console.error("[DayPage] Failed to load today's transcript:", err);
         })
         .finally(() => setIsLoadingTranscript(false));
     } else {
       // Load historical date
-      session.transcript.loadDateTranscript(dateString)
+      session.transcript
+        .loadDateTranscript(dateString)
         .catch((err) => {
           console.error(
             `[DayPage] Failed to load transcript for ${dateString}:`,
@@ -259,12 +300,90 @@ export function DayPage() {
     // Fallback: filter by extracting YYYY-MM-DD from the UTC ISO timestamp
     return allSegments.filter((segment) => {
       if (!segment.timestamp) return false;
-      const iso = segment.timestamp instanceof Date
-        ? segment.timestamp.toISOString()
-        : String(segment.timestamp);
+      const iso =
+        segment.timestamp instanceof Date
+          ? segment.timestamp.toISOString()
+          : String(segment.timestamp);
       return iso.slice(0, 10) === dateString;
     });
   }, [allSegments, dateString, loadedDate, isDataLoading, isToday]);
+
+  const handleEmailSend = useCallback(async (to: string, cc: string) => {
+    const ccList = cc ? cc.split(",").filter(Boolean) : undefined;
+
+    if (emailDrawerAction === "notes") {
+      const selected = dayNotes.filter((n) => selectedNoteIds.has(n.id));
+      if (selected.length === 0) return;
+
+      const noteDate = new Date(dateString + "T00:00:00");
+      const sessionDate = noteDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
+      for (const note of selected) {
+        const createdAt = note.createdAt ? new Date(note.createdAt) : new Date();
+        const noteTimestamp = createdAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+        const startTime = note.transcriptRange?.startTime
+          ? new Date(note.transcriptRange.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+          : noteTimestamp;
+        const endTime = note.transcriptRange?.endTime
+          ? new Date(note.transcriptRange.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+          : "";
+
+        const res = await fetch("/api/email/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            to,
+            cc: ccList,
+            noteId: note.id,
+            sessionDate,
+            sessionStartTime: startTime,
+            sessionEndTime: endTime,
+            noteTimestamp,
+            noteTitle: note.title || "Untitled Note",
+            noteContent: note.content || note.summary || "",
+            noteType: note.isAIGenerated ? "AI Generated" : "Manual",
+          }),
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || "Failed to send email");
+      }
+      exitSelectionMode();
+    } else {
+      const finalSegments = daySegments
+        .filter((s) => s.isFinal && s.type !== "photo")
+        .map((s) => ({
+          timestamp: new Date(s.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }),
+          text: s.text,
+        }));
+      if (finalSegments.length === 0) throw new Error("No transcript segments to send");
+
+      const noteDate = new Date(dateString + "T00:00:00");
+      const sessionDate = noteDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+      const firstSeg = daySegments.find((s) => s.isFinal);
+      const lastSeg = [...daySegments].reverse().find((s) => s.isFinal);
+      const startTime = firstSeg ? new Date(firstSeg.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) : "";
+      const endTime = lastSeg ? new Date(lastSeg.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) : "";
+
+      const res = await fetch("/api/transcript/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          to,
+          cc: ccList,
+          userId,
+          date: dateString,
+          sessionDate,
+          sessionStartTime: startTime,
+          sessionEndTime: endTime,
+          segments: finalSegments,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "Failed to send email");
+    }
+  }, [emailDrawerAction, dayNotes, selectedNoteIds, daySegments, dateString, userId, exitSelectionMode]);
 
   if (!session) {
     return <DayPageSkeleton />;
@@ -279,11 +398,16 @@ export function DayPage() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-black">
+    <div className="h-full flex flex-col bg-white dark:bg-black relative">
       {/* Header */}
       <div className="shrink-0 border-b border-zinc-200 dark:border-zinc-800">
         {/* Top row with back button and actions */}
-        <div className={clsx("relative flex items-center justify-center  pt-4 pb-2", newMentraUI && "mr-[100px]")}>
+        <div
+          className={clsx(
+            "relative flex items-center justify-center  pt-4 pb-2",
+            newMentraUI && "mr-[100px]",
+          )}
+        >
           <button
             onClick={handleBack}
             className="absolute left-[0px]  py-2 pl-[24px] pr-[10px] rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 transition-colors "
@@ -308,104 +432,66 @@ export function DayPage() {
               <Star size={20} fill={isStarred ? "currentColor" : "none"} />
             </button>
             <DropdownMenu
-              options={[
-                {
-                  id: "send-transcript",
-                  label: "Send Transcript",
-                  icon: Mail,
-                  onClick: async () => {
-                    if (daySegments.length === 0) {
-                      alert("No transcript segments to send");
-                      return;
-                    }
-                    const finalSegments = daySegments
-                      .filter((s) => s.isFinal && s.type !== "photo")
-                      .map((s) => ({
-                        timestamp: new Date(s.timestamp).toLocaleTimeString("en-US", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: false,
-                        }),
-                        text: s.text,
-                      }));
-                    if (finalSegments.length === 0) {
-                      alert("No final transcript segments to send");
-                      return;
-                    }
-                    const noteDate = new Date(dateString + "T00:00:00");
-                    const sessionDate = noteDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-                    const firstSeg = daySegments.find((s) => s.isFinal);
-                    const lastSeg = [...daySegments].reverse().find((s) => s.isFinal);
-                    const startTime = firstSeg
-                      ? new Date(firstSeg.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
-                      : "";
-                    const endTime = lastSeg
-                      ? new Date(lastSeg.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
-                      : "";
-                    try {
-                      const res = await fetch("/api/transcript/email", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        credentials: "include",
-                        body: JSON.stringify({
-                          to: "aryan@mentraglass.com",
-                          userId,
-                          date: dateString,
-                          sessionDate,
-                          sessionStartTime: startTime,
-                          sessionEndTime: endTime,
-                          segments: finalSegments,
-                        }),
-                      });
-                      const data = await res.json();
-                      alert(data.success ? "Transcript email sent!" : "Failed: " + data.error);
-                    } catch (err) {
-                      alert("Error sending transcript email");
-                    }
-                  },
-                },
-                ...(!isToday ? [
-                  { type: "divider" } as const,
+              options={
+                [
                   {
-                    id: "archive",
-                    label: isArchived ? "Unarchive" : "Archive",
-                    icon: isArchived ? ArchiveRestore : Archive,
+                    id: "send-transcript",
+                    label: "Send Transcript",
+                    icon: Mail,
                     onClick: () => {
-                      if (!session?.file) return;
-                      if (isArchived) {
-                        session.file.unarchiveFile(dateString);
-                      } else {
-                        session.file.archiveFile(dateString);
+                      if (daySegments.length === 0) {
+                        alert("No transcript segments to send");
+                        return;
                       }
+                      setEmailDrawerAction("send-transcript");
+                      setShowEmailDrawer(true);
                     },
                   },
-                  { type: "divider" } as const,
-                  {
-                    id: "trash",
-                    label: isTrashed ? "Restore" : "Move to Trash",
-                    icon: isTrashed ? RotateCcw : Trash2,
-                    danger: !isTrashed,
-                    onClick: () => {
-                      if (!session?.file) return;
-                      if (isTrashed) {
-                        session.file.restoreFile(dateString);
-                      } else {
-                        session.file.trashFile(dateString);
-                      }
-                    },
-                  },
-                ] : []),
-              ] as DropdownMenuOption[]}
+                  ...(!isToday
+                    ? [
+                        { type: "divider" } as const,
+                        {
+                          id: "archive",
+                          label: isArchived ? "Unarchive" : "Archive",
+                          icon: isArchived ? ArchiveRestore : Archive,
+                          onClick: () => {
+                            if (!session?.file) return;
+                            if (isArchived) {
+                              session.file.unarchiveFile(dateString);
+                            } else {
+                              session.file.archiveFile(dateString);
+                            }
+                          },
+                        },
+                        { type: "divider" } as const,
+                        {
+                          id: "trash",
+                          label: isTrashed ? "Restore" : "Move to Trash",
+                          icon: isTrashed ? RotateCcw : Trash2,
+                          danger: !isTrashed,
+                          onClick: () => {
+                            if (!session?.file) return;
+                            if (isTrashed) {
+                              session.file.restoreFile(dateString);
+                            } else {
+                              session.file.trashFile(dateString);
+                            }
+                          },
+                        },
+                      ]
+                    : []),
+                ] as DropdownMenuOption[]
+              }
             />
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-6 relative z-50">
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => { exitSelectionMode(); setActiveTab(tab.id); }}
               className={clsx(
                 `relative pb-3 text-sm font-medium transition-colors ${tab.id === "notes" ? "pr-2" : tab.id === "transcript" ? "pl-6" : ""}`,
                 activeTab === tab.id
@@ -419,7 +505,11 @@ export function DayPage() {
                   layoutId="tab-underline"
                   className={clsx(
                     "absolute bottom-0 h-0.5 bg-zinc-900 dark:bg-white rounded-full",
-                    tab.id === "notes" ? "left-0 right-2" : tab.id === "transcript" ? "left-6 right-0" : "left-0 right-0",
+                    tab.id === "notes"
+                      ? "left-0 right-2"
+                      : tab.id === "transcript"
+                        ? "left-6 right-0"
+                        : "left-0 right-0",
                   )}
                   transition={{ duration: 0.2, ease: "easeInOut" }}
                 />
@@ -427,72 +517,92 @@ export function DayPage() {
             </button>
           ))}
 
-          {/* Compact mode toggle - only shown on transcript tab */}
-          {activeTab === "transcript" && (
-            <button
-              onClick={toggleCompactMode}
-              className={clsx(
-                "ml-auto m-h-[12px] p-1 rounded pr-[24px] pl-[40px] flex ",
-                isCompactMode
-                  ? "text-zinc-900 dark:text-white"
-                  : "text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300",
-              )}
-              title={isCompactMode ? "Show details" : "Compact view"}
-            >
-              {isCompactMode ? <ListCollapse size={15} /> : <AlignJustify size={15} />}
-            </button>
-          )}
-          <button
-            onClick={async () => {
-              if (dayNotes.length === 0) {
-                alert("No notes to email");
-                return;
-              }
-              const note = dayNotes[0];
-              const noteDate = new Date(dateString + "T00:00:00");
-              const sessionDate = noteDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-              const createdAt = note.createdAt ? new Date(note.createdAt) : new Date();
-              const noteTimestamp = createdAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-              const startTime = note.transcriptRange?.startTime
-                ? new Date(note.transcriptRange.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
-                : noteTimestamp;
-              const endTime = note.transcriptRange?.endTime
-                ? new Date(note.transcriptRange.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
-                : "";
+          <div className="flex flex-row flex-1 justify-end gap-2">
+            {/* Compact mode toggle - only shown on transcript tab */}
+            {activeTab === "transcript" && (
+              <button
+                onClick={toggleCompactMode}
+                className={clsx(
+                  "ml-auto m-h-[12px] p-1 rounded pl-[20px] flex ",
+                  isCompactMode
+                    ? "text-zinc-500 dark:text-white"
+                    : "text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300",
+                )}
+                title={isCompactMode ? "Show details" : "Compact view"}
+              >
+                {isCompactMode ? (
+                  <ListCollapse size={15} />
+                ) : (
+                  <AlignJustify size={15} />
+                )}
+              </button>
+            )}
 
-              try {
-                const res = await fetch("/api/email/send", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  credentials: "include",
-                  body: JSON.stringify({
-                    to: "aryan@mentraglass.com",
-                    noteId: note.id,
-                    sessionDate,
-                    sessionStartTime: startTime,
-                    sessionEndTime: endTime,
-                    noteTimestamp,
-                    noteTitle: note.title,
-                    noteContent: note.content,
-                    noteType: note.isAIGenerated ? "AI Generated" : "Manual",
-                  }),
-                });
-                const data = await res.json();
-                if (data.success) {
-                  alert("Email sent!");
-                } else {
-                  alert("Failed: " + data.error);
-                }
-              } catch (err) {
-                alert("Error sending email");
+            <DropdownMenu
+              align="right"
+              trigger={
+                <button className="ml-auto p-1 rounded text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 pr-[24px]">
+                  <Upload size={15} />
+                </button>
               }
-            }}
-            className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            Test Email
-          </button>
+              options={activeTab === "notes" ? [
+                {
+                  id: "email-notes",
+                  label: "Email Notes",
+                  icon: Mail,
+                  onClick: () => {
+                    setNoteSelectionMode("email");
+                    setSelectedNoteIds(new Set());
+                  },
+                },
+                {
+                  id: "copy-notes",
+                  label: "Copy Notes to Clipboard",
+                  icon: ClipboardCopy,
+                  onClick: () => {
+                    setNoteSelectionMode("copy");
+                    setSelectedNoteIds(new Set());
+                  },
+                },
+              ] : [
+                {
+                  id: "email-transcript",
+                  label: "Email Transcript",
+                  icon: Mail,
+                  onClick: () => {
+                    if (daySegments.filter((s) => s.isFinal && s.type !== "photo").length === 0) {
+                      alert("No transcript to email");
+                      return;
+                    }
+                    setEmailDrawerAction("transcript");
+                    setShowEmailDrawer(true);
+                  },
+                },
+                {
+                  id: "copy-transcript",
+                  label: "Copy to Clipboard",
+                  icon: ClipboardCopy,
+                  onClick: async () => {
+                    const finalSegments = daySegments
+                      .filter((s) => s.isFinal && s.type !== "photo")
+                      .map((s) => {
+                        const time = new Date(s.timestamp).toLocaleTimeString("en-US", {
+                          hour: "numeric",
+                          minute: "2-digit",
+                        });
+                        return `[${time}] ${s.text}`;
+                      });
+                    if (finalSegments.length === 0) {
+                      alert("No transcript to copy");
+                      return;
+                    }
+                    await navigator.clipboard.writeText(finalSegments.join("\n"));
+                  },
+                },
+              ]}
+            />
+          </div>
         </div>
-        
 
         {/* Recording indicator */}
         {isToday && isRecording && (
@@ -514,7 +624,13 @@ export function DayPage() {
             className="h-full"
           >
             {activeTab === "notes" && (
-              <NotesTab notes={dayNotes} isLoading={isDataLoading} />
+              <NotesTab
+                notes={dayNotes}
+                isLoading={isDataLoading}
+                selectionMode={noteSelectionMode !== null}
+                selectedNoteIds={selectedNoteIds}
+                onToggleSelection={toggleNoteSelection}
+              />
             )}
             {activeTab === "transcript" && (
               <TranscriptTab
@@ -531,10 +647,83 @@ export function DayPage() {
               />
             )}
             {/* {activeTab === "audio" && <AudioTab />} */}
-            {activeTab === "ai" && <AITab date={date} isLoading={isDataLoading} />}
+            {activeTab === "ai" && (
+              <AITab date={date} isLoading={isDataLoading} />
+            )}
           </motion.div>
         </AnimatePresence>
       </div>
+
+      {/* Selection mode floating bar */}
+      {noteSelectionMode && (
+        <div className="absolute bottom-6 left-4 right-4 flex gap-2 z-50">
+          <button
+            onClick={exitSelectionMode}
+            className="p-3 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white shadow-lg"
+          >
+            <X size={20} />
+          </button>
+          <button
+            onClick={async () => {
+              const selected = dayNotes.filter((n) => selectedNoteIds.has(n.id));
+              if (selected.length === 0) return;
+
+              if (noteSelectionMode === "copy") {
+                const text = selected
+                  .map((n) => {
+                    const title = n.title || "Untitled Note";
+                    const body = (n.content || n.summary || "")
+                      .replace(/<[^>]*>/g, " ")
+                      .replace(/&nbsp;/g, " ")
+                      .replace(/\s+/g, " ")
+                      .trim();
+                    return `${title}\n${body}`;
+                  })
+                  .join("\n\n---\n\n");
+                await navigator.clipboard.writeText(text);
+                exitSelectionMode();
+              } else {
+                // Open email drawer for notes
+                setEmailDrawerAction("notes");
+                setShowEmailDrawer(true);
+              }
+            }}
+            disabled={selectedNoteIds.size === 0}
+            className={clsx(
+              "flex-1 py-3 px-4 rounded-full font-medium text-sm shadow-lg flex items-center justify-center gap-2 transition-colors",
+              selectedNoteIds.size > 0
+                ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900"
+                : "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500",
+            )}
+          >
+            {noteSelectionMode === "copy" ? (
+              <>
+                <ClipboardCopy size={16} />
+                Copy {selectedNoteIds.size > 0 ? `${selectedNoteIds.size} Note${selectedNoteIds.size > 1 ? "s" : ""}` : "Notes"}
+              </>
+            ) : (
+              <>
+                <Mail size={16} />
+                Email {selectedNoteIds.size > 0 ? `${selectedNoteIds.size} Note${selectedNoteIds.size > 1 ? "s" : ""}` : "Notes"}
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Email Drawer */}
+      <EmailDrawer
+        isOpen={showEmailDrawer}
+        onClose={() => {
+          setShowEmailDrawer(false);
+          if (emailDrawerAction === "notes") {
+            exitSelectionMode();
+          }
+        }}
+        onSend={handleEmailSend}
+        defaultEmail={userId || ""}
+        itemLabel={emailDrawerItemLabel}
+      />
     </div>
   );
 }

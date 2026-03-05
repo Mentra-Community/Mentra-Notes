@@ -13,6 +13,7 @@ const transcriptTemplate = readFileSync(resolve(templateDir, "transcript-email.h
 
 interface SendNoteEmailRequest {
   to: string | string[];
+  cc?: string | string[];
   noteId: string;
   sessionDate: string;
   sessionStartTime: string;
@@ -52,6 +53,7 @@ function buildNoteEmailHtml({
 
 export async function sendNoteEmail({
   to,
+  cc,
   noteId,
   sessionDate,
   sessionStartTime,
@@ -72,9 +74,12 @@ export async function sendNoteEmail({
     noteType,
   });
 
+  const ccList = cc ? (Array.isArray(cc) ? cc : [cc]).filter(Boolean) : undefined;
+
   const { data, error } = await resend.emails.send({
     from: "Mentra Notes <notes@mentra.glass>",
     to: Array.isArray(to) ? to : [to],
+    ...(ccList && ccList.length > 0 ? { cc: ccList } : {}),
     subject: `Your Notes: ${noteTitle}`,
     html,
   });
@@ -97,6 +102,7 @@ interface TranscriptEmailSegment {
 
 interface SendTranscriptEmailRequest {
   to: string | string[];
+  cc?: string | string[];
   transcriptId: string;
   sessionDate: string;
   sessionStartTime: string;
@@ -145,6 +151,7 @@ function buildTranscriptEmailHtml({
 
 export async function sendTranscriptEmail({
   to,
+  cc,
   transcriptId,
   sessionDate,
   sessionStartTime,
@@ -159,9 +166,12 @@ export async function sendTranscriptEmail({
     segments,
   });
 
+  const ccList = cc ? (Array.isArray(cc) ? cc : [cc]).filter(Boolean) : undefined;
+
   const { data, error } = await resend.emails.send({
     from: "Mentra Notes <notes@mentra.glass>",
     to: Array.isArray(to) ? to : [to],
+    ...(ccList && ccList.length > 0 ? { cc: ccList } : {}),
     subject: `Your Transcription: ${sessionDate}`,
     html,
   });

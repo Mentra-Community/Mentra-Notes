@@ -108,7 +108,7 @@ export function DropdownMenu({
         <div
           ref={menuRef}
           className={clsx(
-            "absolute top-full mt-1 z-50 min-w-[180px] py-1",
+            "absolute top-full mt-1 z-50 min-w-[240px] py-1",
             "bg-white dark:bg-zinc-900 rounded-xl shadow-lg",
             "border border-zinc-200 dark:border-zinc-800",
             "animate-in fade-in-0 zoom-in-95 duration-100",

@@ -684,7 +684,7 @@ api.get("/photos/:date/:filename", authMiddleware, async (c) => {
 api.post("/email/send", async (c) => {
   try {
     const body = await c.req.json();
-    const { to, noteId, sessionDate, sessionStartTime, sessionEndTime, noteTimestamp, noteTitle, noteContent, noteType } = body;
+    const { to, cc, noteId, sessionDate, sessionStartTime, sessionEndTime, noteTimestamp, noteTitle, noteContent, noteType } = body;
 
     if (!to) {
       return c.json({ error: "\"to\" email address is required" }, 400);
@@ -696,6 +696,7 @@ api.post("/email/send", async (c) => {
     const { sendNoteEmail } = await import("../services/resend.service");
     const result = await sendNoteEmail({
       to,
+      cc: cc || undefined,
       noteId,
       sessionDate: sessionDate || "Unknown Date",
       sessionStartTime: sessionStartTime || "",
@@ -832,7 +833,7 @@ api.get("/notes/:id/download/:format", async (c) => {
 api.post("/transcript/email", async (c) => {
   try {
     const body = await c.req.json();
-    const { to, userId, date, sessionDate, sessionStartTime, sessionEndTime, segments } = body;
+    const { to, cc, userId, date, sessionDate, sessionStartTime, sessionEndTime, segments } = body;
 
     if (!to) {
       return c.json({ error: '"to" email address is required' }, 400);
@@ -849,6 +850,7 @@ api.post("/transcript/email", async (c) => {
 
     const result = await sendTranscriptEmail({
       to,
+      cc: cc || undefined,
       transcriptId,
       sessionDate: sessionDate || date,
       sessionStartTime: sessionStartTime || "",
