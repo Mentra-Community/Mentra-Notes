@@ -679,32 +679,28 @@ api.get("/photos/:date/:filename", authMiddleware, async (c) => {
 // =============================================================================
 
 /**
- * POST /email/send - Send a hello world email
+ * POST /email/send - Send notes email (supports multiple notes in one email)
  */
 api.post("/email/send", async (c) => {
   try {
     const body = await c.req.json();
-    const { to, cc, noteId, sessionDate, sessionStartTime, sessionEndTime, noteTimestamp, noteTitle, noteContent, noteType } = body;
+    const { to, cc, sessionDate, sessionStartTime, sessionEndTime, notes } = body;
 
     if (!to) {
       return c.json({ error: "\"to\" email address is required" }, 400);
     }
-    if (!noteTitle || !noteContent || !noteId) {
-      return c.json({ error: "noteId, noteTitle, and noteContent are required" }, 400);
+    if (!Array.isArray(notes) || notes.length === 0) {
+      return c.json({ error: "notes array is required and must not be empty" }, 400);
     }
 
-    const { sendNoteEmail } = await import("../services/resend.service");
-    const result = await sendNoteEmail({
+    const { sendNotesEmail } = await import("../services/resend.service");
+    const result = await sendNotesEmail({
       to,
       cc: cc || undefined,
-      noteId,
       sessionDate: sessionDate || "Unknown Date",
       sessionStartTime: sessionStartTime || "",
       sessionEndTime: sessionEndTime || "",
-      noteTimestamp: noteTimestamp || "",
-      noteTitle,
-      noteContent,
-      noteType: noteType || "AI Generated",
+      notes,
     });
 
     return c.json({ success: true, data: result });

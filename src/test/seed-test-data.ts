@@ -13,7 +13,7 @@ import { MongoClient } from "mongodb";
 // Configuration
 // =============================================================================
 
-const TEST_USER_ID = "aryan.mentra.dev.public@gmail.com";
+const TEST_USER_ID = process.env.TEST_USER_ID || "test@example.com";
 
 const MONGODB_URI = process.env.MONGODB_URI!;
 const R2_ENDPOINT = process.env.CLOUDFLARE_R2_ENDPOINT!;

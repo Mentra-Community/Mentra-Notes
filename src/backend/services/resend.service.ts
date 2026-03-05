@@ -11,76 +11,115 @@ const templateDir = resolve(import.meta.dir, "../../public/resend-email-template
 const emailTemplate = readFileSync(resolve(templateDir, "notes-email.html"), "utf-8");
 const transcriptTemplate = readFileSync(resolve(templateDir, "transcript-email.html"), "utf-8");
 
-interface SendNoteEmailRequest {
-  to: string | string[];
-  cc?: string | string[];
+interface NoteItem {
   noteId: string;
-  sessionDate: string;
-  sessionStartTime: string;
-  sessionEndTime: string;
   noteTimestamp: string;
   noteTitle: string;
   noteContent: string;
   noteType: string;
 }
 
-function buildNoteEmailHtml({
-  noteId,
-  sessionDate,
-  sessionStartTime,
-  sessionEndTime,
-  noteTimestamp,
-  noteTitle,
-  noteContent,
-  noteType,
-}: Omit<SendNoteEmailRequest, "to">) {
-  const badgeBg = noteType === "AI Generated" ? "#E8F5E9" : "#E3F2FD";
-  const badgeColor = noteType === "AI Generated" ? "#2E7D32" : "#1565C0";
-  const downloadBase = `${BASE_URL}/api/notes/${noteId}/download`;
-  const sessionTimeRange = `${sessionStartTime}${sessionEndTime ? " &mdash; " + sessionEndTime : ""}`;
-
-  return emailTemplate
-    .replaceAll("{{sessionDate}}", sessionDate)
-    .replaceAll("{{sessionTimeRange}}", sessionTimeRange)
-    .replaceAll("{{downloadBase}}", downloadBase)
-    .replaceAll("{{badgeBg}}", badgeBg)
-    .replaceAll("{{badgeColor}}", badgeColor)
-    .replaceAll("{{noteType}}", noteType)
-    .replaceAll("{{noteTimestamp}}", noteTimestamp)
-    .replaceAll("{{noteTitle}}", noteTitle)
-    .replaceAll("{{noteContent}}", noteContent);
+interface SendNotesEmailRequest {
+  to: string | string[];
+  cc?: string | string[];
+  sessionDate: string;
+  sessionStartTime: string;
+  sessionEndTime: string;
+  notes: NoteItem[];
 }
 
-export async function sendNoteEmail({
-  to,
-  cc,
-  noteId,
+function buildNoteCardHtml(note: NoteItem): string {
+  const badgeBg = note.noteType === "AI Generated" ? "#E8F5E9" : "#E3F2FD";
+  const badgeColor = note.noteType === "AI Generated" ? "#2E7D32" : "#1565C0";
+  const downloadBase = `${BASE_URL}/api/notes/${note.noteId}/download`;
+
+  return `<tr>
+  <td style="padding:0 40px 16px;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F7F7F5;border:1px solid #EBEBEB;border-radius:12px;">
+      <tr>
+        <td style="padding:28px;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px;">
+            <tr>
+              <td>
+                <table cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="background-color:${badgeBg};border-radius:4px;padding:3px 8px;">
+                      <span style="color:${badgeColor};font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.04em;line-height:14px;text-transform:uppercase;">${note.noteType}</span>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+              <td align="right">
+                <span style="color:#999999;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:16px;">${note.noteTimestamp}</span>
+              </td>
+            </tr>
+          </table>
+          <p style="margin:0 0 20px 0;color:#1A1A1A;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;letter-spacing:-0.02em;line-height:28px;">${note.noteTitle}</p>
+          <div style="color:#3A3A3A;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;line-height:22px;">${note.noteContent}</div>
+          <table cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+            <tr>
+              <td align="center" style="background-color:#1A1A1A;border-radius:6px;padding:6px 12px;">
+                <a href="${downloadBase}/pdf" style="color:#FFFFFF;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;font-weight:500;line-height:16px;text-decoration:none;">PDF</a>
+              </td>
+              <td width="6"></td>
+              <td align="center" style="background-color:#1A1A1A;border-radius:6px;padding:6px 12px;">
+                <a href="${downloadBase}/txt" style="color:#FFFFFF;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;font-weight:500;line-height:16px;text-decoration:none;">TXT</a>
+              </td>
+              <td width="6"></td>
+              <td align="center" style="background-color:#1A1A1A;border-radius:6px;padding:6px 12px;">
+                <a href="${downloadBase}/docx" style="color:#FFFFFF;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;font-weight:500;line-height:16px;text-decoration:none;">Word</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>`;
+}
+
+function buildNotesEmailHtml({
   sessionDate,
   sessionStartTime,
   sessionEndTime,
-  noteTimestamp,
-  noteTitle,
-  noteContent,
-  noteType,
-}: SendNoteEmailRequest) {
-  const html = buildNoteEmailHtml({
-    noteId,
+  notes,
+}: Omit<SendNotesEmailRequest, "to" | "cc">) {
+  const sessionTimeRange = `${sessionStartTime}${sessionEndTime ? " &mdash; " + sessionEndTime : ""}`;
+  const noteCards = notes.map(buildNoteCardHtml).join("\n");
+
+  return emailTemplate
+    .replaceAll("{{baseUrl}}", BASE_URL)
+    .replaceAll("{{sessionDate}}", sessionDate)
+    .replaceAll("{{sessionTimeRange}}", sessionTimeRange)
+    .replaceAll("{{noteCards}}", noteCards);
+}
+
+export async function sendNotesEmail({
+  to,
+  cc,
+  sessionDate,
+  sessionStartTime,
+  sessionEndTime,
+  notes,
+}: SendNotesEmailRequest) {
+  const html = buildNotesEmailHtml({
     sessionDate,
     sessionStartTime,
     sessionEndTime,
-    noteTimestamp,
-    noteTitle,
-    noteContent,
-    noteType,
+    notes,
   });
 
   const ccList = cc ? (Array.isArray(cc) ? cc : [cc]).filter(Boolean) : undefined;
+  const noteCount = notes.length;
+  const subject = noteCount === 1
+    ? `Your Notes: ${notes[0].noteTitle}`
+    : `Your Notes: ${noteCount} Notes`;
 
   const { data, error } = await resend.emails.send({
     from: "Mentra Notes <notes@mentra.glass>",
     to: Array.isArray(to) ? to : [to],
     ...(ccList && ccList.length > 0 ? { cc: ccList } : {}),
-    subject: `Your Notes: ${noteTitle}`,
+    subject,
     html,
   });
 

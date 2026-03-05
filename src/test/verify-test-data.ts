@@ -7,7 +7,7 @@
 import { S3Client, GetObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { MongoClient } from "mongodb";
 
-const TEST_USER_ID = "aryan.mentra.dev.public@gmail.com";
+const TEST_USER_ID = process.env.TEST_USER_ID || "test@example.com";
 
 const MONGODB_URI = process.env.MONGODB_URI!;
 const R2_ENDPOINT = process.env.CLOUDFLARE_R2_ENDPOINT!;

@@ -413,15 +413,17 @@ export function NotePage() {
                           headers: { "Content-Type": "application/json" },
                           credentials: "include",
                           body: JSON.stringify({
-                            to: "aryan@mentraglass.com",
-                            noteId: note.id,
+                            to: userId || "",
                             sessionDate,
                             sessionStartTime: startTime,
                             sessionEndTime: endTime,
-                            noteTimestamp,
-                            noteTitle: editTitle || note.title,
-                            noteContent: editor?.getHTML() || note.content,
-                            noteType: note.isAIGenerated ? "AI Generated" : "Manual",
+                            notes: [{
+                              noteId: note.id,
+                              noteTimestamp,
+                              noteTitle: editTitle || note.title,
+                              noteContent: editor?.getHTML() || note.content,
+                              noteType: note.isAIGenerated ? "AI Generated" : "Manual",
+                            }],
                           }),
                         });
                         const data = await res.json();

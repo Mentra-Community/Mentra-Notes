@@ -318,36 +318,41 @@ export function DayPage() {
       const noteDate = new Date(dateString + "T00:00:00");
       const sessionDate = noteDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
-      for (const note of selected) {
-        const createdAt = note.createdAt ? new Date(note.createdAt) : new Date();
-        const noteTimestamp = createdAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-        const startTime = note.transcriptRange?.startTime
-          ? new Date(note.transcriptRange.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
-          : noteTimestamp;
-        const endTime = note.transcriptRange?.endTime
-          ? new Date(note.transcriptRange.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
-          : "";
+      // Derive session time range from the earliest/latest note
+      const timestamps = selected.map((n) => n.createdAt ? new Date(n.createdAt).getTime() : Date.now());
+      const earliest = new Date(Math.min(...timestamps));
+      const latest = new Date(Math.max(...timestamps));
+      const sessionStartTime = earliest.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+      const sessionEndTime = timestamps.length > 1
+        ? latest.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+        : "";
 
-        const res = await fetch("/api/email/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            to,
-            cc: ccList,
-            noteId: note.id,
-            sessionDate,
-            sessionStartTime: startTime,
-            sessionEndTime: endTime,
-            noteTimestamp,
-            noteTitle: note.title || "Untitled Note",
-            noteContent: note.content || note.summary || "",
-            noteType: note.isAIGenerated ? "AI Generated" : "Manual",
-          }),
-        });
-        const data = await res.json();
-        if (!data.success) throw new Error(data.error || "Failed to send email");
-      }
+      const notes = selected.map((note) => {
+        const createdAt = note.createdAt ? new Date(note.createdAt) : new Date();
+        return {
+          noteId: note.id,
+          noteTimestamp: createdAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }),
+          noteTitle: note.title || "Untitled Note",
+          noteContent: note.content || note.summary || "",
+          noteType: note.isAIGenerated ? "AI Generated" : "Manual",
+        };
+      });
+
+      const res = await fetch("/api/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          to,
+          cc: ccList,
+          sessionDate,
+          sessionStartTime,
+          sessionEndTime,
+          notes,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "Failed to send email");
       exitSelectionMode();
     } else {
       const finalSegments = daySegments
