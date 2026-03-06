@@ -72,6 +72,27 @@ export function TranscriptTab({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const headerRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
+  // Track the last interim text so we can keep it visible (with finalized styling)
+  // until the matching final segment actually appears in the segments array.
+  // This prevents the "jump" where interim disappears before the final segment arrives.
+  const lastInterimRef = useRef<string>("");
+  const lastSegmentCountRef = useRef<number>(segments.length);
+
+  // When interimText is non-empty, track it
+  if (interimText.trim()) {
+    lastInterimRef.current = interimText;
+  }
+
+  // When a new segment arrives and interim is cleared, clear the stale interim
+  if (segments.length > lastSegmentCountRef.current && !interimText.trim()) {
+    lastInterimRef.current = "";
+  }
+  lastSegmentCountRef.current = segments.length;
+
+  // The text to display as "live" — either actual interim, or the finalized-but-not-yet-in-segments text
+  const displayInterimText = interimText.trim() || lastInterimRef.current;
+  const isInterimFinalized = !interimText.trim() && !!lastInterimRef.current;
+
   // Helper to get hour state based on compact mode and expanded state
   const getHourState = (hourKey: string): HourState => {
     if (expandedHours.has(hourKey)) return "expanded";
@@ -139,9 +160,9 @@ export function TranscriptTab({
       return acc;
     }, {} as GroupedSegments);
 
-    // If there's interim text and a current hour, ensure that hour exists in the groups
+    // If there's interim/finalizing text and a current hour, ensure that hour exists in the groups
     // so the hour section renders immediately (before any final segment arrives)
-    if (currentHour !== undefined && interimText.trim().length > 0) {
+    if (currentHour !== undefined && displayInterimText.length > 0) {
       const currentHourKey = createHourKey(currentHour);
       if (!grouped[currentHourKey]) {
         grouped[currentHourKey] = [];
@@ -155,7 +176,7 @@ export function TranscriptTab({
     });
 
     return { groupedSegments: grouped, sortedHours: sorted };
-  }, [segments, currentHour, interimText]);
+  }, [segments, currentHour, displayInterimText]);
 
   // Get summary for a specific hour
   const getHourSummary = (hour: number): HourSummary | undefined => {
@@ -239,14 +260,6 @@ export function TranscriptTab({
     };
   };
 
-  /**
-   * Check if this is the current hour and has interim text
-   */
-  const hasInterimForHour = (hourKey: string): boolean => {
-    const { hour24 } = parseHourKey(hourKey);
-    const isCurrentHour = currentHour !== undefined && hour24 === currentHour;
-    return isCurrentHour && interimText.trim().length > 0;
-  };
 
   // Tracks which hour we last expanded — images loading in this section will re-trigger scroll
   const activeScrollHourRef = useRef<string | null>(null);
@@ -439,10 +452,16 @@ export function TranscriptTab({
       setIsScrollLocked(locked);
     };
 
-    // Auto-scroll on DOM mutations only when locked and not suppressed
+    // Auto-scroll on DOM mutations only when locked and not suppressed.
+    // Debounced so rapid interim text updates don't spawn competing smooth scrolls.
+    let scrollRaf: number | null = null;
     const observer = new MutationObserver(() => {
       if (!isScrollLockedRef.current || suppressAutoScrollRef.current) return;
-      container.scrollTo({ top: container.scrollHeight, behavior: "instant" });
+      if (scrollRaf) cancelAnimationFrame(scrollRaf);
+      scrollRaf = requestAnimationFrame(() => {
+        container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+        scrollRaf = null;
+      });
     });
 
     observer.observe(container, { childList: true, subtree: true, characterData: true });
@@ -452,6 +471,7 @@ export function TranscriptTab({
     container.scrollTo({ top: container.scrollHeight, behavior: "instant" });
 
     return () => {
+      if (scrollRaf) cancelAnimationFrame(scrollRaf);
       observer.disconnect();
       container.removeEventListener("scroll", handleScroll);
     };
@@ -564,10 +584,18 @@ export function TranscriptTab({
                 </div>
 
                 {/* Live transcription in veryCollapsed (compact) mode for current hour */}
-                {hourState === "veryCollapsed" && hasInterimForHour(hourKey) && (
+                {hourState === "veryCollapsed" && isCurrentHour && displayInterimText && (
                   <div className="flex-1 min-w-0 overflow-hidden">
-                    <p className="text-sm text-zinc-400 dark:text-zinc-500 font-light italic whitespace-nowrap" style={{ direction: "rtl", textAlign: "left" }}>
-                      {interimText}
+                    <p
+                      className={clsx(
+                        "text-sm whitespace-nowrap transition-all duration-300",
+                        isInterimFinalized
+                          ? "text-zinc-700 dark:text-zinc-300"
+                          : "text-zinc-400 dark:text-zinc-500 font-light italic",
+                      )}
+                      style={{ direction: "rtl", textAlign: "left" }}
+                    >
+                      {displayInterimText}
                     </p>
                   </div>
                 )}
@@ -616,9 +644,16 @@ export function TranscriptTab({
                     )}
 
                     {/* Interim text shown BELOW summary for current hour */}
-                    {hasInterimForHour(hourKey) && (
-                      <p className="text-sm text-zinc-400 dark:text-zinc-500 font-light italic mt-1 line-clamp-1">
-                        {interimText}
+                    {isCurrentHour && displayInterimText && (
+                      <p
+                        className={clsx(
+                          "text-sm mt-1 line-clamp-1 transition-all duration-300",
+                          isInterimFinalized
+                            ? "text-zinc-700 dark:text-zinc-300"
+                            : "text-zinc-400 dark:text-zinc-500 font-light italic",
+                        )}
+                      >
+                        {displayInterimText}
                       </p>
                     )}
 
@@ -771,21 +806,26 @@ export function TranscriptTab({
                             );
                           })}
 
-                          {/* Show interim text at the bottom for current hour */}
-                          {isCurrentHour && (
+                          {/* Show interim/finalizing text at the bottom for current hour */}
+                          {isCurrentHour && displayInterimText && (
                             <div
                               className={clsx(
-                                "flex gap-3 transition-all duration-300 ease-out overflow-hidden",
-                                interimText.trim()
-                                  ? "opacity-70 "
-                                  : "opacity-0 max-h-0",
+                                "flex gap-3 transition-opacity duration-300",
+                                isInterimFinalized ? "opacity-100" : "opacity-70",
                               )}
                             >
                               <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500 w-16 shrink-0 pt-0.5">
-                                now
+                                {isInterimFinalized ? "" : "now"}
                               </span>
-                              <p className="flex-1 text-sm text-zinc-400 dark:text-zinc-500 font-light italic leading-relaxed">
-                                {interimText || "\u00A0"}
+                              <p
+                                className={clsx(
+                                  "flex-1 text-sm leading-relaxed transition-all duration-300",
+                                  isInterimFinalized
+                                    ? "text-zinc-700 dark:text-zinc-300"
+                                    : "text-zinc-400 dark:text-zinc-500 font-light italic",
+                                )}
+                              >
+                                {displayInterimText}
                               </p>
                             </div>
                           )}

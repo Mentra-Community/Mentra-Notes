@@ -28,6 +28,7 @@ class SyncClient<T> {
   private userId: string;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private _version = 0;
+  private _notifyScheduled = false;
 
   constructor(userId: string) {
     this.userId = userId;
@@ -104,8 +105,9 @@ class SyncClient<T> {
             [message.property]: message.value,
           };
         }
-        this._version++;
-        this.notifyListeners();
+        // Batched: coalesces rapid sequential state changes (e.g. interimText=""
+        // + segments=[...]) into a single React re-render to prevent layout jumps
+        this.scheduleNotify();
         break;
 
       case "rpc_response":
@@ -178,6 +180,22 @@ class SyncClient<T> {
     for (const listener of this.listeners) {
       listener();
     }
+  }
+
+  /**
+   * Schedule a batched notify — coalesces multiple state_change messages
+   * that arrive in the same microtask into a single React re-render.
+   * This prevents layout jumping when the backend sends e.g. interimText=""
+   * and segments=[...] as two rapid broadcasts for the same event.
+   */
+  private scheduleNotify(): void {
+    this._version++;
+    if (this._notifyScheduled) return;
+    this._notifyScheduled = true;
+    queueMicrotask(() => {
+      this._notifyScheduled = false;
+      this.notifyListeners();
+    });
   }
 
   reconnect(): void {
