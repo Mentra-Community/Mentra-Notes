@@ -6,6 +6,7 @@
 
 export { TimeManager } from "./TimeManager";
 export { TranscriptManager, type TranscriptSegment, type HourSummary } from "./TranscriptManager";
+export { SummaryManager } from "./SummaryManager";
 export { NotesManager, type NoteData } from "./NotesManager";
 export { ChatManager, type ChatMessage } from "./ChatManager";
 export { SettingsManager, type GlassesDisplayMode } from "./SettingsManager";

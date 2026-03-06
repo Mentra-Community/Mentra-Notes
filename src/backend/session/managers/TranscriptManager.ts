@@ -1,7 +1,7 @@
 /**
  * TranscriptManager
  *
- * Manages transcript segments, interim text, and hour summaries.
+ * Manages transcript segments, interim text, loading, and persisting.
  * Handles both real-time transcription and historical transcript loading.
  */
 
@@ -10,24 +10,12 @@ import {
   getOrCreateDailyTranscript,
   getAvailableDates,
   appendTranscriptSegments,
-  saveHourSummary,
-  getHourSummaries,
   type TranscriptSegmentI,
 } from "../../models";
 import type { R2TranscriptSegment } from "../../services/r2Upload.service";
-import {
-  createProviderFromEnv,
-  type AgentProvider,
-  type UnifiedMessage,
-} from "../../services/llm";
-import {
-  getUserState,
-  createUserState,
-  updateTranscriptionBatchEndOfDay,
-} from "../../services/userState.service";
 import { TimeManager } from "./TimeManager";
 import type { FileManager } from "./FileManager";
-import { get } from "http";
+import type { SummaryManager } from "./SummaryManager";
 
 // =============================================================================
 // Types
@@ -65,33 +53,22 @@ export class TranscriptManager extends SyncedManager {
   @synced segments = synced<TranscriptSegment[]>([]);
   @synced interimText = "";
   @synced isRecording = false;
-  @synced hourSummaries = synced<HourSummary[]>([]);
-  @synced currentHourSummary = "";
   @synced loadedDate = "";
   @synced availableDates = synced<string[]>([]);
   @synced isLoadingHistory = false;
   @synced isSyncingPhoto = false;
 
   private segmentIndex = 0;
-  private provider: AgentProvider | null = null;
   private pendingSegments: TranscriptSegmentI[] = [];
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
-  private rollingSummaryTimer: ReturnType<typeof setInterval> | null = null;
-  private lastSummaryHour: number = -1;
-  private lastSummarySegmentCount: number = 0;
-  private userStateInitialized = false;
   private timeManager: TimeManager | null = null;
-  private transcriptionBatchEndOfDay: Date | null = null;
 
   // ===========================================================================
   // Private Helpers
   // ===========================================================================
 
-  private getProvider(): AgentProvider {
-    if (!this.provider) {
-      this.provider = createProviderFromEnv();
-    }
-    return this.provider;
+  private getSummaryManager(): SummaryManager | null {
+    return (this._session as any)?.summary || null;
   }
 
   private getTimeManager(): TimeManager {
@@ -100,7 +77,7 @@ export class TranscriptManager extends SyncedManager {
     const appTimezone = (this._session as any).appSession?.settings?.getMentraOS(
       "userTimezone",
     ) as string | undefined;
-    const currentTimezone = settingsTimezone || appTimezone || undefined;
+    const currentTimezone = appTimezone || settingsTimezone || undefined;
 
     // Recreate TimeManager if timezone changed (e.g. glasses connected after hydration)
     if (!this.timeManager || (this as any)._lastTimezone !== currentTimezone) {
@@ -189,43 +166,6 @@ export class TranscriptManager extends SyncedManager {
         );
       }
 
-      // Load saved hour summaries
-      const savedSummaries = await getHourSummaries(userId, today);
-      if (savedSummaries.length > 0) {
-        const loadedSummaries: HourSummary[] = savedSummaries.map((s) => ({
-          id: `summary_${s.date}_${s.hour}`,
-          date: s.date,
-          hour: s.hour,
-          hourLabel: s.hourLabel,
-          summary: s.summary,
-          segmentCount: s.segmentCount,
-          createdAt: s.createdAt,
-          updatedAt: s.updatedAt,
-        }));
-        this.hourSummaries.set(loadedSummaries);
-      }
-
-      // Load or create transcriptionBatchEndOfDay from MongoDB
-      const defaultEndOfDay = new Date(this.getTimeManager().endOfDay());
-      console.log(
-        `[TranscriptManager] Ensuring UserState exists for ${userId}, default EOD: ${defaultEndOfDay.toISOString()}`,
-      );
-      const timezone = (this._session as any).appSession?.settings?.getMentraOS(
-        "userTimezone",
-      ) as string | undefined;
-      const userState = await createUserState(userId, defaultEndOfDay, timezone);
-
-      // Use the DB value — it may be older than today if there are unbatched transcripts
-      this.transcriptionBatchEndOfDay = userState.transcriptionBatchEndOfDay;
-      this.userStateInitialized = true;
-      console.log(
-        `[TranscriptManager] Loaded batch end of day from DB: ${this.transcriptionBatchEndOfDay}`,
-      );
-
-      // Catch up on any missed batches (e.g. old transcripts from previous days)
-      await this.setBatchDate();
-
-      this.startRollingSummaryTimer();
     } catch (error) {
       console.error("[TranscriptManager] Failed to hydrate:", error);
     }
@@ -252,89 +192,10 @@ export class TranscriptManager extends SyncedManager {
   }
 
   destroy(): void {
-    this.stopRollingSummaryTimer();
     if (this.saveTimer) {
       clearTimeout(this.saveTimer);
       this.saveTimer = null;
     }
-  }
-
-  // ===========================================================================
-  // Rolling Summary Timer
-  // ===========================================================================
-
-  private startRollingSummaryTimer(): void {
-    if (this.rollingSummaryTimer) return;
-
-    this.updateRollingSummary();
-
-    this.rollingSummaryTimer = setInterval(
-      () => {
-        this.updateRollingSummary();
-      },
-      5 * 60 * 1000,
-    );
-
-    console.log("[TranscriptManager] Rolling summary timer started");
-  }
-
-  private stopRollingSummaryTimer(): void {
-    if (this.rollingSummaryTimer) {
-      clearInterval(this.rollingSummaryTimer);
-      this.rollingSummaryTimer = null;
-    }
-  }
-
-  private async updateRollingSummary(): Promise<void> {
-    const now = new Date();
-    const timeManager = this.getTimeManager();
-    const currentHour = timeManager.currentHour();
-    const today = timeManager.today();
-
-    const hourSegments = this.segments.filter((seg) => {
-      const segHour = timeManager.hourFrom(seg.timestamp);
-      const segDateStr = timeManager.toDateString(new Date(seg.timestamp));
-      return segDateStr === today && segHour === currentHour;
-    });
-
-    const hourChanged = currentHour !== this.lastSummaryHour;
-    const significantNewSegments =
-      hourSegments.length >= this.lastSummarySegmentCount + 5;
-
-    if (hourSegments.length === 0) {
-      if (hourChanged) {
-        this.currentHourSummary = `${timeManager.formatHour(currentHour)} - Waiting for activity...`;
-        this.lastSummaryHour = currentHour;
-        this.lastSummarySegmentCount = 0;
-      }
-      return;
-    }
-
-    if (!hourChanged && !significantNewSegments) {
-      return;
-    }
-
-    try {
-      const summary = await this.generateHourSummary(currentHour);
-      this.currentHourSummary = summary.summary;
-      this.lastSummaryHour = currentHour;
-      this.lastSummarySegmentCount = hourSegments.length;
-    } catch (error) {
-      console.error(
-        "[TranscriptManager] Failed to update rolling summary:",
-        error,
-      );
-      this.currentHourSummary = `${timeManager.formatHour(currentHour)} - ${hourSegments.length} segments recorded`;
-    }
-  }
-
-  getCurrentHourSummary(): string {
-    if (this.currentHourSummary) {
-      return this.currentHourSummary;
-    }
-    const timeManager = this.getTimeManager();
-    const hour = timeManager.currentHour();
-    return `${timeManager.formatHour(hour)} - Starting...`;
   }
 
   // ===========================================================================
@@ -442,12 +303,6 @@ export class TranscriptManager extends SyncedManager {
   // ===========================================================================
 
   @rpc
-  async refreshHourSummary(): Promise<string> {
-    await this.updateRollingSummary();
-    return this.currentHourSummary;
-  }
-
-  @rpc
   async loadDateTranscript(
     date: string,
   ): Promise<{ segments: TranscriptSegment[]; hourSummaries: HourSummary[] }> {
@@ -476,9 +331,10 @@ export class TranscriptManager extends SyncedManager {
         `[TranscriptManager] ========================================`,
       );
       this.loadedDate = today;
+      const summaryManager = this.getSummaryManager();
       return {
         segments: [...this.segments],
-        hourSummaries: [...this.hourSummaries],
+        hourSummaries: summaryManager ? [...summaryManager.hourSummaries] : [],
       };
     }
 
@@ -511,35 +367,14 @@ export class TranscriptManager extends SyncedManager {
             }),
           );
 
-          // R2 doesn't store hour summaries, but they may exist in MongoDB
-          let loadedSummaries: HourSummary[] = [];
-          try {
-            const savedSummaries = await getHourSummaries(userId, date);
-            if (savedSummaries.length > 0) {
-              loadedSummaries = savedSummaries.map((s) => ({
-                id: `summary_${s.date}_${s.hour}`,
-                date: s.date,
-                hour: s.hour,
-                hourLabel: s.hourLabel,
-                summary: s.summary,
-                segmentCount: s.segmentCount,
-                createdAt: s.createdAt,
-                updatedAt: s.updatedAt,
-              }));
-              console.log(
-                `[TranscriptManager] ✓ Loaded ${loadedSummaries.length} hour summaries from MongoDB for ${date}`,
-              );
-            }
-          } catch (err) {
-            console.error(
-              `[TranscriptManager] Failed to load hour summaries from MongoDB for ${date}:`,
-              err,
-            );
-          }
+          // Delegate summary loading to SummaryManager
+          const summaryManager = this.getSummaryManager();
+          const loadedSummaries = summaryManager
+            ? await summaryManager.loadSummariesForDate(date)
+            : [];
 
           this.segments.set(loadedSegments);
           this.loadedDate = date;
-          this.hourSummaries.set(loadedSummaries);
           this.isLoadingHistory = false;
 
           console.log(
@@ -561,7 +396,7 @@ export class TranscriptManager extends SyncedManager {
       console.log(`[TranscriptManager] ✗ No transcript found for ${date}`);
       this.segments.set([]);
       this.loadedDate = date;
-      this.hourSummaries.set([]);
+      this.getSummaryManager()?.loadSummariesForDate(date);
       this.isLoadingHistory = false;
 
       return { segments: [], hourSummaries: [] };
@@ -616,232 +451,7 @@ export class TranscriptManager extends SyncedManager {
     this.segments.set([]);
     this.interimText = "";
     this.segmentIndex = 0;
-    this.hourSummaries.set([]);
-    this.currentHourSummary = "";
-    this.lastSummaryHour = -1;
-    this.lastSummarySegmentCount = 0;
+    this.getSummaryManager()?.clear();
   }
 
-  @rpc
-  async generateHourSummary(hour?: number): Promise<HourSummary> {
-    const timeManager = this.getTimeManager();
-    const targetHour = hour ?? timeManager.currentHour();
-    const targetDate = this.loadedDate || timeManager.today();
-
-    const hourSegments = this.segments.filter((seg) => {
-      const segHour = timeManager.hourFrom(seg.timestamp);
-      const segDateStr = timeManager.toDateString(new Date(seg.timestamp));
-      return segDateStr === targetDate && segHour === targetHour;
-    });
-
-    if (hourSegments.length === 0) {
-      const summary: HourSummary = {
-        id: `summary_${targetDate}_${targetHour}`,
-        date: targetDate,
-        hour: targetHour,
-        hourLabel: timeManager.formatHour(targetHour),
-        summary: "No activity recorded during this hour.",
-        segmentCount: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      return summary;
-    }
-
-    const transcriptText = hourSegments.map((s) => s.text).join(" ");
-
-    const provider = this.getProvider();
-    const messages: UnifiedMessage[] = [
-      {
-        role: "user",
-        content: `Summarize this hour's activity:\n\n${transcriptText}`,
-      },
-    ];
-
-    try {
-      const response = await provider.chat(messages, {
-        tier: "fast",
-        maxTokens: 200,
-        systemPrompt: `You write hour summaries for a personal notes app. Output a TITLE on line 1, then a BODY on line 2.
-
-FORMAT:
-Line 1: Short title (2-4 words, noun phrase, no punctuation)
-Line 2: 1-2 sentences in PAST TENSE describing what happened. Be specific and punchy.
-
-RULES:
-- Title is a noun phrase like "Product Launch Sync" or "Bug Fixes"
-- Body uses past tense: "Fixed", "Debugged", "Reviewed", "Discussed"
-- NO filler: skip "also", "additionally", "as well"
-- Include specific names, numbers, technical terms mentioned
-- Keep body under 150 characters`,
-      });
-
-      const responseText =
-        typeof response.content === "string"
-          ? response.content
-          : response.content
-              .filter((c) => c.type === "text")
-              .map((c) => (c as any).text)
-              .join("");
-
-      const summary: HourSummary = {
-        id: `summary_${targetDate}_${targetHour}`,
-        date: targetDate,
-        hour: targetHour,
-        hourLabel: timeManager.formatHour(targetHour),
-        summary: responseText,
-        segmentCount: hourSegments.length,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      // Persist to database
-      const userId = this._session?.userId;
-      if (userId) {
-        try {
-          await saveHourSummary(
-            userId,
-            targetDate,
-            targetHour,
-            summary.hourLabel,
-            summary.summary,
-            summary.segmentCount,
-          );
-        } catch (err) {
-          console.error(
-            "[TranscriptManager] Failed to save hour summary:",
-            err,
-          );
-        }
-      }
-
-      // Update local state
-      this.hourSummaries.mutate((summaries) => {
-        const existingIndex = summaries.findIndex(
-          (s) => s.date === targetDate && s.hour === targetHour,
-        );
-        if (existingIndex >= 0) {
-          summaries[existingIndex] = summary;
-        } else {
-          summaries.push(summary);
-        }
-      });
-
-      return summary;
-    } catch (error) {
-      console.error(
-        "[TranscriptManager] Failed to generate hour summary:",
-        error,
-      );
-      throw error;
-    }
-  }
-  /**
-   * Check if batch date has passed, and if so trigger R2 upload and update to new end of day
-   */
-  async setBatchDate(): Promise<void> {
-    const passed = await this.checkBatchDate();
-    if (passed) {
-      const userId = this._session?.userId;
-      if (!userId) return;
-
-      const timeManager = this.getTimeManager();
-      // Get timezone from TimeManager (which resolves to system default if not set)
-      const timezone = timeManager.getTimezone();
-
-      // Use the stored cutoff timestamp - batch all segments up to this time
-      const cutoffTimestamp = this.transcriptionBatchEndOfDay;
-      if (!cutoffTimestamp) {
-        console.error(`[setBatchDate] No cutoff timestamp available`);
-        return;
-      }
-
-      const cutoffISO = cutoffTimestamp.toISOString();
-      console.log(
-        `[setBatchDate] Batch cutoff crossed, uploading transcripts up to ${cutoffISO}`,
-      );
-
-      // Trigger R2 upload via CloudflareR2Manager
-      const r2Manager = (this._session as any)?.r2;
-      if (r2Manager) {
-        const batchResult = await r2Manager.triggerBatch(
-          userId,
-          cutoffISO,
-          timezone,
-        );
-
-        if (batchResult.success) {
-          // Delete processed segments from MongoDB (pass timezone for date-based cleanup)
-          const deletedCount = await r2Manager.cleanupProcessedSegments(
-            cutoffISO,
-            timezone,
-          );
-          console.log(
-            `[setBatchDate] Cleaned up ${deletedCount} segments from MongoDB`,
-          );
-
-          // Update batch cutoff on success
-          const newEndOfDay = new Date(this.getTimeManager().endOfDay());
-
-          await updateTranscriptionBatchEndOfDay(userId, newEndOfDay);
-          console.log(
-            `[setBatchDate] R2 batch successful, updated cutoff: ${newEndOfDay}`,
-          );
-        } else {
-          console.error(
-            `[setBatchDate] R2 batch failed, keeping old cutoff for retry:`,
-            batchResult.error,
-          );
-        }
-      } else {
-        // No R2 manager available, just update the cutoff
-        console.warn(
-          `[setBatchDate] No R2Manager available, skipping R2 upload`,
-        );
-        const newEndOfDay = new Date(this.getTimeManager().endOfDay());
-        await updateTranscriptionBatchEndOfDay(userId, newEndOfDay);
-      }
-    }
-  }
-
-  /**
-   * Check if the current UTC time has passed the batch end of day
-   * Fetches fresh data from MongoDB every time
-   * Returns true if batch has expired (day has changed), false otherwise
-   */
-  async checkBatchDate(): Promise<boolean> {
-    const userId = this._session?.userId;
-    if (!userId) {
-      console.log("[checkBatchDate] No userId available");
-      return false;
-    }
-
-    // Fetch fresh from MongoDB every time
-    const userState = await getUserState(userId);
-    if (!userState?.transcriptionBatchEndOfDay) {
-      console.log("[checkBatchDate] Batch date not set in DB");
-      return false;
-    }
-
-    const batchEndOfDay = userState.transcriptionBatchEndOfDay;
-    this.transcriptionBatchEndOfDay = batchEndOfDay; // Update local cache
-
-    const timeManager = this.getTimeManager();
-    const currentUTC = timeManager.now();
-    console.log(
-      `[checkBatchDate] Current UTC: ${currentUTC} | Batch End: ${batchEndOfDay.toISOString()}`,
-    );
-
-    if (currentUTC > batchEndOfDay.toISOString()) {
-      console.log(
-        "[checkBatchDate] PASSED - Current UTC time has passed batch end of day",
-      );
-      return true;
-    } else {
-      console.log(
-        "[checkBatchDate] NOT PASSED - Current UTC time has NOT passed batch end of day",
-      );
-      return false;
-    }
-  }
 }

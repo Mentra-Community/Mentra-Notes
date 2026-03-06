@@ -12,6 +12,7 @@
 import { SyncedSession, SessionManager, manager } from "../../lib/sync";
 import {
   TranscriptManager,
+  SummaryManager,
   NotesManager,
   ChatManager,
   SettingsManager,
@@ -29,6 +30,7 @@ export class NotesSession extends SyncedSession {
   // IMPORTANT: settings must hydrate first — other managers read settings.timezone
   @manager settings = new SettingsManager();
   @manager transcript = new TranscriptManager();
+  @manager summary = new SummaryManager();
   @manager notes = new NotesManager();
   @manager chat = new ChatManager();
   @manager r2 = new CloudflareR2Manager();
@@ -155,12 +157,9 @@ export class NotesSession extends SyncedSession {
 
   /**
    * Clean up resources when session is disposed
+   * Base class handles persist() then destroy() on all managers automatically
    */
   async dispose(): Promise<void> {
-    // Clean up transcript manager timers
-    this.transcript.destroy();
-
-    // Call parent dispose (persists data, clears clients)
     await super.dispose();
   }
 
@@ -187,7 +186,7 @@ export class NotesSession extends SyncedSession {
       case "hour_summary":
         // Show the rolling hour summary instead of raw text
         // Only update on final segments to avoid flickering
-        const summary = this.transcript.getCurrentHourSummary();
+        const summary = this.summary.getCurrentHourSummary();
         this._appSession.dashboard.content.write(`📝 ${summary}`);
         break;
 

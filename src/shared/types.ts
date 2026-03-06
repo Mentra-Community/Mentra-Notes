@@ -77,8 +77,6 @@ export interface TranscriptManagerI {
   segments: TranscriptSegment[];
   interimText: string;
   isRecording: boolean;
-  hourSummaries: HourSummary[];
-  currentHourSummary: string; // Rolling summary for glasses display
   loadedDate: string; // Currently loaded date (YYYY-MM-DD)
   availableDates: string[]; // Dates with transcripts (for folder list)
   isLoadingHistory: boolean; // Loading indicator for historical data
@@ -88,13 +86,21 @@ export interface TranscriptManagerI {
   getRecentSegments(count?: number): Promise<TranscriptSegment[]>;
   getFullText(): Promise<string>;
   clear(): Promise<void>;
-  generateHourSummary(hour?: number): Promise<HourSummary>;
-  refreshHourSummary(): Promise<string>; // Force immediate summary update
   loadDateTranscript(date: string): Promise<{
     segments: TranscriptSegment[];
     hourSummaries: HourSummary[];
   }>; // Load historical transcript
   loadTodayTranscript(): Promise<void>; // Switch back to today
+}
+
+export interface SummaryManagerI {
+  // State (auto-syncs)
+  hourSummaries: HourSummary[];
+  currentHourSummary: string; // Rolling summary for glasses display
+
+  // RPCs
+  generateHourSummary(hour?: number): Promise<HourSummary>;
+  refreshHourSummary(): Promise<string>; // Force immediate summary update
 }
 
 export interface NotesManagerI {
@@ -205,6 +211,7 @@ export interface SessionI {
 
   // Managers
   transcript: TranscriptManagerI;
+  summary: SummaryManagerI;
   notes: NotesManagerI;
   chat: ChatManagerI;
   settings: SettingsManagerI;

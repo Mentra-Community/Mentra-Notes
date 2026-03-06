@@ -154,7 +154,7 @@ export function DayPage() {
   // Get data from session
   const allNotes = session?.notes?.notes ?? [];
   const allSegments = session?.transcript?.segments ?? [];
-  const hourSummaries = session?.transcript?.hourSummaries ?? [];
+  const hourSummaries = session?.summary?.hourSummaries ?? [];
   const interimText = session?.transcript?.interimText ?? "";
   const isRecording = session?.transcript?.isRecording ?? false;
   const isSyncingPhoto = session?.transcript?.isSyncingPhoto ?? false;
@@ -629,7 +629,7 @@ export function DayPage() {
                 currentHour={isToday ? currentHour : undefined}
                 dateString={dateString}
                 timezone={session?.settings?.timezone ?? undefined}
-                onGenerateSummary={session?.transcript?.generateHourSummary}
+                onGenerateSummary={session?.summary?.generateHourSummary}
                 isCompactMode={isCompactMode}
                 isSyncingPhoto={isToday ? isSyncingPhoto : false}
                 isLoading={isDataLoading}

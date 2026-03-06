@@ -91,8 +91,8 @@ export class NotesApp extends AppServer {
         console.log(
           `Today's date: ${timeManager.today()} | EOD: ${timeManager.endOfDay()} | UTC: ${timeManager.now()}`,
         );
-        // Check and update batch date if day has passed
-        await notesSession.transcript.setBatchDate();
+        // Check and run batch if day has passed
+        await notesSession.r2.checkAndRunBatch();
       }
     });
 
