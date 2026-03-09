@@ -71,7 +71,7 @@ export function DayPage() {
   const params = useParams<{ date: string }>();
   const [, setLocation] = useLocation();
   const { userId } = useMentraAuth();
-  const { session, isConnected } = useSynced<SessionI>(userId || "");
+  const { session, isConnected, isReconnecting } = useSynced<SessionI>(userId || "");
 
   const newMentraUI = useFeatureFlag("new-mentraos-ui-miniapps");
   const [activeTab, setActiveTab] = useState<TabType>(() => {
@@ -209,10 +209,18 @@ export function DayPage() {
   // Get current hour for determining which hour is "in progress"
   const currentHour = new Date().getHours();
 
+  // Reset date tracking after reconnection so the effect below re-fetches
+  useEffect(() => {
+    if (!isReconnecting && lastLoadedDateRef.current) {
+      lastLoadedDateRef.current = null;
+    }
+  }, [isReconnecting]);
+
   // Load historical transcript when viewing a past date
   useEffect(() => {
     if (!session?.transcript?.loadDateTranscript) return;
     if (!dateString) return;
+    if (isReconnecting) return; // Wait for reconnection to finish
 
     // Skip if we already loaded this date
     if (lastLoadedDateRef.current === dateString) return;
@@ -390,7 +398,8 @@ export function DayPage() {
     }
   }, [emailDrawerAction, dayNotes, selectedNoteIds, daySegments, dateString, userId, exitSelectionMode]);
 
-  if (!session) {
+  // Show full page skeleton on initial load OR when reconnecting after background
+  if (!session || isReconnecting) {
     return <DayPageSkeleton />;
   }
 

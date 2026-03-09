@@ -467,7 +467,7 @@ export function TranscriptTab({
     observer.observe(container, { childList: true, subtree: true, characterData: true });
     container.addEventListener("scroll", handleScroll);
 
-    // Initial scroll to bottom
+    // Initial scroll to bottom (instant — covers both first mount and post-reconnect)
     container.scrollTo({ top: container.scrollHeight, behavior: "instant" });
 
     return () => {
@@ -475,7 +475,7 @@ export function TranscriptTab({
       observer.disconnect();
       container.removeEventListener("scroll", handleScroll);
     };
-  }, []);
+  }, [isLoading]);
 
   // Scroll to bottom and re-lock
   const scrollToBottomAndLock = useCallback(() => {

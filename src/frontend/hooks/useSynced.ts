@@ -25,14 +25,18 @@ class SyncClient<T> {
   private rpcIdCounter = 0;
   private listeners: Set<() => void> = new Set();
   private _isConnected = false;
+  private _isReconnecting = false;
+  private _hasConnectedOnce = false;
   private userId: string;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private _version = 0;
   private _notifyScheduled = false;
+  private _visibilityHandler: (() => void) | null = null;
 
   constructor(userId: string) {
     this.userId = userId;
     this.connect();
+    this.setupVisibilityHandler();
   }
 
   private connect(): void {
@@ -54,6 +58,10 @@ class SyncClient<T> {
     this.ws.onclose = () => {
       console.log("[Synced] Disconnected");
       this._isConnected = false;
+      // If we had connected before, mark as reconnecting so the UI can show loading state
+      if (this._hasConnectedOnce) {
+        this._isReconnecting = true;
+      }
       this._version++;
       this.notifyListeners();
 
@@ -79,8 +87,10 @@ class SyncClient<T> {
         break;
 
       case "snapshot":
-        console.log("[Synced] Snapshot received");
+        console.log("[Synced] Snapshot received", this._isReconnecting ? "(reconnect)" : "(initial)");
         this.state = message.state;
+        this._hasConnectedOnce = true;
+        this._isReconnecting = false;
         this._version++;
         this.notifyListeners();
         // Auto-detect and sync user timezone on connection
@@ -206,12 +216,40 @@ class SyncClient<T> {
 
   dispose(): void {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    if (this._visibilityHandler) {
+      document.removeEventListener("visibilitychange", this._visibilityHandler);
+    }
     this.ws?.close();
     this.listeners.clear();
   }
 
+  private setupVisibilityHandler(): void {
+    if (typeof document === "undefined") return;
+    this._visibilityHandler = () => {
+      if (document.hidden) {
+        // Going to background — close WebSocket cleanly so we don't
+        // accumulate a stale connection the OS will kill anyway
+        if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+        this.ws?.close();
+      } else {
+        // Coming back to foreground — reconnect immediately if not connected
+        if (!this._isConnected) {
+          if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+          this.reconnectTimer = null;
+          this.connect();
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", this._visibilityHandler);
+  }
+
   get isConnected(): boolean {
     return this._isConnected;
+  }
+
+  get isReconnecting(): boolean {
+    return this._isReconnecting;
   }
 
   get currentState(): Record<string, any> {
@@ -236,6 +274,7 @@ const clientCache = new Map<string, SyncClient<any>>();
 export interface UseSyncedResult<T> {
   session: T | null;
   isConnected: boolean;
+  isReconnecting: boolean;
   reconnect: () => void;
 }
 
@@ -349,6 +388,7 @@ export function useSynced<T>(userId: string): UseSyncedResult<T> {
   return {
     session,
     isConnected: client?.isConnected ?? false,
+    isReconnecting: client?.isReconnecting ?? false,
     reconnect,
   };
 }
