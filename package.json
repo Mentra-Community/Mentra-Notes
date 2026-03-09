@@ -11,7 +11,12 @@
   "scripts": {
     "dev": "lsof -ti:3000 | xargs kill -9 2>/dev/null; NODE_ENV=development bun --watch src/index.ts",
     "start": "bun src/index.ts",
-    "ngrok": "ngrok http 3000 --url https://isaiah-tpa.ngrok.app"
+    "ngrok": "ngrok http 3000 --url https://isaiah-tpa.ngrok.app",
+    "test:eval:triage": "bun test src/test/evals/triage/triage-classifier.test.ts",
+    "test:eval:triage:easy": "EVAL_DIFFICULTY=easy bun test src/test/evals/triage/triage-classifier.test.ts",
+    "test:eval:triage:medium": "EVAL_DIFFICULTY=medium bun test src/test/evals/triage/triage-classifier.test.ts",
+    "test:eval:triage:hard": "EVAL_DIFFICULTY=hard bun test src/test/evals/triage/triage-classifier.test.ts",
+    "test:eval:triage:realistic": "EVAL_DIFFICULTY=realistic bun test src/test/evals/triage/triage-classifier.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.35.0",

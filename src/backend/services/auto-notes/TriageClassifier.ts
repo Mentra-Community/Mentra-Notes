@@ -105,7 +105,7 @@ export class TriageClassifier {
 
       const domainContext = getDomainPromptContext(this.domainProfile);
 
-      const prompt = `You are a transcript triage classifier. Your job is to decide if a transcript chunk contains meaningful conversation or is just filler/background noise.
+      const prompt = `You are a transcript triage classifier for an always-on wearable microphone. Your job is to decide if a transcript chunk contains meaningful conversation or is just filler/background noise.
 
 Domain context: ${domainContext}
 
@@ -114,11 +114,28 @@ ${contextText ? `Recent context:\n${contextText}\n\n` : ""}Current chunk to clas
 
 Classify this chunk as either FILLER or MEANINGFUL.
 
-FILLER means: background noise, small talk ("how's it going", "nice weather"), incomplete fragments, music/TV in background, or repetitive filler words.
+FILLER means:
+- Background noise, music, TV, or transcription artifacts (e.g. "[inaudible]", "[crosstalk]")
+- Greetings and goodbyes with no substance ("hey how's it going", "see you later")
+- Small talk about weather, food, commute, sports, weekend plans
+- Pure acknowledgments and backchannel ("yeah", "okay sure", "mmhmm", "that's interesting")
+- Stalling and non-committal responses ("we'll see", "let me think about it", "hmm")
+- Transition phrases with no content ("anyway, moving on", "so yeah")
+- Vague agreement or deference with no new information ("whatever you think is best")
+- Personal momentary interruptions with no lasting info ("hold on, left my keys", "let me grab my charger", "one sec, bathroom break")
+- Standalone location references without context that don't convey who/what/why (e.g. "Room 204" alone with no surrounding discussion)
 
-MEANINGFUL means: substantive discussion, decisions being made, information being shared, planning, problem-solving, or any conversation with real content worth documenting.
+MEANINGFUL means:
+- Specific facts, numbers, names, dates, or times that answer a question or advance a discussion (e.g. "Thursday at nine", "two fifty", "she quit")
+- Decisions, agreements, or disagreements about something concrete
+- Action items, requests, or commitments
+- Problem reports, incidents, or complaints with specifics
+- Planning, scheduling, or coordination
+- Any statement that a note-taker would want to capture
 
-When in doubt, lean toward MEANINGFUL — it's better to capture something unnecessary than miss something important.
+IMPORTANT: Even very short phrases can be meaningful if they convey a specific fact, data point, or decision. "She quit" is meaningful (important news). "Thursday at nine" is meaningful (scheduling). "Two fifty" is meaningful (a number/price). But "okay sure" is filler (pure acknowledgment).
+
+When transcription produces doubled/repeated words (e.g. "I I left left my my keys keys"), look past the repetition to judge the underlying content. A personal errand interruption is still filler even with transcription artifacts.
 
 Respond with exactly one word: FILLER or MEANINGFUL`;
 
