@@ -13,7 +13,7 @@ import { useParams, useLocation } from "wouter";
 import { useMentraAuth } from "@mentra/react";
 import { format, parse } from "date-fns";
 import { clsx } from "clsx";
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 import {
   ChevronLeft,
   Star,
@@ -614,53 +614,42 @@ export function DayPage() {
         )}
       </div>
 
-      {/* Tab Content */}
+      {/* Tab Content — tabs stay mounted so state (scroll position, expanded sections) persists */}
       <div className="flex-1 min-h-0 overflow-hidden relative">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.08, ease: "easeInOut" }}
-            className="h-full"
-          >
-            {activeTab === "notes" && (
-              <NotesTab
-                notes={dayNotes}
-                isLoading={isDataLoading}
-                selectionMode={noteSelectionMode !== null}
-                selectedNoteIds={selectedNoteIds}
-                onToggleSelection={toggleNoteSelection}
-              />
-            )}
-            {activeTab === "transcript" && (
-              <TranscriptTab
-                segments={daySegments}
-                hourSummaries={hourSummaries}
-                interimText={isToday ? interimText : ""}
-                currentHour={isToday ? currentHour : undefined}
-                dateString={dateString}
-                timezone={session?.settings?.timezone ?? undefined}
-                onGenerateSummary={session?.summary?.generateHourSummary}
-                isCompactMode={isCompactMode}
-                isSyncingPhoto={isToday ? isSyncingPhoto : false}
-                isLoading={isDataLoading}
-              />
-            )}
-            {activeTab === "conversations" && (
-              <ConversationsTab
-                conversations={conversations}
-                isLoading={isDataLoading}
-                onDeleteConversation={(id) => session?.conversation?.deleteConversation(id)}
-              />
-            )}
-            {/* {activeTab === "audio" && <AudioTab />} */}
-            {activeTab === "ai" && (
-              <AITab date={date} isLoading={isDataLoading} />
-            )}
-          </motion.div>
-        </AnimatePresence>
+        <div className={clsx("h-full", activeTab !== "notes" && "hidden")}>
+          <NotesTab
+            notes={dayNotes}
+            isLoading={isDataLoading}
+            selectionMode={noteSelectionMode !== null}
+            selectedNoteIds={selectedNoteIds}
+            onToggleSelection={toggleNoteSelection}
+          />
+        </div>
+        <div className={clsx("h-full", activeTab !== "transcript" && "hidden")}>
+          <TranscriptTab
+            segments={daySegments}
+            hourSummaries={hourSummaries}
+            interimText={isToday ? interimText : ""}
+            currentHour={isToday ? currentHour : undefined}
+            dateString={dateString}
+            timezone={session?.settings?.timezone ?? undefined}
+            onGenerateSummary={session?.summary?.generateHourSummary}
+            isCompactMode={isCompactMode}
+            isSyncingPhoto={isToday ? isSyncingPhoto : false}
+            isLoading={isDataLoading}
+          />
+        </div>
+        <div className={clsx("h-full", activeTab !== "conversations" && "hidden")}>
+          <ConversationsTab
+            conversations={conversations}
+            isLoading={isDataLoading}
+            onDeleteConversation={(id) => session?.conversation?.deleteConversation(id)}
+          />
+        </div>
+        {/* {activeTab === "audio" && <AudioTab />} */}
+        <div className={clsx("h-full", activeTab !== "ai" && "hidden")}>
+          <AITab date={date} isLoading={isDataLoading} />
+        </div>
       </div>
 
       {/* Selection mode floating bar */}

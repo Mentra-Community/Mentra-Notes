@@ -9,7 +9,7 @@
  * - Auto-scroll for new segments (only when user is near bottom)
  */
 
-import { useState, useRef, useCallback, useMemo, useEffect } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect, memo } from "react";
 import { clsx } from "clsx";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowDown, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
@@ -18,6 +18,51 @@ import type {
   TranscriptSegment,
   HourSummary,
 } from "../../../../../shared/types";
+
+// Memoized segment row to prevent re-renders when siblings update
+const SegmentRow = memo(function SegmentRow({
+  segment,
+  formatTime,
+  getPhotoSrc,
+  onImageLoad,
+}: {
+  segment: TranscriptSegment;
+  formatTime: (timestamp: Date | string) => string;
+  getPhotoSrc: (url: string) => string;
+  onImageLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
+}) {
+  return (
+    <div className="flex gap-3">
+      <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500 w-16 shrink-0 pt-0.5">
+        {segment.timestamp ? formatTime(segment.timestamp) : ""}
+      </span>
+      <div className="flex-1 min-w-0">
+        {segment.type === "photo" && segment.photoUrl ? (
+          <div className="w-full max-w-xs">
+            <img
+              src={getPhotoSrc(segment.photoUrl)}
+              alt="Photo capture"
+              className="block rounded-lg w-full min-h-24 object-cover border border-zinc-200 dark:border-zinc-700"
+              loading="lazy"
+              onLoad={onImageLoad}
+            />
+          </div>
+        ) : (
+          <>
+            <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+              {segment.text}
+            </p>
+            {segment.speakerId && (
+              <span className="text-xs text-zinc-400 dark:text-zinc-500 mt-1 block">
+                Speaker {segment.speakerId}
+              </span>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+});
 
 interface TranscriptTabProps {
   segments: TranscriptSegment[];
@@ -768,41 +813,13 @@ export function TranscriptTab({
                           {hourSegments.map((segment, idx) => {
                             const segId = segment.id || `idx-${idx}`;
                             return (
-                              <div
+                              <SegmentRow
                                 key={segId}
-                                className="flex gap-3"
-                              >
-                                {/* Timestamp */}
-                                <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500 w-16 shrink-0 pt-0.5">
-                                  {segment.timestamp ? formatTime(segment.timestamp) : ""}
-                                </span>
-
-                                {/* Content */}
-                                <div className="flex-1 min-w-0">
-                                  {segment.type === "photo" && segment.photoUrl ? (
-                                    <div className="w-full max-w-xs">
-                                      <img
-                                        src={getPhotoSrc(segment.photoUrl)}
-                                        alt="Photo capture"
-                                        className="block rounded-lg w-full min-h-24 object-cover border border-zinc-200 dark:border-zinc-700"
-                                        loading="lazy"
-                                        onLoad={(e) => handleImageLoad(e, hourKey)}
-                                      />
-                                    </div>
-                                  ) : (
-                                    <>
-                                      <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                                        {segment.text}
-                                      </p>
-                                      {segment.speakerId && (
-                                        <span className="text-xs text-zinc-400 dark:text-zinc-500 mt-1 block">
-                                          Speaker {segment.speakerId}
-                                        </span>
-                                      )}
-                                    </>
-                                  )}
-                                </div>
-                              </div>
+                                segment={segment}
+                                formatTime={formatTime}
+                                getPhotoSrc={getPhotoSrc}
+                                onImageLoad={(e) => handleImageLoad(e, hourKey)}
+                              />
                             );
                           })}
 

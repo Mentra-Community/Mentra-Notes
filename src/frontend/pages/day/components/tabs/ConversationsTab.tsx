@@ -7,7 +7,7 @@
  * - Empty state when no conversations detected
  */
 
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, memo } from "react";
 import { clsx } from "clsx";
 import { AnimatePresence, motion, useMotionValue, useTransform, animate, type PanInfo } from "motion/react";
 import {
@@ -18,8 +18,6 @@ import {
   Loader2,
   Sparkles,
 } from "lucide-react";
-import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
 import type { Conversation, ConversationChunk } from "../../../../../shared/types";
 
 interface ConversationsTabProps {
@@ -121,7 +119,7 @@ interface ConversationCardProps {
   onDelete?: (conversationId: string) => void;
 }
 
-function ConversationCard({
+const ConversationCard = memo(function ConversationCard({
   conversation,
   isExpanded,
   onToggle,
@@ -273,7 +271,7 @@ function ConversationCard({
       </motion.div>
     </div>
   );
-}
+});
 
 // =============================================================================
 // StatusBadge
@@ -304,7 +302,7 @@ function StatusBadge({ conversation }: { conversation: Conversation }) {
 }
 
 // =============================================================================
-// SummarySection — read-only Tiptap renderer
+// SummarySection — lightweight HTML renderer
 // =============================================================================
 
 function parseMarkdownToHtml(text: string): string {
@@ -326,31 +324,15 @@ function parseMarkdownToHtml(text: string): string {
     .join("");
 }
 
-function ReadOnlyTiptap({ content }: { content: string }) {
+function ReadOnlyHtml({ content }: { content: string }) {
   const html = useMemo(() => {
     if (content.includes("<p>") || content.includes("<h")) return content;
     return parseMarkdownToHtml(content);
   }, [content]);
 
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
-      }),
-    ],
-    content: html,
-    editable: false,
-    immediatelyRender: false,
-    editorProps: {
-      attributes: {
-        class: "focus:outline-none",
-      },
-    },
-  });
-
   return (
-    <EditorContent
-      editor={editor}
+    <div
+      dangerouslySetInnerHTML={{ __html: html }}
       className="prose prose-sm dark:prose-invert max-w-none text-[15px]
         prose-headings:font-semibold prose-headings:text-zinc-900 dark:prose-headings:text-white
         prose-h1:text-base prose-h2:text-[15px] prose-h3:text-[15px]
@@ -371,7 +353,7 @@ function SummarySection({
 }) {
   // AI summary available — render with read-only Tiptap
   if (conversation.aiSummary) {
-    return <ReadOnlyTiptap content={conversation.aiSummary} />;
+    return <ReadOnlyHtml content={conversation.aiSummary} />;
   }
 
   // Generating AI summary
@@ -405,7 +387,7 @@ function SummarySection({
 // TranscriptSection
 // =============================================================================
 
-function TranscriptSection({ chunks }: { chunks: ConversationChunk[] }) {
+const TranscriptSection = memo(function TranscriptSection({ chunks }: { chunks: ConversationChunk[] }) {
   if (chunks.length === 0) {
     return (
       <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -417,18 +399,24 @@ function TranscriptSection({ chunks }: { chunks: ConversationChunk[] }) {
   return (
     <div className="space-y-3">
       {chunks.map((chunk) => (
-        <div key={chunk.id} className="flex gap-3">
-          <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono shrink-0 pt-0.5 whitespace-nowrap">
-            {formatTime(chunk.startTime)}
-          </span>
-          <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-            {chunk.text}
-          </p>
-        </div>
+        <ChunkRow key={chunk.id} chunk={chunk} />
       ))}
     </div>
   );
-}
+});
+
+const ChunkRow = memo(function ChunkRow({ chunk }: { chunk: ConversationChunk }) {
+  return (
+    <div className="flex gap-3">
+      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono shrink-0 pt-0.5 whitespace-nowrap">
+        {formatTime(chunk.startTime)}
+      </span>
+      <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+        {chunk.text}
+      </p>
+    </div>
+  );
+});
 
 // =============================================================================
 // Helpers
