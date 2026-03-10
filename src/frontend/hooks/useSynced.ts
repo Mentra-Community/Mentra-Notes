@@ -25,13 +25,18 @@ class SyncClient<T> {
   private rpcIdCounter = 0;
   private listeners: Set<() => void> = new Set();
   private _isConnected = false;
+  private _isReconnecting = false;
+  private _hasConnectedOnce = false;
   private userId: string;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private _version = 0;
+  private _notifyScheduled = false;
+  private _visibilityHandler: (() => void) | null = null;
 
   constructor(userId: string) {
     this.userId = userId;
     this.connect();
+    this.setupVisibilityHandler();
   }
 
   private connect(): void {
@@ -53,6 +58,10 @@ class SyncClient<T> {
     this.ws.onclose = () => {
       console.log("[Synced] Disconnected");
       this._isConnected = false;
+      // If we had connected before, mark as reconnecting so the UI can show loading state
+      if (this._hasConnectedOnce) {
+        this._isReconnecting = true;
+      }
       this._version++;
       this.notifyListeners();
 
@@ -78,8 +87,10 @@ class SyncClient<T> {
         break;
 
       case "snapshot":
-        console.log("[Synced] Snapshot received");
+        console.log("[Synced] Snapshot received", this._isReconnecting ? "(reconnect)" : "(initial)");
         this.state = message.state;
+        this._hasConnectedOnce = true;
+        this._isReconnecting = false;
         this._version++;
         this.notifyListeners();
         // Auto-detect and sync user timezone on connection
@@ -87,10 +98,10 @@ class SyncClient<T> {
         break;
 
       case "state_change":
-        console.log(
-          `[Synced] state_change: ${message.manager}.${message.property} =`,
-          message.value,
-        );
+        // console.log(
+        //   `[Synced] state_change: ${message.manager}.${message.property} =`,
+        //   message.value,
+        // );
         // For session-level state (hasGlassesConnected, isRecording, etc.),
         // store at top level to match snapshot format
         if (message.manager === "session") {
@@ -104,8 +115,9 @@ class SyncClient<T> {
             [message.property]: message.value,
           };
         }
-        this._version++;
-        this.notifyListeners();
+        // Batched: coalesces rapid sequential state changes (e.g. interimText=""
+        // + segments=[...]) into a single React re-render to prevent layout jumps
+        this.scheduleNotify();
         break;
 
       case "rpc_response":
@@ -180,6 +192,22 @@ class SyncClient<T> {
     }
   }
 
+  /**
+   * Schedule a batched notify — coalesces multiple state_change messages
+   * that arrive in the same microtask into a single React re-render.
+   * This prevents layout jumping when the backend sends e.g. interimText=""
+   * and segments=[...] as two rapid broadcasts for the same event.
+   */
+  private scheduleNotify(): void {
+    this._version++;
+    if (this._notifyScheduled) return;
+    this._notifyScheduled = true;
+    queueMicrotask(() => {
+      this._notifyScheduled = false;
+      this.notifyListeners();
+    });
+  }
+
   reconnect(): void {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.ws?.close();
@@ -188,12 +216,40 @@ class SyncClient<T> {
 
   dispose(): void {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    if (this._visibilityHandler) {
+      document.removeEventListener("visibilitychange", this._visibilityHandler);
+    }
     this.ws?.close();
     this.listeners.clear();
   }
 
+  private setupVisibilityHandler(): void {
+    if (typeof document === "undefined") return;
+    this._visibilityHandler = () => {
+      if (document.hidden) {
+        // Going to background — close WebSocket cleanly so we don't
+        // accumulate a stale connection the OS will kill anyway
+        if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+        this.ws?.close();
+      } else {
+        // Coming back to foreground — reconnect immediately if not connected
+        if (!this._isConnected) {
+          if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+          this.reconnectTimer = null;
+          this.connect();
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", this._visibilityHandler);
+  }
+
   get isConnected(): boolean {
     return this._isConnected;
+  }
+
+  get isReconnecting(): boolean {
+    return this._isReconnecting;
   }
 
   get currentState(): Record<string, any> {
@@ -218,6 +274,7 @@ const clientCache = new Map<string, SyncClient<any>>();
 export interface UseSyncedResult<T> {
   session: T | null;
   isConnected: boolean;
+  isReconnecting: boolean;
   reconnect: () => void;
 }
 
@@ -331,6 +388,7 @@ export function useSynced<T>(userId: string): UseSyncedResult<T> {
   return {
     session,
     isConnected: client?.isConnected ?? false,
+    isReconnecting: client?.isReconnecting ?? false,
     reconnect,
   };
 }

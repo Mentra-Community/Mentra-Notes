@@ -13,12 +13,13 @@ import { useParams, useLocation } from "wouter";
 import { useMentraAuth } from "@mentra/react";
 import { format, parse } from "date-fns";
 import { clsx } from "clsx";
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 import {
   ChevronLeft,
   Star,
   FileText,
   MessageSquare,
+  MessagesSquare,
   // Headphones, // TODO: Enable when audio feature is implemented
   Sparkles,
   Archive,
@@ -41,6 +42,7 @@ import type {
 } from "../../../shared/types";
 import { NotesTab } from "./components/tabs/NotesTab";
 import { TranscriptTab } from "./components/tabs/TranscriptTab";
+import { ConversationsTab } from "./components/tabs/ConversationsTab";
 // import { AudioTab } from "./components/tabs/AudioTab"; // TODO: Enable when audio feature is implemented
 import { AITab } from "./components/tabs/AITab";
 import { TranscribingIndicator } from "../../components/shared/TranscribingIndicator";
@@ -52,7 +54,7 @@ import { EmailDrawer } from "../../components/shared/EmailDrawer";
 import { DayPageSkeleton } from "../../components/shared/SkeletonLoader";
 import { useFeatureFlag } from "../../lib/posthog";
 
-type TabType = "notes" | "transcript" | "audio" | "ai";
+type TabType = "notes" | "transcript" | "conversations" | "audio" | "ai";
 
 interface TabConfig {
   id: TabType;
@@ -62,6 +64,7 @@ interface TabConfig {
 
 const tabs: TabConfig[] = [
   { id: "transcript", label: "Transcript", icon: MessageSquare },
+  { id: "conversations", label: "Conversations", icon: MessagesSquare },
   { id: "notes", label: "Notes", icon: FileText },
   // { id: "audio", label: "Audio", icon: Headphones }, // TODO: Enable when audio feature is implemented
   // { id: "ai", label: "AI", icon: Sparkles },
@@ -71,7 +74,7 @@ export function DayPage() {
   const params = useParams<{ date: string }>();
   const [, setLocation] = useLocation();
   const { userId } = useMentraAuth();
-  const { session, isConnected } = useSynced<SessionI>(userId || "");
+  const { session, isConnected, isReconnecting } = useSynced<SessionI>(userId || "");
 
   const newMentraUI = useFeatureFlag("new-mentraos-ui-miniapps");
   const [activeTab, setActiveTab] = useState<TabType>(() => {
@@ -154,12 +157,13 @@ export function DayPage() {
   // Get data from session
   const allNotes = session?.notes?.notes ?? [];
   const allSegments = session?.transcript?.segments ?? [];
-  const hourSummaries = session?.transcript?.hourSummaries ?? [];
+  const hourSummaries = session?.summary?.hourSummaries ?? [];
   const interimText = session?.transcript?.interimText ?? "";
   const isRecording = session?.transcript?.isRecording ?? false;
   const isSyncingPhoto = session?.transcript?.isSyncingPhoto ?? false;
   const loadedDate = session?.transcript?.loadedDate ?? "";
   const files = session?.file?.files ?? [];
+  const conversations = session?.conversation?.conversations ?? [];
 
   // Data is loading when the server hasn't confirmed this date's data yet.
   // loadedDate is the source of truth for which date's segments are loaded.
@@ -209,10 +213,18 @@ export function DayPage() {
   // Get current hour for determining which hour is "in progress"
   const currentHour = new Date().getHours();
 
+  // Reset date tracking after reconnection so the effect below re-fetches
+  useEffect(() => {
+    if (!isReconnecting && lastLoadedDateRef.current) {
+      lastLoadedDateRef.current = null;
+    }
+  }, [isReconnecting]);
+
   // Load historical transcript when viewing a past date
   useEffect(() => {
     if (!session?.transcript?.loadDateTranscript) return;
     if (!dateString) return;
+    if (isReconnecting) return; // Wait for reconnection to finish
 
     // Skip if we already loaded this date
     if (lastLoadedDateRef.current === dateString) return;
@@ -390,7 +402,8 @@ export function DayPage() {
     }
   }, [emailDrawerAction, dayNotes, selectedNoteIds, daySegments, dateString, userId, exitSelectionMode]);
 
-  if (!session) {
+  // Show full page skeleton on initial load OR when reconnecting after background
+  if (!session || isReconnecting) {
     return <DayPageSkeleton />;
   }
 
@@ -601,46 +614,42 @@ export function DayPage() {
         )}
       </div>
 
-      {/* Tab Content */}
+      {/* Tab Content — tabs stay mounted so state (scroll position, expanded sections) persists */}
       <div className="flex-1 min-h-0 overflow-hidden relative">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.08, ease: "easeInOut" }}
-            className="h-full"
-          >
-            {activeTab === "notes" && (
-              <NotesTab
-                notes={dayNotes}
-                isLoading={isDataLoading}
-                selectionMode={noteSelectionMode !== null}
-                selectedNoteIds={selectedNoteIds}
-                onToggleSelection={toggleNoteSelection}
-              />
-            )}
-            {activeTab === "transcript" && (
-              <TranscriptTab
-                segments={daySegments}
-                hourSummaries={hourSummaries}
-                interimText={isToday ? interimText : ""}
-                currentHour={isToday ? currentHour : undefined}
-                dateString={dateString}
-                timezone={session?.settings?.timezone ?? undefined}
-                onGenerateSummary={session?.transcript?.generateHourSummary}
-                isCompactMode={isCompactMode}
-                isSyncingPhoto={isToday ? isSyncingPhoto : false}
-                isLoading={isDataLoading}
-              />
-            )}
-            {/* {activeTab === "audio" && <AudioTab />} */}
-            {activeTab === "ai" && (
-              <AITab date={date} isLoading={isDataLoading} />
-            )}
-          </motion.div>
-        </AnimatePresence>
+        <div className={clsx("h-full", activeTab !== "notes" && "hidden")}>
+          <NotesTab
+            notes={dayNotes}
+            isLoading={isDataLoading}
+            selectionMode={noteSelectionMode !== null}
+            selectedNoteIds={selectedNoteIds}
+            onToggleSelection={toggleNoteSelection}
+          />
+        </div>
+        <div className={clsx("h-full", activeTab !== "transcript" && "hidden")}>
+          <TranscriptTab
+            segments={daySegments}
+            hourSummaries={hourSummaries}
+            interimText={isToday ? interimText : ""}
+            currentHour={isToday ? currentHour : undefined}
+            dateString={dateString}
+            timezone={session?.settings?.timezone ?? undefined}
+            onGenerateSummary={session?.summary?.generateHourSummary}
+            isCompactMode={isCompactMode}
+            isSyncingPhoto={isToday ? isSyncingPhoto : false}
+            isLoading={isDataLoading}
+          />
+        </div>
+        <div className={clsx("h-full", activeTab !== "conversations" && "hidden")}>
+          <ConversationsTab
+            conversations={conversations}
+            isLoading={isDataLoading}
+            onDeleteConversation={(id) => session?.conversation?.deleteConversation(id)}
+          />
+        </div>
+        {/* {activeTab === "audio" && <AudioTab />} */}
+        <div className={clsx("h-full", activeTab !== "ai" && "hidden")}>
+          <AITab date={date} isLoading={isDataLoading} />
+        </div>
       </div>
 
       {/* Selection mode floating bar */}

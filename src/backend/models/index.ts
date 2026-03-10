@@ -62,6 +62,34 @@ export {
   getChatHistoryDates,
 } from "./chat-history.model";
 
+// Conversation (auto-notes pipeline)
+export {
+  Conversation,
+  type ConversationI,
+  type ConversationStatus,
+  createConversation,
+  getResumableConversations,
+  getConversationsByDate,
+  getConversationById,
+  updateConversation,
+  appendChunkToConversation,
+  getActiveConversations,
+} from "./conversation.model";
+
+// Transcript Chunk (auto-notes pipeline)
+export {
+  TranscriptChunk,
+  type TranscriptChunkI,
+  type ChunkClassification,
+  createTranscriptChunk,
+  getNextChunkIndex,
+  getRecentChunks,
+  updateChunkClassification,
+  getChunksByConversationId,
+  deleteOldChunks,
+  getChunksByDate,
+} from "./transcript-chunk.model";
+
 // File (source of truth for folders)
 export {
   File,

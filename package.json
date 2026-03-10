@@ -11,7 +11,16 @@
   "scripts": {
     "dev": "lsof -ti:3000 | xargs kill -9 2>/dev/null; NODE_ENV=development bun --watch src/index.ts",
     "start": "bun src/index.ts",
-    "ngrok": "ngrok http 3000 --url https://isaiah-tpa.ngrok.app"
+    "ngrok": "ngrok http 3000 --url https://isaiah-tpa.ngrok.app",
+    "test:eval:triage": "bun test src/test/evals/triage/triage-classifier.test.ts",
+    "test:eval:triage:easy": "EVAL_DIFFICULTY=easy bun test src/test/evals/triage/triage-classifier.test.ts",
+    "test:eval:triage:medium": "EVAL_DIFFICULTY=medium bun test src/test/evals/triage/triage-classifier.test.ts",
+    "test:eval:triage:hard": "EVAL_DIFFICULTY=hard bun test src/test/evals/triage/triage-classifier.test.ts",
+    "test:eval:triage:realistic": "EVAL_DIFFICULTY=realistic bun test src/test/evals/triage/triage-classifier.test.ts",
+    "test:eval:tracker": "bun test src/test/evals/conversation-tracker/conversation-tracker.test.ts",
+    "test:eval:tracker:context": "EVAL_TYPE=context bun test src/test/evals/conversation-tracker/conversation-tracker.test.ts",
+    "test:eval:tracker:resumption": "EVAL_TYPE=resumption bun test src/test/evals/conversation-tracker/conversation-tracker.test.ts",
+    "test:eval:tracker:summary": "EVAL_TYPE=summary bun test src/test/evals/conversation-tracker/conversation-tracker.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.35.0",
@@ -27,6 +36,7 @@
     "@radix-ui/react-slot": "^1.1.2",
     "@radix-ui/react-switch": "^1.1.3",
     "@radix-ui/react-tabs": "^1.1.2",
+    "@tanstack/react-virtual": "^3.13.21",
     "@tiptap/extension-image": "^3.19.0",
     "@tiptap/extension-placeholder": "^3.19.0",
     "@tiptap/pm": "^3.19.0",
@@ -42,6 +52,7 @@
     "lucide-react": "^0.545.0",
     "mongoose": "^9.0.2",
     "motion": "^12.31.0",
+    "openai": "^6.27.0",
     "pdf-lib": "^1.17.1",
     "posthog-js": "^1.354.3",
     "prop-types": "^15.8.1",

@@ -110,6 +110,83 @@ api.get("/health", (c) => {
 });
 
 // =============================================================================
+// Auto-Notes Pipeline Test (DEV ONLY)
+// =============================================================================
+
+/**
+ * Simulate transcript input to test the auto-notes pipeline.
+ * Injects fake transcript segments into a user's session as if glasses were speaking.
+ *
+ * Usage:
+ *   # Single segment:
+ *   curl -X POST http://localhost:3000/api/test/simulate-transcript \
+ *     -H "Content-Type: application/json" \
+ *     -d '{"userId":"test@example.com","text":"We need to move the deadline to next Friday and notify all stakeholders."}'
+ *
+ *   # Full conversation (multiple segments injected rapidly):
+ *   curl -X POST http://localhost:3000/api/test/simulate-conversation \
+ *     -H "Content-Type: application/json" \
+ *     -d '{"userId":"test@example.com"}'
+ */
+api.post("/test/simulate-transcript", async (c) => {
+  const { userId, text } = await c.req.json();
+  if (!userId || !text) {
+    return c.json({ error: "userId and text required" }, 400);
+  }
+
+  const session = sessions.get(userId);
+  if (!session) {
+    return c.json({ error: `No active session for ${userId}. Connect via WebSocket first.` }, 404);
+  }
+
+  // Simulate a final transcript segment
+  session.onTranscription(text, true);
+
+  return c.json({
+    success: true,
+    message: `Injected segment into ${userId}'s session`,
+    chunkBufferRunning: session.chunkBuffer.isRunning,
+  });
+});
+
+api.post("/test/simulate-conversation", async (c) => {
+  const { userId } = await c.req.json();
+  if (!userId) {
+    return c.json({ error: "userId required" }, 400);
+  }
+
+  const session = sessions.get(userId);
+  if (!session) {
+    return c.json({ error: `No active session for ${userId}. Connect via WebSocket first.` }, 404);
+  }
+
+  // A realistic multi-turn conversation about a project deadline
+  const segments = [
+    "So I wanted to talk about the Q2 launch timeline. We're currently targeting March 28th for the beta release.",
+    "Right, but the design team just told me they need another week on the onboarding flow. The current mockups aren't tested yet.",
+    "That's a problem. If we push the beta by a week, that puts us right up against the investor demo on April 8th.",
+    "What if we launch the beta without the new onboarding? We can use the existing flow and swap it out in a patch.",
+    "I think that works. Let's do it. Sarah can keep working on onboarding in parallel, and we'll ship it as a day-one patch.",
+    "Agreed. So the plan is: beta on March 28th with existing onboarding, new onboarding patch by April 3rd, investor demo April 8th.",
+    "Perfect. I'll update the project board and send a Slack summary to the team. Can you loop in Sarah on the timeline change?",
+    "Will do. I'll set up a quick sync with her this afternoon. Anything else?",
+    "No, that's it. Good meeting. Let's regroup on Friday to check progress.",
+  ];
+
+  // Inject all segments quickly — the 40-second buffer will batch them into a chunk
+  for (const text of segments) {
+    session.onTranscription(text, true);
+  }
+
+  return c.json({
+    success: true,
+    message: `Injected ${segments.length} segments into ${userId}'s session. The chunk buffer will emit a chunk in ~40 seconds.`,
+    chunkBufferRunning: session.chunkBuffer.isRunning,
+    tip: "Watch the server logs for [ChunkBufferManager], [TriageClassifier], [ConversationTracker], and [NoteGenerator] output.",
+  });
+});
+
+// =============================================================================
 // Auth Status
 // =============================================================================
 

@@ -1,0 +1,355 @@
+{
+  "description": "ConversationTracker eval — Chunk-in-context classification. Given a running conversation summary and a new chunk, classify as CONTINUATION, NEW_CONVERSATION, or FILLER.",
+  "cases": [
+    {
+      "summary": "Team is discussing the Q3 product roadmap. Sarah proposed moving the notification redesign to Q4. Mike disagreed, saying customers have been complaining. They decided to keep it in Q3 but reduce scope.",
+      "chunk": "And for the analytics dashboard, I think we can reuse the charting library we already have instead of buying a new one.",
+      "expected": "CONTINUATION",
+      "category": "same-topic",
+      "note": "Continues product roadmap discussion with a related feature"
+    },
+    {
+      "summary": "Team is discussing the Q3 product roadmap. Sarah proposed moving the notification redesign to Q4. Mike disagreed, saying customers have been complaining. They decided to keep it in Q3 but reduce scope.",
+      "chunk": "Oh by the way, did anyone submit their expense reports? Finance said they're due by Friday.",
+      "expected": "NEW_CONVERSATION",
+      "category": "topic-switch",
+      "note": "Completely unrelated administrative topic"
+    },
+    {
+      "summary": "Team is discussing the Q3 product roadmap. Sarah proposed moving the notification redesign to Q4. Mike disagreed, saying customers have been complaining. They decided to keep it in Q3 but reduce scope.",
+      "chunk": "Yeah yeah, totally. Sounds good. Mmhmm.",
+      "expected": "FILLER",
+      "category": "backchannel",
+      "note": "Pure agreement noise, no new info"
+    },
+    {
+      "summary": "Discussing the server migration from AWS to GCP. The team estimated it will take 6 weeks. John is handling the database migration and Lisa is doing the networking setup.",
+      "chunk": "We should also make sure to update the DNS records at least 48 hours before the cutover date.",
+      "expected": "CONTINUATION",
+      "category": "same-topic",
+      "note": "Directly related to server migration planning"
+    },
+    {
+      "summary": "Discussing the server migration from AWS to GCP. The team estimated it will take 6 weeks. John is handling the database migration and Lisa is doing the networking setup.",
+      "chunk": "So I got an email from HR about the new parental leave policy. It's pretty generous actually.",
+      "expected": "NEW_CONVERSATION",
+      "category": "topic-switch",
+      "note": "HR policy is unrelated to server migration"
+    },
+    {
+      "summary": "Discussing the server migration from AWS to GCP. The team estimated it will take 6 weeks. John is handling the database migration and Lisa is doing the networking setup.",
+      "chunk": "Sorry what? The audio cut out for a second. Can you repeat that?",
+      "expected": "FILLER",
+      "category": "technical-issue",
+      "note": "Audio issue, no content"
+    },
+    {
+      "summary": "Planning the company holiday party. Budget is $5000. Venue options: rooftop bar downtown or the office cafeteria. Food will be catered. Date is December 15th.",
+      "chunk": "What about music? Should we hire a DJ or just make a Spotify playlist?",
+      "expected": "CONTINUATION",
+      "category": "same-topic",
+      "note": "Party planning detail"
+    },
+    {
+      "summary": "Planning the company holiday party. Budget is $5000. Venue options: rooftop bar downtown or the office cafeteria. Food will be catered. Date is December 15th.",
+      "chunk": "The build pipeline has been failing for the last two hours. Has anyone looked into it?",
+      "expected": "NEW_CONVERSATION",
+      "category": "topic-switch",
+      "note": "Technical issue unrelated to party planning"
+    },
+    {
+      "summary": "Planning the company holiday party. Budget is $5000. Venue options: rooftop bar downtown or the office cafeteria. Food will be catered. Date is December 15th.",
+      "chunk": "Ha ha, oh man. That would be hilarious. Can you imagine?",
+      "expected": "FILLER",
+      "category": "reaction",
+      "note": "Laughter/reaction with no substance"
+    },
+    {
+      "summary": "Reviewing the quarterly sales numbers. Revenue is up 15% but margins are down 3%. The enterprise segment grew fastest. SMB churn is a concern at 8%.",
+      "chunk": "If we look at the enterprise pipeline, there are three deals over $500K that should close this month.",
+      "expected": "CONTINUATION",
+      "category": "same-topic",
+      "note": "Directly continues sales discussion"
+    },
+    {
+      "summary": "Reviewing the quarterly sales numbers. Revenue is up 15% but margins are down 3%. The enterprise segment grew fastest. SMB churn is a concern at 8%.",
+      "chunk": "Has anyone talked to the building management about the elevator being broken?",
+      "expected": "NEW_CONVERSATION",
+      "category": "topic-switch",
+      "note": "Facilities issue, not sales"
+    },
+    {
+      "summary": "Reviewing the quarterly sales numbers. Revenue is up 15% but margins are down 3%. The enterprise segment grew fastest. SMB churn is a concern at 8%.",
+      "chunk": "Right, right. Yeah. Makes sense. Okay.",
+      "expected": "FILLER",
+      "category": "backchannel",
+      "note": "Agreement without substance"
+    },
+    {
+      "summary": "Discussing a patient's treatment plan. Patient is 67 years old with Type 2 diabetes and hypertension. Current medications: metformin 1000mg, lisinopril 20mg. A1C is 7.8, goal is under 7.",
+      "chunk": "I think we should add a GLP-1 agonist. The recent trials show significant A1C reduction in combination with metformin.",
+      "expected": "CONTINUATION",
+      "category": "same-topic",
+      "note": "Medication discussion for same patient"
+    },
+    {
+      "summary": "Discussing a patient's treatment plan. Patient is 67 years old with Type 2 diabetes and hypertension. Current medications: metformin 1000mg, lisinopril 20mg. A1C is 7.8, goal is under 7.",
+      "chunk": "Oh, the new scheduling software is terrible. It takes forever to book an appointment now.",
+      "expected": "NEW_CONVERSATION",
+      "category": "topic-switch",
+      "note": "Administrative complaint unrelated to patient care"
+    },
+    {
+      "summary": "Talking about renovating the kitchen. They want to replace the countertops with quartz, update the backsplash, and add an island. Budget is around $25K. Contractor is coming next Tuesday for a quote.",
+      "chunk": "Should we also look at replacing the faucet while we're at it? The current one has been leaking.",
+      "expected": "CONTINUATION",
+      "category": "same-topic",
+      "note": "Kitchen renovation detail"
+    },
+    {
+      "summary": "Talking about renovating the kitchen. They want to replace the countertops with quartz, update the backsplash, and add an island. Budget is around $25K. Contractor is coming next Tuesday for a quote.",
+      "chunk": "I need to call the school about Emma's field trip permission slip. It's due tomorrow.",
+      "expected": "NEW_CONVERSATION",
+      "category": "topic-switch",
+      "note": "Parenting task unrelated to renovation"
+    },
+    {
+      "summary": "Discussing the new hire onboarding process. Issues with the current system: too many forms, no clear mentor assignment, laptop setup takes 3 days. Want to create a streamlined 1-day process.",
+      "chunk": "What if we pre-configure the laptops so they're ready on day one? IT could image them the week before.",
+      "expected": "CONTINUATION",
+      "category": "same-topic",
+      "note": "Onboarding improvement suggestion"
+    },
+    {
+      "summary": "Discussing the new hire onboarding process. Issues with the current system: too many forms, no clear mentor assignment, laptop setup takes 3 days. Want to create a streamlined 1-day process.",
+      "chunk": "Actually, I wanted to talk about the marketing campaign for the new product launch.",
+      "expected": "NEW_CONVERSATION",
+      "category": "topic-switch",
+      "note": "Explicit topic change"
+    },
+    {
+      "summary": "Discussing the new hire onboarding process. Issues with the current system: too many forms, no clear mentor assignment, laptop setup takes 3 days. Want to create a streamlined 1-day process.",
+      "chunk": "Hold on, let me grab some water. Be right back.",
+      "expected": "FILLER",
+      "category": "interruption",
+      "note": "Personal break"
+    },
+    {
+      "summary": "Planning a road trip from LA to San Francisco. Route options: Pacific Coast Highway vs I-5. Planning to stop in Santa Barbara for lunch. Total drive time about 6 hours via PCH.",
+      "chunk": "We should probably book a hotel in Big Sur for the night. It's too long to do in one stretch if we're taking the coast route.",
+      "expected": "CONTINUATION",
+      "category": "same-topic",
+      "note": "Road trip logistics"
+    },
+    {
+      "summary": "Planning a road trip from LA to San Francisco. Route options: Pacific Coast Highway vs I-5. Planning to stop in Santa Barbara for lunch. Total drive time about 6 hours via PCH.",
+      "chunk": "Hey did you see the Warriors game last night? Steph Curry went off.",
+      "expected": "NEW_CONVERSATION",
+      "category": "topic-switch",
+      "note": "Sports discussion, not trip planning"
+    },
+    {
+      "summary": "Planning a road trip from LA to San Francisco. Route options: Pacific Coast Highway vs I-5. Planning to stop in Santa Barbara for lunch. Total drive time about 6 hours via PCH.",
+      "chunk": "Uh huh, yeah, sure, whatever you think.",
+      "expected": "FILLER",
+      "category": "backchannel",
+      "note": "Non-committal agreement"
+    },
+    {
+      "summary": "Debugging a production issue with the payment processing system. Stripe webhooks are failing with 500 errors. Started happening after yesterday's deploy. Affects about 10% of transactions.",
+      "chunk": "Wait, I think I found it. The webhook handler is trying to access a field that was renamed in the schema migration.",
+      "expected": "CONTINUATION",
+      "category": "same-topic",
+      "note": "Root cause discovery for the same bug"
+    },
+    {
+      "summary": "Debugging a production issue with the payment processing system. Stripe webhooks are failing with 500 errors. Started happening after yesterday's deploy. Affects about 10% of transactions.",
+      "chunk": "Can we talk about the team offsite? I need to book the venue by end of week.",
+      "expected": "NEW_CONVERSATION",
+      "category": "topic-switch",
+      "note": "Event planning, not debugging"
+    },
+    {
+      "summary": "Debugging a production issue with the payment processing system. Stripe webhooks are failing with 500 errors. Started happening after yesterday's deploy. Affects about 10% of transactions.",
+      "chunk": "Hmm, let me think. One sec.",
+      "expected": "FILLER",
+      "category": "stalling",
+      "note": "Thinking pause, no info"
+    },
+    {
+      "summary": "Negotiating a lease renewal for the office space. Current rate is $45/sqft. Landlord wants $52/sqft. Team thinks $48 is fair. Lease expires in 90 days.",
+      "chunk": "What if we offer to sign a 3-year term instead of 2? That might give us leverage to get the rate down.",
+      "expected": "CONTINUATION",
+      "category": "same-topic",
+      "note": "Negotiation strategy for same lease"
+    },
+    {
+      "summary": "Negotiating a lease renewal for the office space. Current rate is $45/sqft. Landlord wants $52/sqft. Team thinks $48 is fair. Lease expires in 90 days.",
+      "chunk": "Oh I meant to ask, who's handling the social media posts for the product launch?",
+      "expected": "NEW_CONVERSATION",
+      "category": "topic-switch",
+      "note": "Marketing task, not lease negotiation"
+    },
+    {
+      "summary": "Discussing options for the company retreat. Last year was in Lake Tahoe. Considering Colorado, Hawaii, or a local resort. Budget is $500 per person. Need to finalize by end of month.",
+      "chunk": "I checked and the resort in Aspen has availability for our dates. It's $420 per person all-inclusive.",
+      "expected": "CONTINUATION",
+      "category": "same-topic",
+      "note": "Retreat venue research"
+    },
+    {
+      "summary": "Discussing options for the company retreat. Last year was in Lake Tahoe. Considering Colorado, Hawaii, or a local resort. Budget is $500 per person. Need to finalize by end of month.",
+      "chunk": "The CI pipeline is green now. All tests passing.",
+      "expected": "NEW_CONVERSATION",
+      "category": "topic-switch",
+      "note": "Engineering update, not retreat"
+    },
+    {
+      "summary": "Discussing options for the company retreat. Last year was in Lake Tahoe. Considering Colorado, Hawaii, or a local resort. Budget is $500 per person. Need to finalize by end of month.",
+      "chunk": "Nice, that sounds fun. Yeah, could be cool.",
+      "expected": "FILLER",
+      "category": "backchannel",
+      "note": "Vague enthusiasm with no info"
+    },
+    {
+      "summary": "Reviewing a candidate's interview performance. Candidate had strong technical skills but seemed nervous. Solved the system design problem well. Concerns about communication skills and culture fit.",
+      "chunk": "Her references all said she's great in a team setting. Maybe the nervousness was just interview jitters.",
+      "expected": "CONTINUATION",
+      "category": "same-topic",
+      "note": "Additional data about same candidate"
+    },
+    {
+      "summary": "Reviewing a candidate's interview performance. Candidate had strong technical skills but seemed nervous. Solved the system design problem well. Concerns about communication skills and culture fit.",
+      "chunk": "Alright, switching gears. Let's talk about the quarterly OKRs.",
+      "expected": "NEW_CONVERSATION",
+      "category": "topic-switch",
+      "note": "Explicit topic switch"
+    },
+    {
+      "summary": "Reviewing a candidate's interview performance. Candidate had strong technical skills but seemed nervous. Solved the system design problem well. Concerns about communication skills and culture fit.",
+      "chunk": "Yeah, I agree. Totally. Good point.",
+      "expected": "FILLER",
+      "category": "backchannel",
+      "note": "Agreement without contributing"
+    },
+    {
+      "summary": "Talking about setting up a home security system. Looking at Ring vs SimpliSafe vs ADT. Need cameras for front door, back yard, and garage. Want professional monitoring.",
+      "chunk": "SimpliSafe's monthly plan is only $15 and includes monitoring. Ring is $20 but has better cameras.",
+      "expected": "CONTINUATION",
+      "category": "same-topic",
+      "note": "Price comparison for same topic"
+    },
+    {
+      "summary": "Talking about setting up a home security system. Looking at Ring vs SimpliSafe vs ADT. Need cameras for front door, back yard, and garage. Want professional monitoring.",
+      "chunk": "We need to figure out carpooling for the kids' soccer practice. It's every Tuesday and Thursday.",
+      "expected": "NEW_CONVERSATION",
+      "category": "topic-switch",
+      "note": "Parenting logistics, not security"
+    },
+    {
+      "summary": "Discussing the annual budget allocation for the engineering department. Last year was $2.1M. Requesting $2.5M this year to cover 3 new hires and infrastructure costs.",
+      "chunk": "If we break it down, salaries account for 70%, infrastructure 20%, and tools 10%.",
+      "expected": "CONTINUATION",
+      "category": "same-topic",
+      "note": "Budget breakdown detail"
+    },
+    {
+      "summary": "Discussing the annual budget allocation for the engineering department. Last year was $2.1M. Requesting $2.5M this year to cover 3 new hires and infrastructure costs.",
+      "chunk": "Oh hey, the pizza is here. Who ordered pepperoni?",
+      "expected": "FILLER",
+      "category": "interruption",
+      "note": "Food arrival interruption"
+    },
+    {
+      "summary": "Discussing the annual budget allocation for the engineering department. Last year was $2.1M. Requesting $2.5M this year to cover 3 new hires and infrastructure costs.",
+      "chunk": "By the way, the client demo is at 3 PM tomorrow. Make sure the staging environment is ready.",
+      "expected": "NEW_CONVERSATION",
+      "category": "topic-switch",
+      "note": "Demo prep, not budget discussion"
+    },
+    {
+      "summary": "Planning a surprise birthday party for Tom. His birthday is March 20th. Venue: his favorite restaurant. Guest list: 15 people. Need to coordinate with his wife to get him there without suspicion.",
+      "chunk": "I'll handle the cake. Does he prefer chocolate or vanilla? I think he mentioned chocolate last time.",
+      "expected": "CONTINUATION",
+      "category": "same-topic",
+      "note": "Party detail coordination"
+    },
+    {
+      "summary": "Planning a surprise birthday party for Tom. His birthday is March 20th. Venue: his favorite restaurant. Guest list: 15 people. Need to coordinate with his wife to get him there without suspicion.",
+      "chunk": "The deployment went smoothly. No errors in the logs so far.",
+      "expected": "NEW_CONVERSATION",
+      "category": "topic-switch",
+      "note": "Engineering update, not party planning"
+    },
+    {
+      "summary": "(just started)",
+      "chunk": "So the main thing I wanted to discuss today is the new customer onboarding flow.",
+      "expected": "CONTINUATION",
+      "category": "new-conversation-start",
+      "note": "First meaningful chunk — should always be CONTINUATION"
+    },
+    {
+      "summary": "(just started)",
+      "chunk": "Yeah, totally, sounds good.",
+      "expected": "FILLER",
+      "category": "backchannel",
+      "note": "Filler even at start of conversation"
+    },
+    {
+      "summary": "Discussion about switching the company's health insurance provider. Current provider BlueCross has been raising premiums. Aetna and United are alternatives. Open enrollment is in November.",
+      "chunk": "United actually has a better dental plan included. That might offset the slightly higher premium.",
+      "expected": "CONTINUATION",
+      "category": "same-topic",
+      "note": "Insurance comparison detail"
+    },
+    {
+      "summary": "Discussion about switching the company's health insurance provider. Current provider BlueCross has been raising premiums. Aetna and United are alternatives. Open enrollment is in November.",
+      "chunk": "Can someone close the window? It's getting really loud outside.",
+      "expected": "FILLER",
+      "category": "environment",
+      "note": "Environmental request, not substantive"
+    },
+    {
+      "summary": "Reviewing the architecture for the new microservices migration. Moving from monolith to event-driven architecture. Using Kafka for message bus. Target completion Q2.",
+      "chunk": "For the user service, I think we should use PostgreSQL instead of MongoDB. The data is highly relational.",
+      "expected": "CONTINUATION",
+      "category": "same-topic",
+      "note": "Database choice for same architecture project"
+    },
+    {
+      "summary": "Reviewing the architecture for the new microservices migration. Moving from monolith to event-driven architecture. Using Kafka for message bus. Target completion Q2.",
+      "chunk": "Who's bringing what to the potluck on Friday?",
+      "expected": "NEW_CONVERSATION",
+      "category": "topic-switch",
+      "note": "Social event, not architecture"
+    },
+    {
+      "summary": "Discussing the marketing strategy for the new product launch. Target audience: SMB owners aged 30-50. Channels: LinkedIn ads, email campaigns, webinars. Launch date: April 1st.",
+      "chunk": "We should also create a landing page with customer testimonials. The ones from the beta program were really strong.",
+      "expected": "CONTINUATION",
+      "category": "same-topic",
+      "note": "Marketing tactic for same launch"
+    },
+    {
+      "summary": "Discussing the marketing strategy for the new product launch. Target audience: SMB owners aged 30-50. Channels: LinkedIn ads, email campaigns, webinars. Launch date: April 1st.",
+      "chunk": "Sorry, I need to take this call. It's my kid's school.",
+      "expected": "FILLER",
+      "category": "interruption",
+      "note": "Personal phone call interruption"
+    },
+    {
+      "summary": "Talking about the performance review process. Current system uses 1-5 ratings which feel arbitrary. Considering switching to a narrative-based approach with clear expectations.",
+      "chunk": "Google used to do stack ranking and abandoned it. I think the narrative approach is more motivating for the team.",
+      "expected": "CONTINUATION",
+      "category": "same-topic",
+      "note": "Reference example supporting same discussion"
+    },
+    {
+      "summary": "Talking about the performance review process. Current system uses 1-5 ratings which feel arbitrary. Considering switching to a narrative-based approach with clear expectations.",
+      "chunk": "The new coffee machine in the kitchen is amazing. Have you tried it?",
+      "expected": "NEW_CONVERSATION",
+      "category": "topic-switch",
+      "note": "Coffee chat, not performance reviews"
+    }
+  ]
+}

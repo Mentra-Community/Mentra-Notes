@@ -343,6 +343,9 @@ export abstract class SyncedManager {
   /** Called when session persists - override to save to DB */
   async persist(): Promise<void> {}
 
+  /** Called when session is disposed - override to stop timers/intervals */
+  destroy(): void {}
+
   /** Get list of synced field names */
   getSyncedFields(): string[] {
     return getSyncedFields(this.constructor);
@@ -712,9 +715,12 @@ export abstract class SyncedSession {
   // Lifecycle
   // ===========================================================================
 
-  /** Dispose session */
+  /** Dispose session — persist first, then destroy all managers */
   async dispose(): Promise<void> {
     await this.persist();
+    for (const mgr of this._managers.values()) {
+      mgr.destroy();
+    }
     this._clients.clear();
   }
 }

@@ -59,6 +59,34 @@ export interface HourSummary {
   updatedAt: Date;
 }
 
+// =============================================================================
+// Auto-Notes / Conversation Types
+// =============================================================================
+
+export type ConversationStatus = "active" | "paused" | "ended";
+
+export interface ConversationChunk {
+  id: string;
+  text: string;
+  startTime: Date;
+  endTime: Date;
+  wordCount: number;
+}
+
+export interface Conversation {
+  id: string;
+  userId: string;
+  date: string;
+  title: string;
+  status: ConversationStatus;
+  startTime: Date;
+  endTime: Date | null;
+  runningSummary: string;
+  aiSummary: string;
+  generatingSummary: boolean;
+  chunks: ConversationChunk[];
+}
+
 /**
  * Display modes for glasses
  */
@@ -77,8 +105,6 @@ export interface TranscriptManagerI {
   segments: TranscriptSegment[];
   interimText: string;
   isRecording: boolean;
-  hourSummaries: HourSummary[];
-  currentHourSummary: string; // Rolling summary for glasses display
   loadedDate: string; // Currently loaded date (YYYY-MM-DD)
   availableDates: string[]; // Dates with transcripts (for folder list)
   isLoadingHistory: boolean; // Loading indicator for historical data
@@ -88,13 +114,21 @@ export interface TranscriptManagerI {
   getRecentSegments(count?: number): Promise<TranscriptSegment[]>;
   getFullText(): Promise<string>;
   clear(): Promise<void>;
-  generateHourSummary(hour?: number): Promise<HourSummary>;
-  refreshHourSummary(): Promise<string>; // Force immediate summary update
   loadDateTranscript(date: string): Promise<{
     segments: TranscriptSegment[];
     hourSummaries: HourSummary[];
   }>; // Load historical transcript
   loadTodayTranscript(): Promise<void>; // Switch back to today
+}
+
+export interface SummaryManagerI {
+  // State (auto-syncs)
+  hourSummaries: HourSummary[];
+  currentHourSummary: string; // Rolling summary for glasses display
+
+  // RPCs
+  generateHourSummary(hour?: number): Promise<HourSummary>;
+  refreshHourSummary(): Promise<string>; // Force immediate summary update
 }
 
 export interface NotesManagerI {
@@ -169,6 +203,15 @@ export interface FileCounts {
   favourites: number;
 }
 
+export interface ConversationManagerI {
+  // State
+  conversations: Conversation[];
+  activeConversationId: string | null;
+
+  // RPCs
+  deleteConversation(conversationId: string): Promise<void>;
+}
+
 export interface FileManagerI {
   // State
   files: FileData[];
@@ -205,10 +248,12 @@ export interface SessionI {
 
   // Managers
   transcript: TranscriptManagerI;
+  summary: SummaryManagerI;
   notes: NotesManagerI;
   chat: ChatManagerI;
   settings: SettingsManagerI;
   file: FileManagerI;
+  conversation: ConversationManagerI;
 }
 
 // =============================================================================

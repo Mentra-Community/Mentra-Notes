@@ -1,8 +1,8 @@
 /**
  * CloudflareR2Manager
  *
- * Manages R2 cloud storage uploads for transcript batching.
- * Triggered when the batch cutoff date is crossed (end of day).
+ * Manages R2 cloud storage uploads, batch scheduling, and transcript fetching.
+ * Owns the complete archive pipeline: scheduling, upload, and cleanup.
  */
 
 import { SyncedManager, synced, rpc } from "../../../lib/sync";
@@ -16,6 +16,12 @@ import {
   listR2TranscriptDates,
 } from "../../services/r2Fetch.service";
 import type { R2BatchData } from "../../services/r2Upload.service";
+import {
+  getUserState,
+  createUserState,
+  updateTranscriptionBatchEndOfDay,
+} from "../../services/userState.service";
+import { TimeManager } from "./TimeManager";
 import type { FileManager } from "./FileManager";
 
 // =============================================================================
@@ -45,6 +51,136 @@ export class CloudflareR2Manager extends SyncedManager {
   @synced lastBatchUrl = "";
   @synced lastBatchError = "";
   @synced r2AvailableDates: string[] = [];
+
+  // Batch scheduling state (moved from TranscriptManager)
+  private transcriptionBatchEndOfDay: Date | null = null;
+  private userStateInitialized = false;
+  private timeManager: TimeManager | null = null;
+
+  // ===========================================================================
+  // Lifecycle
+  // ===========================================================================
+
+  async hydrate(): Promise<void> {
+    const userId = this._session?.userId;
+    if (!userId) return;
+
+    try {
+      const defaultEndOfDay = new Date(this.getTimeManager().endOfDay());
+      console.log(
+        `[R2Manager] Ensuring UserState exists for ${userId}, default EOD: ${defaultEndOfDay.toISOString()}`,
+      );
+      const timezone = this.getTimeManager().getTimezone();
+      const userState = await createUserState(userId, defaultEndOfDay, timezone === "UTC" ? undefined : timezone);
+
+      this.transcriptionBatchEndOfDay = userState.transcriptionBatchEndOfDay;
+      this.userStateInitialized = true;
+      console.log(
+        `[R2Manager] Loaded batch end of day from DB: ${this.transcriptionBatchEndOfDay}`,
+      );
+
+      // Catch up on any missed batches (e.g. old transcripts from previous days)
+      await this.checkAndRunBatch();
+    } catch (error) {
+      console.error("[R2Manager] Failed to hydrate batch scheduling:", error);
+    }
+  }
+
+  // ===========================================================================
+  // Batch Scheduling (moved from TranscriptManager)
+  // ===========================================================================
+
+  /**
+   * Check if batch cutoff passed; if so, upload to R2 and update UserState.
+   * Called on every final transcript segment and during hydrate.
+   */
+  async checkAndRunBatch(): Promise<void> {
+    const passed = await this.isBatchDue();
+    if (passed) {
+      const userId = this._session?.userId;
+      if (!userId) return;
+
+      const timeManager = this.getTimeManager();
+      const timezone = timeManager.getTimezone();
+
+      const cutoffTimestamp = this.transcriptionBatchEndOfDay;
+      if (!cutoffTimestamp) {
+        console.error(`[R2Manager] No cutoff timestamp available`);
+        return;
+      }
+
+      const cutoffISO = cutoffTimestamp.toISOString();
+      console.log(
+        `[R2Manager] Batch cutoff crossed, uploading transcripts up to ${cutoffISO}`,
+      );
+
+      const batchResult = await this.triggerBatch(
+        userId,
+        cutoffISO,
+        timezone,
+      );
+
+      if (batchResult.success) {
+        const deletedCount = await this.cleanupProcessedSegments(
+          cutoffISO,
+          timezone,
+        );
+        console.log(
+          `[R2Manager] Cleaned up ${deletedCount} segments from MongoDB`,
+        );
+
+        const newEndOfDay = new Date(this.getTimeManager().endOfDay());
+        await updateTranscriptionBatchEndOfDay(userId, newEndOfDay);
+        console.log(
+          `[R2Manager] R2 batch successful, updated cutoff: ${newEndOfDay}`,
+        );
+      } else {
+        console.error(
+          `[R2Manager] R2 batch failed, keeping old cutoff for retry:`,
+          batchResult.error,
+        );
+      }
+    }
+  }
+
+  /**
+   * Check if current UTC time has passed the batch end-of-day.
+   * Fetches fresh from MongoDB every time.
+   */
+  async isBatchDue(): Promise<boolean> {
+    const userId = this._session?.userId;
+    if (!userId) {
+      console.log("[R2Manager] isBatchDue: No userId available");
+      return false;
+    }
+
+    const userState = await getUserState(userId);
+    if (!userState?.transcriptionBatchEndOfDay) {
+      console.log("[R2Manager] isBatchDue: Batch date not set in DB");
+      return false;
+    }
+
+    const batchEndOfDay = userState.transcriptionBatchEndOfDay;
+    this.transcriptionBatchEndOfDay = batchEndOfDay;
+
+    const timeManager = this.getTimeManager();
+    const currentUTC = timeManager.now();
+    console.log(
+      `[R2Manager] isBatchDue: Current UTC: ${currentUTC} | Batch End: ${batchEndOfDay.toISOString()}`,
+    );
+
+    if (currentUTC > batchEndOfDay.toISOString()) {
+      console.log(
+        "[R2Manager] isBatchDue: PASSED - Current UTC time has passed batch end of day",
+      );
+      return true;
+    } else {
+      console.log(
+        "[R2Manager] isBatchDue: NOT PASSED - Current UTC time has NOT passed batch end of day",
+      );
+      return false;
+    }
+  }
 
   // ===========================================================================
   // Batch Trigger
@@ -164,7 +300,7 @@ export class CloudflareR2Manager extends SyncedManager {
 
     // Get TimeManager for date if not provided
     const timeManager = this.getTimeManager();
-    const batchDate = cutoffDate || timeManager?.today() || "";
+    const batchDate = cutoffDate || timeManager.today();
 
     const result = await this.triggerBatch(userId, batchDate, timezone);
 
@@ -265,15 +401,22 @@ export class CloudflareR2Manager extends SyncedManager {
   // ===========================================================================
 
   private getSettingsManager(): { timezone: string | null } | null {
-    // Access settings manager through session
     const session = this._session as any;
     return session?.settings || null;
   }
 
-  private getTimeManager(): { today: () => string } | null {
-    // Access time manager through transcript manager
-    const session = this._session as any;
-    return session?.transcript?.getTimeManager?.() || null;
+  private getTimeManager(): TimeManager {
+    const settingsTimezone = (this._session as any)?.settings?.timezone as string | null;
+    const appTimezone = (this._session as any).appSession?.settings?.getMentraOS(
+      "userTimezone",
+    ) as string | undefined;
+    const currentTimezone = appTimezone || settingsTimezone || undefined;
+
+    if (!this.timeManager || (this as any)._lastTimezone !== currentTimezone) {
+      this.timeManager = new TimeManager(currentTimezone);
+      (this as any)._lastTimezone = currentTimezone;
+    }
+    return this.timeManager;
   }
 
   private getFileManager(): FileManager | null {

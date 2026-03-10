@@ -1,0 +1,53 @@
+{
+  "description": "ConversationTracker eval — Summary compression. Given a long transcript, compress to under 300 words while preserving key info.",
+  "cases": [
+    {
+      "transcript": "So we need to figure out the Q3 roadmap. I think the notification system should be top priority. Users have been complaining about missing important updates. Sarah said she can lead it. She estimated about 4 weeks for the backend work. Mike thinks the frontend will take another 2 weeks on top of that. We also need to fix the search functionality - it's been slow since we added the new index. Tom mentioned that the search latency is averaging 3 seconds which is way too high. The target should be under 500ms. We agreed to dedicate one sprint to search optimization before starting the notification work. Budget-wise, we have room for one contractor to help with the frontend. Lisa will reach out to the agency we used last time.",
+      "mustInclude": ["notification", "Sarah", "4 weeks", "search", "500ms", "contractor", "Lisa"],
+      "category": "meeting-planning",
+      "note": "Product planning meeting with multiple decisions and action items"
+    },
+    {
+      "transcript": "The patient, Mrs. Johnson, came in with complaints of persistent headaches for the past two weeks. She's been taking ibuprofen 400mg three times daily with minimal relief. Blood pressure reading today was 155/95 which is elevated compared to her last visit of 130/85. She has a history of migraines but says these feel different - more of a constant pressure rather than throbbing. I'm ordering a CT scan to rule out anything serious. Also adjusting her lisinopril from 10mg to 20mg for the blood pressure. Follow-up in two weeks. If the headaches persist, we'll refer to neurology. She's allergic to codeine and sulfa drugs. Current medications: lisinopril, metformin 500mg twice daily for pre-diabetes, and a daily multivitamin.",
+      "mustInclude": ["Mrs. Johnson", "headaches", "155/95", "CT scan", "lisinopril", "20mg", "codeine", "sulfa", "neurology", "two weeks"],
+      "category": "medical-notes",
+      "note": "Patient encounter with medications, vitals, and follow-up plan"
+    },
+    {
+      "transcript": "The code review for the payment service refactor went well overall. Main changes: we're switching from synchronous Stripe API calls to async with webhooks. This should reduce checkout latency by about 40%. Kevin pointed out a potential race condition in the webhook handler where two events could arrive out of order. We need to add idempotency keys. Also, the error handling needs work - right now failures silently return a 200 which masks problems. Jake is going to add proper retry logic with exponential backoff. The PR has 47 files changed. We agreed to merge it behind a feature flag and roll out to 5% of users first. Target: have it in staging by Friday, production rollout starting Monday. Rollback plan: kill switch on the feature flag.",
+      "mustInclude": ["Stripe", "async", "webhooks", "40%", "race condition", "idempotency", "Jake", "feature flag", "5%", "Friday", "Monday"],
+      "category": "code-review",
+      "note": "Technical code review with specific action items and rollout plan"
+    },
+    {
+      "transcript": "So the house inspection came back and there are a few issues. The roof has about 5 years of life left, maybe less. The inspector said the shingles are curling on the north side. The HVAC system is original from 2005 and running on R-22 refrigerant which is being phased out. Replacing it would cost around $8,000 to $10,000. The plumbing is copper which is good but there's a slow leak under the master bathroom sink. Foundation looks solid, no cracks. Electrical panel was updated in 2018 so that's fine. The inspector recommended getting a termite inspection because he saw some damage near the back porch. The seller is asking $485,000. Based on the repairs needed, I think we should counter at $460,000. The roof alone could be $15,000 to replace.",
+      "mustInclude": ["roof", "5 years", "HVAC", "2005", "$8,000", "$10,000", "leak", "bathroom", "termite", "$485,000", "$460,000"],
+      "category": "real-estate",
+      "note": "Home inspection findings with cost estimates and negotiation strategy"
+    },
+    {
+      "transcript": "The fundraising round update: we've now spoken with 12 VCs. Three have passed - Sequoia said we're too early, a16z said the market is too crowded, and Lightspeed never got back to us. Four are in active due diligence: Accel wants to see our unit economics, Benchmark is doing customer calls this week, Index is reviewing our technical architecture, and Greylock asked for a follow-up meeting next Tuesday. The remaining five are in early stages. Our target is $15M at a $60M pre-money valuation. The convertible note holders from the seed round will convert at a 20% discount. We need to close by April 15th to have enough runway. Current burn rate is $400K per month. We have 4 months of cash left.",
+      "mustInclude": ["12 VCs", "Accel", "Benchmark", "Index", "Greylock", "$15M", "$60M", "20% discount", "April 15", "$400K", "4 months"],
+      "category": "fundraising",
+      "note": "VC fundraising status with specific firms and financial details"
+    },
+    {
+      "transcript": "Okay so the wedding planning update. We booked the venue - it's the Rosewood Estate, confirmed for September 14th. Deposit was $5,000, total venue cost is $18,000. That includes tables, chairs, and the ceremony space. We still need to book: photographer (budget $3,000-4,000), florist (budget $2,000), DJ ($1,500), and the cake ($800). My mom is handling the invitations - she wants to send them out by July 1st. Guest list is at 120 people right now but we're trying to get it down to 100. The caterer we liked, Farm to Table Catering, can do $85 per person which puts food at $8,500 for 100 guests. Total budget is $40,000 and we're at about $28,000 committed so far.",
+      "mustInclude": ["Rosewood Estate", "September 14", "$18,000", "photographer", "florist", "DJ", "July 1", "120", "100", "$85", "$40,000", "$28,000"],
+      "category": "event-planning",
+      "note": "Wedding planning with venue, vendors, and budget tracking"
+    },
+    {
+      "transcript": "The quarterly business review for the APAC region. Revenue was $4.2M, up 22% year over year. Japan is the biggest market at $1.8M. Australia grew fastest at 45% but from a smaller base of $600K. Singapore is flat and we might need to reconsider our strategy there. The sales team closed 34 new accounts this quarter, average deal size $38K. The biggest win was Mitsubishi at $250K annual contract. Churn was 5%, mostly from small accounts under $10K. We lost Softbank which was $180K - they went with a local competitor. Headcount is 28 across the region. We're looking to hire 3 more sales reps and a regional marketing manager. The office lease in Tokyo expires in June and we need to decide whether to renew or relocate.",
+      "mustInclude": ["$4.2M", "22%", "Japan", "$1.8M", "Australia", "45%", "Singapore", "34", "Mitsubishi", "$250K", "Softbank", "$180K", "28", "Tokyo", "June"],
+      "category": "business-review",
+      "note": "Regional business review with revenue, customers, and headcount"
+    },
+    {
+      "transcript": "The emergency response plan needs updating. Current issues: the evacuation route on the second floor goes through the server room which is a fire hazard. We need an alternative route through the west stairwell. The fire extinguishers in building B haven't been inspected since 2022. The AED on the third floor has expired pads that need replacing. Emergency contact list is outdated - three people on it no longer work here. The assembly point in the parking lot conflicts with the new construction zone. We need to designate a temporary assembly point. The fire department inspection is scheduled for March 30th. We need all of this resolved before then. Budget approved for $12,000 for safety upgrades including new signage, extinguisher servicing, and AED supplies.",
+      "mustInclude": ["evacuation", "server room", "west stairwell", "fire extinguishers", "2022", "AED", "emergency contact", "assembly point", "March 30", "$12,000"],
+      "category": "safety-compliance",
+      "note": "Emergency preparedness with specific compliance issues and deadlines"
+    }
+  ]
+}

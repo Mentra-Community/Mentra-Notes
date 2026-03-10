@@ -56,6 +56,7 @@ export type {
 // Import provider implementations
 import { createAnthropicProvider, AnthropicProvider } from "./anthropic";
 import { createGeminiProvider, GeminiProvider } from "./gemini";
+import { createOpenAIProvider, OpenAIProvider } from "./openai";
 
 // Import types for factory
 import type {
@@ -72,6 +73,8 @@ export {
   createAnthropicProvider,
   GeminiProvider,
   createGeminiProvider,
+  OpenAIProvider,
+  createOpenAIProvider,
 };
 
 // Re-export utility functions from both providers
@@ -88,9 +91,7 @@ export {
 const providerRegistry: ProviderRegistry = {
   anthropic: createAnthropicProvider,
   gemini: createGeminiProvider,
-  openai: () => {
-    throw new Error("OpenAI provider not yet implemented");
-  },
+  openai: createOpenAIProvider,
 };
 
 /**

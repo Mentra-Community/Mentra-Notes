@@ -1,0 +1,285 @@
+{
+  "description": "ConversationTracker eval — Resumption check. Given a paused conversation summary and a new chunk, should the conversation resume? YES or NO.",
+  "cases": [
+    {
+      "summary": "Team was discussing the Q3 product roadmap. Decided to keep the notification redesign in Q3 with reduced scope. Mike is leading the effort.",
+      "chunk": "So going back to the notifications, I think we should focus on email notifications first and add push later.",
+      "expected": true,
+      "category": "explicit-return",
+      "note": "Explicitly references the paused topic"
+    },
+    {
+      "summary": "Team was discussing the Q3 product roadmap. Decided to keep the notification redesign in Q3 with reduced scope. Mike is leading the effort.",
+      "chunk": "Has anyone filed the expense reports from the conference last week?",
+      "expected": false,
+      "category": "different-topic",
+      "note": "Completely unrelated administrative task"
+    },
+    {
+      "summary": "Discussing the server migration from AWS to GCP. John handling database, Lisa doing networking. 6-week timeline.",
+      "chunk": "About the migration, I found out that our Terraform configs need updating for GCP's API format.",
+      "expected": true,
+      "category": "explicit-return",
+      "note": "Directly mentions migration"
+    },
+    {
+      "summary": "Discussing the server migration from AWS to GCP. John handling database, Lisa doing networking. 6-week timeline.",
+      "chunk": "So the new parental leave policy gives 16 weeks fully paid. That's really competitive.",
+      "expected": false,
+      "category": "different-topic",
+      "note": "HR policy, not server migration"
+    },
+    {
+      "summary": "Planning the kitchen renovation. Quartz countertops, new backsplash, island addition. Budget $25K. Contractor visit Tuesday.",
+      "chunk": "Oh I forgot to mention, the contractor said we might need to upgrade the electrical panel to support the island outlets.",
+      "expected": true,
+      "category": "explicit-return",
+      "note": "Related detail about same renovation"
+    },
+    {
+      "summary": "Planning the kitchen renovation. Quartz countertops, new backsplash, island addition. Budget $25K. Contractor visit Tuesday.",
+      "chunk": "We need to schedule Emma's dentist appointment. She's overdue for a cleaning.",
+      "expected": false,
+      "category": "different-topic",
+      "note": "Child's appointment, not renovation"
+    },
+    {
+      "summary": "Debugging Stripe webhook failures returning 500 errors. Started after yesterday's deploy. Affects 10% of transactions.",
+      "chunk": "I think the webhook issue might also be related to the rate limiter we added last week.",
+      "expected": true,
+      "category": "implicit-return",
+      "note": "References the webhook issue without explicitly saying 'going back to'"
+    },
+    {
+      "summary": "Debugging Stripe webhook failures returning 500 errors. Started after yesterday's deploy. Affects 10% of transactions.",
+      "chunk": "My car won't start this morning. I think the battery is dead.",
+      "expected": false,
+      "category": "different-topic",
+      "note": "Personal car issue"
+    },
+    {
+      "summary": "Negotiating office lease renewal. Current $45/sqft, landlord wants $52, team thinks $48 fair. Lease expires in 90 days.",
+      "chunk": "I just heard back from the landlord. He'll do $49 if we commit to 3 years.",
+      "expected": true,
+      "category": "explicit-return",
+      "note": "Direct update on the same negotiation"
+    },
+    {
+      "summary": "Negotiating office lease renewal. Current $45/sqft, landlord wants $52, team thinks $48 fair. Lease expires in 90 days.",
+      "chunk": "The new intern seems really sharp. She already fixed two bugs on her first day.",
+      "expected": false,
+      "category": "different-topic",
+      "note": "Hiring/team topic, not lease"
+    },
+    {
+      "summary": "Reviewing quarterly sales numbers. Revenue up 15%, margins down 3%. Enterprise growing fastest. SMB churn at 8%.",
+      "chunk": "Actually I pulled the churn numbers by segment and it's even worse for the startup tier. 12% churn there.",
+      "expected": true,
+      "category": "implicit-return",
+      "note": "Deeper dive into the same sales data"
+    },
+    {
+      "summary": "Reviewing quarterly sales numbers. Revenue up 15%, margins down 3%. Enterprise growing fastest. SMB churn at 8%.",
+      "chunk": "Does anyone know a good plumber? My kitchen sink is backed up.",
+      "expected": false,
+      "category": "different-topic",
+      "note": "Home maintenance, not sales"
+    },
+    {
+      "summary": "Discussing patient treatment plan. 67-year-old with Type 2 diabetes and hypertension. Metformin 1000mg, lisinopril 20mg. A1C at 7.8.",
+      "chunk": "I looked at the patient's recent bloodwork and the kidney function is also declining. We should consider adjusting the metformin.",
+      "expected": true,
+      "category": "implicit-return",
+      "note": "Same patient's treatment"
+    },
+    {
+      "summary": "Discussing patient treatment plan. 67-year-old with Type 2 diabetes and hypertension. Metformin 1000mg, lisinopril 20mg. A1C at 7.8.",
+      "chunk": "The vending machine in the break room is broken again. Who do we call about that?",
+      "expected": false,
+      "category": "different-topic",
+      "note": "Facilities issue"
+    },
+    {
+      "summary": "Planning road trip from LA to San Francisco via PCH. Stopping in Santa Barbara for lunch. Considering Big Sur overnight.",
+      "chunk": "I just checked the weather forecast and there might be fog on the PCH this weekend. We should have a backup plan.",
+      "expected": true,
+      "category": "implicit-return",
+      "note": "Weather concern for same trip"
+    },
+    {
+      "summary": "Planning road trip from LA to San Francisco via PCH. Stopping in Santa Barbara for lunch. Considering Big Sur overnight.",
+      "chunk": "I need to renew my passport before it expires next month.",
+      "expected": false,
+      "category": "different-topic",
+      "note": "Personal admin task"
+    },
+    {
+      "summary": "Discussing the company's response to a data breach. 50K user records exposed. Legal team advising on notification requirements. PR drafting a public statement.",
+      "chunk": "Legal just confirmed we have 72 hours to notify affected users under GDPR.",
+      "expected": true,
+      "category": "explicit-return",
+      "note": "Legal update on same breach"
+    },
+    {
+      "summary": "Discussing the company's response to a data breach. 50K user records exposed. Legal team advising on notification requirements. PR drafting a public statement.",
+      "chunk": "Are we still doing the team lunch on Wednesday? I need to make a reservation.",
+      "expected": false,
+      "category": "different-topic",
+      "note": "Social planning, not incident response"
+    },
+    {
+      "summary": "Home security system comparison. Ring vs SimpliSafe vs ADT. Need cameras for front door, backyard, garage. Want professional monitoring.",
+      "chunk": "I just realized we also need a camera for the side gate. That's where the delivery drivers usually come.",
+      "expected": true,
+      "category": "implicit-return",
+      "note": "Additional camera placement for same system"
+    },
+    {
+      "summary": "Home security system comparison. Ring vs SimpliSafe vs ADT. Need cameras for front door, backyard, garage. Want professional monitoring.",
+      "chunk": "What should we have for dinner tonight? I was thinking Thai.",
+      "expected": false,
+      "category": "different-topic",
+      "note": "Dinner planning"
+    },
+    {
+      "summary": "Budget allocation for engineering. Last year $2.1M, requesting $2.5M. Need 3 new hires plus infrastructure costs.",
+      "chunk": "If we hire contractors instead of full-time, we could save about $200K and stay closer to last year's budget.",
+      "expected": true,
+      "category": "implicit-return",
+      "note": "Budget optimization for same discussion"
+    },
+    {
+      "summary": "Budget allocation for engineering. Last year $2.1M, requesting $2.5M. Need 3 new hires plus infrastructure costs.",
+      "chunk": "My dog ate something weird at the park yesterday and now he's been sick all morning.",
+      "expected": false,
+      "category": "different-topic",
+      "note": "Personal pet issue"
+    },
+    {
+      "summary": "Candidate interview review. Strong technical skills, nervous demeanor. Solved system design well. Concerns about communication and culture fit.",
+      "chunk": "Actually, I want to reconsider. Her GitHub contributions show she's very active in open source, which suggests strong collaboration skills.",
+      "expected": true,
+      "category": "implicit-return",
+      "note": "New data point about same candidate"
+    },
+    {
+      "summary": "Candidate interview review. Strong technical skills, nervous demeanor. Solved system design well. Concerns about communication and culture fit.",
+      "chunk": "Has anyone seen my AirPods? I think I left them in the conference room.",
+      "expected": false,
+      "category": "different-topic",
+      "note": "Lost item, not hiring"
+    },
+    {
+      "summary": "Insurance provider comparison. BlueCross raising premiums. Considering Aetna and United. Open enrollment in November.",
+      "chunk": "I got the Aetna quote. It's $50 less per employee per month and includes vision.",
+      "expected": true,
+      "category": "explicit-return",
+      "note": "Price quote for same insurance discussion"
+    },
+    {
+      "summary": "Insurance provider comparison. BlueCross raising premiums. Considering Aetna and United. Open enrollment in November.",
+      "chunk": "The projector in conference room B isn't working. Can someone submit a ticket?",
+      "expected": false,
+      "category": "different-topic",
+      "note": "IT issue, not insurance"
+    },
+    {
+      "summary": "Microservices migration architecture. Moving from monolith to event-driven. Kafka for message bus. Target Q2.",
+      "chunk": "For the auth service, we should use JWT tokens with short expiry and refresh tokens. That way each service can validate independently.",
+      "expected": true,
+      "category": "implicit-return",
+      "note": "Auth design for same architecture project"
+    },
+    {
+      "summary": "Microservices migration architecture. Moving from monolith to event-driven. Kafka for message bus. Target Q2.",
+      "chunk": "I'm thinking of getting a standing desk. My back has been killing me.",
+      "expected": false,
+      "category": "different-topic",
+      "note": "Personal ergonomics, not architecture"
+    },
+    {
+      "summary": "Performance review process redesign. Current 1-5 ratings feel arbitrary. Considering narrative approach with clear expectations.",
+      "chunk": "What if we also add a peer review component? Like 360-degree feedback but lightweight.",
+      "expected": true,
+      "category": "implicit-return",
+      "note": "Process enhancement for same review discussion"
+    },
+    {
+      "summary": "Performance review process redesign. Current 1-5 ratings feel arbitrary. Considering narrative approach with clear expectations.",
+      "chunk": "Traffic is going to be terrible tonight. There's a concert downtown.",
+      "expected": false,
+      "category": "different-topic",
+      "note": "Commute concern, not HR process"
+    },
+    {
+      "summary": "Surprise birthday party for Tom on March 20th. Restaurant venue, 15 guests. Coordinating with his wife.",
+      "chunk": "Tom's wife just texted me. She says she can get him there by 7 PM if we tell him it's a dinner with her parents.",
+      "expected": true,
+      "category": "explicit-return",
+      "note": "Coordination update for same party"
+    },
+    {
+      "summary": "Surprise birthday party for Tom on March 20th. Restaurant venue, 15 guests. Coordinating with his wife.",
+      "chunk": "The API rate limits are way too aggressive. We're getting throttled during peak hours.",
+      "expected": false,
+      "category": "different-topic",
+      "note": "Technical issue, not party"
+    },
+    {
+      "summary": "Discussing a potential acquisition of a smaller competitor. Target company has 50 employees and $5M ARR. Due diligence is underway.",
+      "chunk": "The due diligence team found some IP concerns. Two of their key patents are being challenged.",
+      "expected": true,
+      "category": "explicit-return",
+      "note": "Due diligence update on same acquisition"
+    },
+    {
+      "summary": "Discussing a potential acquisition of a smaller competitor. Target company has 50 employees and $5M ARR. Due diligence is underway.",
+      "chunk": "Can we order more printer paper? We're completely out on the third floor.",
+      "expected": false,
+      "category": "different-topic",
+      "note": "Office supplies, not M&A"
+    },
+    {
+      "summary": "Talking about repainting the house exterior. Current color is beige. Considering navy blue with white trim. Getting 3 quotes from painters.",
+      "chunk": "The second painter said he can start next week if we go with the Sherwin-Williams paint instead of Benjamin Moore.",
+      "expected": true,
+      "category": "explicit-return",
+      "note": "Painter quote for same project"
+    },
+    {
+      "summary": "Talking about repainting the house exterior. Current color is beige. Considering navy blue with white trim. Getting 3 quotes from painters.",
+      "chunk": "We should sign up for that cooking class. The one that does Italian food on Saturdays.",
+      "expected": false,
+      "category": "different-topic",
+      "note": "Recreational activity, not house painting"
+    },
+    {
+      "summary": "Discussing the company's sustainability goals. Aiming for carbon neutral by 2027. Considering solar panels for the office, EV charging stations, and switching to recycled packaging.",
+      "chunk": "The solar panel vendor sent their proposal. Installation would pay for itself in 4 years.",
+      "expected": true,
+      "category": "explicit-return",
+      "note": "Vendor update on same sustainability initiative"
+    },
+    {
+      "summary": "Discussing the company's sustainability goals. Aiming for carbon neutral by 2027. Considering solar panels for the office, EV charging stations, and switching to recycled packaging.",
+      "chunk": "I just finished binge-watching that new show on Netflix. It's so good. You have to watch it.",
+      "expected": false,
+      "category": "different-topic",
+      "note": "Entertainment recommendation"
+    },
+    {
+      "summary": "Reviewing the results of the A/B test on the checkout flow. Version B had 12% higher conversion. Discussing whether to roll it out to all users.",
+      "chunk": "Before we roll it out, we should check if the results hold for mobile users too. The sample was mostly desktop.",
+      "expected": true,
+      "category": "implicit-return",
+      "note": "Data validation for same A/B test"
+    },
+    {
+      "summary": "Reviewing the results of the A/B test on the checkout flow. Version B had 12% higher conversion. Discussing whether to roll it out to all users.",
+      "chunk": "Is it just me or is the AC not working? It feels like 80 degrees in here.",
+      "expected": false,
+      "category": "different-topic",
+      "note": "Environmental complaint"
+    }
+  ]
+}
