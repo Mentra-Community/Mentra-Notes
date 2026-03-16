@@ -51,7 +51,7 @@ export function HomePage() {
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [showGlobalChat, setShowGlobalChat] = useState(false);
   const [isEmptyingTrash, setIsEmptyingTrash] = useState(false);
-  const newMentraUI = useFeatureFlag('new-mentraos-ui-miniapps');
+  const { enabled: newMentraUI } = useFeatureFlag('new-mentraos-ui-miniapps');
   const [showEmptyTrashConfirm, setShowEmptyTrashConfirm] = useState(false);
 
   // Derive data from session - now using FileManager as source of truth

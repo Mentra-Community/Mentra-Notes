@@ -4,6 +4,7 @@
  * Defines all routes for the Notes app using Wouter.
  * Routes:
  * - / → HomePage (folder list)
+ * - /onboarding → OnboardingPage (multi-step onboarding flow)
  * - /day/:date → DayPage (day detail with tabs)
  * - /note/:id → NotePage (individual note view/editor)
  * - /search → SearchPage (semantic search)
@@ -13,6 +14,7 @@
 import { Route, Switch, useLocation } from "wouter";
 import { AnimatePresence, motion } from "framer-motion";
 import { HomePage } from "./pages/home/HomePage";
+import { OnboardingPage } from "./pages/onboarding/OnboardingPage";
 import { DayPage } from "./pages/day/DayPage";
 import { NotePage } from "./pages/note/NotePage";
 import { SearchPage } from "./pages/search/SearchPage";
@@ -23,6 +25,7 @@ function FrozenRoutes({ location }: { location: string }) {
   return (
     <Switch location={location}>
       <Route path="/" component={HomePage} />
+      <Route path="/onboarding" component={OnboardingPage} />
       <Route path="/day/:date" component={DayPage} />
       <Route path="/note/:id" component={NotePage} />
       <Route path="/search" component={SearchPage} />

@@ -7,11 +7,13 @@
 
 import { useState, useEffect, createContext, useContext } from "react";
 import { motion } from "framer-motion";
+import { useLocation } from "wouter";
 import { useMentraAuth } from "@mentra/react";
 import { Toaster } from "sonner";
 import { clsx } from "clsx";
 import { Router } from "./router";
 import { Shell } from "./components/layout/Shell";
+import { useFeatureFlag, FLAGS } from "./services/posthog";
 // import { SplashScreen } from "./components/shared/SplashScreen";
 
 // =============================================================================
@@ -40,6 +42,18 @@ export function useTheme() {
 
 export function App() {
   const { isLoading, error } = useMentraAuth();
+  const [, navigate] = useLocation();
+
+  // Redirect to onboarding on app open (controlled by feature flag)
+  const { enabled: showOnboarding, loaded: flagsLoaded } = useFeatureFlag(FLAGS.FRONTEND_ONBOARD, true);
+  const [onboardingResolved, setOnboardingResolved] = useState(false);
+  useEffect(() => {
+    if (!flagsLoaded) return;
+    if (showOnboarding) {
+      navigate("/onboarding");
+    }
+    setOnboardingResolved(true);
+  }, [showOnboarding, flagsLoaded]);
 
   // // Splash screen: show for 3s, then fade out
   // const [splashVisible, setSplashVisible] = useState(true);
@@ -118,6 +132,13 @@ export function App() {
     isDarkMode: theme === "dark",
     toggleTheme,
   };
+
+  // Don't render until onboarding check resolves to prevent home screen flash
+  if (!onboardingResolved) {
+    return (
+      <div className={clsx("h-screen w-screen bg-[#FAFAF9] dark:bg-black", theme)} />
+    );
+  }
 
   return (
     <ThemeContext.Provider value={themeValue}>

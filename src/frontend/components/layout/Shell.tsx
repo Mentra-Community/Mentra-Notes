@@ -78,13 +78,16 @@ export function Shell({ children }: ShellProps) {
     return false;
   };
 
-  // Hide bottom nav only on note editor pages
-  const hideBottomNav = location.startsWith("/note/");
+  // Hide bottom nav on note editor and onboarding pages
+  const hideBottomNav = location.startsWith("/note/") || location.startsWith("/onboarding");
+
+  // Hide entire shell chrome on onboarding
+  const hideShellChrome = location.startsWith("/onboarding");
 
   return (
     <div className="flex h-screen w-full bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-100">
       {/* Desktop Sidebar */}
-      <div className="w-16 shrink-0 border-r border-zinc-200 dark:border-zinc-800 hidden md:flex flex-col items-center py-4 gap-2 bg-white dark:bg-zinc-950">
+      <div className={clsx("w-16 shrink-0 border-r border-zinc-200 dark:border-zinc-800 hidden md:flex flex-col items-center py-4 gap-2 bg-white dark:bg-zinc-950", hideShellChrome && "hidden!")}>
         {/* App Icon */}
         <div className="w-10 h-10 rounded-xl bg-zinc-900 dark:bg-white flex items-center justify-center mb-4">
           <span className="text-white dark:text-zinc-900 text-lg">📝</span>

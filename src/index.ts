@@ -100,6 +100,7 @@ Bun.serve({
     "/note/*": isDevelopment ? indexDev : indexProd,
     "/search": isDevelopment ? indexDev : indexProd,
     "/settings": isDevelopment ? indexDev : indexProd,
+    "/onboarding": isDevelopment ? indexDev : indexProd,
   },
   fetch(request, server) {
     const url = new URL(request.url);

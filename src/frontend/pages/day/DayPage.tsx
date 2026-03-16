@@ -77,7 +77,7 @@ export function DayPage() {
   const { userId } = useMentraAuth();
   const { session, isConnected, isReconnecting } = useSynced<SessionI>(userId || "");
 
-  const newMentraUI = useFeatureFlag("new-mentraos-ui-miniapps");
+  const { enabled: newMentraUI } = useFeatureFlag("new-mentraos-ui-miniapps");
   const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     return (urlParams.get("tab") as TabType) || "transcript";

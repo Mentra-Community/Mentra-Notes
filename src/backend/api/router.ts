@@ -1240,6 +1240,38 @@ api.get("/search", authMiddleware, async (c) => {
 });
 
 // =============================================================================
+// PostHog Reverse Proxy (bypasses ad blockers)
+// =============================================================================
+
+const POSTHOG_HOST = "https://us.i.posthog.com";
+
+api.all("/posthog/*", async (c) => {
+  const path = c.req.path.replace(/^\/api\/posthog/, "");
+  const url = new URL(path || "/", POSTHOG_HOST);
+
+  // Forward query params
+  const reqUrl = new URL(c.req.url);
+  reqUrl.searchParams.forEach((val, key) => url.searchParams.set(key, val));
+
+  const headers = new Headers();
+  headers.set("Content-Type", c.req.header("content-type") || "application/json");
+
+  const res = await fetch(url.toString(), {
+    method: c.req.method,
+    headers,
+    body: ["GET", "HEAD"].includes(c.req.method) ? undefined : await c.req.raw.arrayBuffer(),
+  });
+
+  return new Response(res.body, {
+    status: res.status,
+    headers: {
+      "Content-Type": res.headers.get("content-type") || "application/json",
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
+});
+
+// =============================================================================
 // Catch-all for unknown routes
 // =============================================================================
 
