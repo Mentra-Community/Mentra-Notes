@@ -70,6 +70,7 @@ export {
   createConversation,
   getResumableConversations,
   getConversationsByDate,
+  getAllConversations,
   getConversationById,
   updateConversation,
   appendChunkToConversation,

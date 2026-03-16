@@ -9,7 +9,7 @@
  */
 
 import { SyncedManager, synced, rpc } from "../../../lib/sync";
-import { getConversationsByDate, deleteConversation, updateConversation } from "../../models/conversation.model";
+import { getAllConversations, deleteConversation, updateConversation } from "../../models/conversation.model";
 import { getChunksByConversationId } from "../../models/transcript-chunk.model";
 import type { ConversationI } from "../../models/conversation.model";
 import type { TranscriptChunkI } from "../../models/transcript-chunk.model";
@@ -48,15 +48,16 @@ export class ConversationManager extends SyncedManager {
     try {
       const today = this.getTimeManager().today();
 
-      // Load existing conversations for today
-      const dbConversations = await getConversationsByDate(userId, today);
+      // Load all conversations (across all days) for the homepage
+      const allDbConversations = await getAllConversations(userId);
       const frontendConversations = await Promise.all(
-        dbConversations.map((c) => this.toFrontendConversation(c)),
+        allDbConversations.map((c) => this.toFrontendConversation(c)),
       );
       this.conversations.set(frontendConversations);
 
-      // Find active conversation
-      const active = dbConversations.find((c) => c.status === "active");
+      // Find active conversation (only today's can be active)
+      const todayConversations = allDbConversations.filter((c) => c.date === today);
+      const active = todayConversations.find((c) => c.status === "active");
       this.activeConversationId = active
         ? (active._id!.toString())
         : null;
@@ -91,8 +92,8 @@ export class ConversationManager extends SyncedManager {
 
       // Auto-end any stale active/paused conversations from before this restart
       // (they'll never get silence chunks to end naturally)
-      const staleConversations = dbConversations.filter(
-        (c) => c.status === "active" || c.status === "paused",
+      const staleConversations = todayConversations.filter(
+        (c: ConversationI) => c.status === "active" || c.status === "paused",
       );
       for (const conv of staleConversations) {
         const convId = conv._id!.toString();

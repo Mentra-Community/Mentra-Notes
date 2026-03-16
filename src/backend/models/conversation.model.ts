@@ -194,6 +194,15 @@ export async function deleteConversation(
 }
 
 /**
+ * Get all conversations for a user (across all days)
+ */
+export async function getAllConversations(
+  userId: string,
+): Promise<ConversationI[]> {
+  return Conversation.find({ userId }).sort({ startTime: -1 });
+}
+
+/**
  * Get conversations with active/paused status (for crash recovery on startup)
  */
 export async function getActiveConversations(
