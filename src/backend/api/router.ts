@@ -1211,7 +1211,12 @@ api.get("/conversations/:date", authMiddleware, async (c) => {
  */
 api.get("/search", authMiddleware, async (c) => {
   try {
-    const userId = requireAuth(c);
+    // Try standard auth first, fall back to userId query param
+    // (cookie auth may not work in all browser contexts through ngrok)
+    const userId = getUserId(c) || c.req.query("userId") as string;
+    if (!userId) {
+      throw { error: "Unauthorized", status: 401 };
+    }
     const query = c.req.query("q");
     const limitParam = c.req.query("limit");
     const aiParam = c.req.query("ai");

@@ -14,6 +14,7 @@ import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useMentraAuth } from "@mentra/react";
 import { ChevronLeft } from "lucide-react";
+import { format, isToday, isYesterday } from "date-fns";
 import { useSynced } from "../../hooks/useSynced";
 import type { SessionI, FileFilter, Conversation } from "../../../shared/types";
 import type { DailyFolder } from "./components/FolderList";
@@ -43,13 +44,14 @@ export function HomePage() {
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [showGlobalChat, setShowGlobalChat] = useState(false);
   const [showEmptyTrashConfirm, setShowEmptyTrashConfirm] = useState(false);
-  const [activeTimeFilter, setActiveTimeFilter] = useState<"all" | "today">("all");
+  const [activeTimeFilter, setActiveTimeFilter] = useState<"all" | "today" | "transcripts">("all");
 
   // Derive data from session
   const files = session?.file?.files ?? [];
   const isRecording = session?.transcript?.isRecording ?? false;
   const notes = session?.notes?.notes ?? [];
   const conversations = session?.conversation?.conversations ?? [];
+  const availableDates = session?.transcript?.availableDates ?? [];
 
   // Backend filter state
   const backendFilter = session?.file?.activeFilter ?? "all";
@@ -146,10 +148,7 @@ export function HomePage() {
         setLocation("/search");
         break;
       case "notes":
-        // Navigate to today's day page (notes tab)
-        const now = new Date();
-        const todayStr2 = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-        setLocation(`/day/${todayStr2}`);
+        setLocation("/notes");
         break;
       case "settings":
         setLocation("/settings");
@@ -159,8 +158,7 @@ export function HomePage() {
   };
 
   const handleSelectConversation = (conversation: Conversation) => {
-    // Navigate to the day page for this conversation's date
-    setLocation(`/day/${conversation.date}`);
+    setLocation(`/conversation/${conversation.id}`);
   };
 
   const handleGlobalChat = () => {
@@ -319,6 +317,8 @@ export function HomePage() {
         <div className="flex-1 overflow-hidden">
           <CalendarView
             folders={folders}
+            conversations={conversations}
+            notes={notes}
             onSelectDate={(dateString) => setLocation(`/day/${dateString}`)}
           />
         </div>
@@ -417,16 +417,100 @@ export function HomePage() {
             Today
           </span>
         </button>
+        <button
+          onClick={() => setActiveTimeFilter("transcripts")}
+          className={`flex items-center rounded-[20px] py-[7px] px-4 ${
+            activeTimeFilter === "transcripts" ? "bg-[#1C1917]" : "bg-[#F5F5F4]"
+          }`}
+        >
+          <span
+            className={`text-[13px] leading-4 ${FONT} ${
+              activeTimeFilter === "transcripts" ? "text-[#FAFAF9] font-semibold" : "text-[#78716C] font-medium"
+            }`}
+          >
+            Transcripts
+          </span>
+        </button>
       </div>
 
-      {/* Conversation list */}
+      {/* Content area */}
       <div className="flex-1 overflow-hidden">
-        <ConversationList
-          conversations={filteredConversations}
-          onSelectConversation={handleSelectConversation}
-          onArchive={handleArchiveConversation}
-          onDelete={handleDeleteConversation}
-        />
+        {activeTimeFilter === "transcripts" ? (
+          /* Transcript dates list */
+          <div className="h-full overflow-y-auto px-6 pb-32">
+            {availableDates.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-3">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#D6D3D1" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                </svg>
+                <span className={`text-[14px] text-[#A8A29E] ${FONT}`}>No transcripts yet</span>
+              </div>
+            ) : (
+              [...availableDates].sort((a, b) => b.localeCompare(a)).map((dateStr, i, arr) => {
+                const [year, month, day] = dateStr.split("-").map(Number);
+                const dateObj = new Date(year, month - 1, day);
+                const today = isToday(dateObj);
+                const yesterday = isYesterday(dateObj);
+                const label = today ? "Today" : yesterday ? "Yesterday" : format(dateObj, "EEE, MMM d");
+                const file = files.find((f) => f.date === dateStr);
+                const segCount = file?.transcriptSegmentCount ?? 0;
+                const hourCount = file?.transcriptHourCount ?? 0;
+
+                return (
+                  <button
+                    key={dateStr}
+                    onClick={() => setLocation(`/day/${dateStr}?tab=transcript`)}
+                    className={`flex items-center py-4 gap-3 w-full text-left ${
+                      i < arr.length - 1 ? "border-b border-[#F5F5F4]" : ""
+                    }`}
+                  >
+                    {/* Mic icon */}
+                    <div className={`flex items-center justify-center shrink-0 rounded-xl size-10 ${today ? "bg-[#FEE2E2]" : "bg-[#F5F5F4]"}`}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={today ? "#DC2626" : "#78716C"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                        <line x1="12" y1="19" x2="12" y2="23" />
+                        <line x1="8" y1="23" x2="16" y2="23" />
+                      </svg>
+                    </div>
+                    {/* Content */}
+                    <div className="flex flex-col grow shrink basis-0 gap-0.5 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[15px] leading-5 text-[#1C1917] ${FONT} font-semibold`}>
+                          {label}
+                        </span>
+                        {today && isRecording && (
+                          <div className="flex items-center rounded-md py-[2px] px-1.5 gap-1 bg-[#FEE2E2]">
+                            <div className="w-1.5 h-1.5 rounded-full bg-[#DC2626] animate-pulse" />
+                            <span className={`text-[10px] leading-3 text-[#DC2626] ${FONT} font-semibold`}>Live</span>
+                          </div>
+                        )}
+                      </div>
+                      <span className={`text-[13px] leading-4 text-[#A8A29E] ${FONT}`}>
+                        {segCount} segments{hourCount > 0 ? ` · ${hourCount} ${hourCount === 1 ? "hour" : "hours"}` : ""}
+                      </span>
+                    </div>
+                    {/* Chevron */}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="shrink-0">
+                      <path d="m9 18 6-6-6-6" stroke="#D6D3D1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        ) : (
+          /* Conversation list */
+          <ConversationList
+            conversations={filteredConversations}
+            onSelectConversation={handleSelectConversation}
+            onArchive={handleArchiveConversation}
+            onDelete={handleDeleteConversation}
+          />
+        )}
       </div>
 
 

@@ -19,6 +19,8 @@ import { DayPage } from "./pages/day/DayPage";
 import { NotePage } from "./pages/note/NotePage";
 import { SearchPage } from "./pages/search/SearchPage";
 import { SettingsPage } from "./pages/settings/SettingsPage";
+import { ConversationDetailPage } from "./pages/conversation/ConversationDetailPage";
+import { NotesPage } from "./pages/notes/NotesPage";
 
 /** Renders routes frozen to a specific location so exit animations show the old page */
 function FrozenRoutes({ location }: { location: string }) {
@@ -28,6 +30,8 @@ function FrozenRoutes({ location }: { location: string }) {
       <Route path="/onboarding" component={OnboardingPage} />
       <Route path="/day/:date" component={DayPage} />
       <Route path="/note/:id" component={NotePage} />
+      <Route path="/conversation/:id" component={ConversationDetailPage} />
+      <Route path="/notes" component={NotesPage} />
       <Route path="/search" component={SearchPage} />
       <Route path="/settings" component={SettingsPage} />
       <Route>
