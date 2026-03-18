@@ -141,7 +141,7 @@ export class SummaryManager extends SyncedManager {
 
     const hourChanged = currentHour !== this.lastSummaryHour;
     const significantNewSegments =
-      hourSegments.length >= this.lastSummarySegmentCount + 5;
+      hourSegments.length - this.lastSummarySegmentCount >= 5;
 
     if (hourSegments.length === 0) {
       if (hourChanged) {

@@ -12,8 +12,9 @@
 import { useState, useRef, useCallback, useMemo, useEffect, memo } from "react";
 import { clsx } from "clsx";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowDown, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { ArrowDown, ChevronDown, Loader2 } from "lucide-react";
 import { DotsSpinner } from "../../../../components/shared/DotsSpinner";
+import { WaveIndicator } from "../../../../components/shared/WaveIndicator";
 import type {
   TranscriptSegment,
   HourSummary,
@@ -25,41 +26,55 @@ const SegmentRow = memo(function SegmentRow({
   formatTime,
   getPhotoSrc,
   onImageLoad,
+  isLive,
 }: {
   segment: TranscriptSegment;
   formatTime: (timestamp: Date | string) => string;
   getPhotoSrc: (url: string) => string;
   onImageLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
+  isLive?: boolean;
 }) {
-  return (
-    <div className="flex gap-3">
-      <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500 w-16 shrink-0 pt-0.5">
-        {segment.timestamp ? formatTime(segment.timestamp) : ""}
-      </span>
-      <div className="flex-1 min-w-0">
-        {segment.type === "photo" && segment.photoUrl ? (
-          <div className="w-full max-w-xs">
-            <img
-              src={getPhotoSrc(segment.photoUrl)}
-              alt="Photo capture"
-              className="block rounded-lg w-full min-h-24 object-cover border border-zinc-200 dark:border-zinc-700"
-              loading="lazy"
-              onLoad={onImageLoad}
-            />
-          </div>
-        ) : (
-          <>
-            <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-              {segment.text}
-            </p>
-            {segment.speakerId && (
-              <span className="text-xs text-zinc-400 dark:text-zinc-500 mt-1 block">
-                Speaker {segment.speakerId}
-              </span>
-            )}
-          </>
-        )}
+  if (segment.type === "photo" && segment.photoUrl) {
+    return (
+      <div className="rounded-[10px] overflow-hidden bg-white">
+        <img
+          src={getPhotoSrc(segment.photoUrl)}
+          alt="Photo capture"
+          className="block w-full min-h-24 object-cover"
+          loading="lazy"
+          onLoad={onImageLoad}
+        />
       </div>
+    );
+  }
+
+  const speakerLabel = segment.speakerId ? `Speaker ${segment.speakerId}` : "Speaker";
+  const timeLabel = segment.timestamp ? formatTime(segment.timestamp) : "";
+
+  return (
+    <div className={clsx(
+      "flex flex-col rounded-[10px] py-2.5 px-3 gap-[3px] bg-white",
+      isLive && "border-[1.5px] border-[#F5C9BC]",
+    )}>
+      <div className="flex items-center justify-between">
+        <span className={clsx(
+          "text-[11px] font-red-hat font-semibold leading-3.5",
+          isLive ? "text-[#C9573A]" : "text-[#78716C]",
+        )}>
+          {speakerLabel}{timeLabel ? ` · ${timeLabel}` : ""}
+        </span>
+        {isLive && <WaveIndicator />}
+      </div>
+      <p className="text-[13px] leading-[1.5] font-red-hat text-[#1C1917]">
+        {segment.text}
+      </p>
+      {/* {isLive && (
+        <div className="flex items-center mt-0.5 gap-1">
+          <div className="rounded-full bg-[#A8A29E] size-1" />
+          <div className="rounded-full bg-[#A8A29E] size-1" />
+          <div className="rounded-full bg-[#A8A29E] size-1" />
+        </div>
+      )} */}
     </div>
   );
 });
@@ -100,7 +115,7 @@ export function TranscriptTab({
   currentHour,
   dateString,
   timezone,
-  onGenerateSummary,
+  onGenerateSummary: _onGenerateSummary,
   isCompactMode = false,
   isSyncingPhoto = false,
   isLoading = false,
@@ -111,9 +126,6 @@ export function TranscriptTab({
   const [loadingHours, setLoadingHours] = useState<Set<string>>(new Set());
   // Measured spinner height per hour (header bottom → container bottom)
   const [spinnerHeights, setSpinnerHeights] = useState<Map<string, number>>(new Map());
-  const [generatingHour, setGeneratingHour] = useState<number | null>(null);
-  // Track which hour banners have their body text fully expanded
-  const [expandedBodies, setExpandedBodies] = useState<Set<string>>(new Set());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const headerRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
@@ -136,7 +148,6 @@ export function TranscriptTab({
 
   // The text to display as "live" — either actual interim, or the finalized-but-not-yet-in-segments text
   const displayInterimText = interimText.trim() || lastInterimRef.current;
-  const isInterimFinalized = !interimText.trim() && !!lastInterimRef.current;
 
   // Helper to get hour state based on compact mode and expanded state
   const getHourState = (hourKey: string): HourState => {
@@ -251,18 +262,6 @@ export function TranscriptTab({
     };
   };
 
-  /**
-   * Truncate text to a max word count
-   */
-  const truncateBody = (text: string, maxWords = 20): { truncated: string; isTruncated: boolean } => {
-    if (!text) return { truncated: "", isTruncated: false };
-    const words = text.split(/\s+/);
-    if (words.length <= maxWords) return { truncated: text, isTruncated: false };
-    return {
-      truncated: words.slice(0, maxWords).join(" ") + "...",
-      isTruncated: true,
-    };
-  };
 
   /**
    * Get banner content for an hour
@@ -414,11 +413,6 @@ export function TranscriptTab({
         newSet.delete(hourKey);
         return newSet;
       });
-      setExpandedBodies((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(hourKey);
-        return newSet;
-      });
     } else {
       // Calculate spinner height as: container height - header height
       // This is the exact space below the header once it's pinned to the top
@@ -531,21 +525,6 @@ export function TranscriptTab({
     setIsScrollLocked(true);
   }, []);
 
-  // Handle generating summary for an hour
-  const handleGenerateSummary = async (e: React.MouseEvent, hour: number) => {
-    e.stopPropagation(); // Don't toggle expand
-
-    if (!onGenerateSummary || generatingHour !== null) return;
-
-    setGeneratingHour(hour);
-    try {
-      await onGenerateSummary(hour);
-    } catch (error) {
-      console.error("Failed to generate summary:", error);
-    } finally {
-      setGeneratingHour(null);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -583,296 +562,251 @@ export function TranscriptTab({
     );
   }
 
+  // How many segments to show before a "+N more" collapse
+  const PREVIEW_COUNT = 2;
+
   return (
     <div className="h-full relative">
     <div ref={scrollContainerRef} className="h-full overflow-y-auto">
-      <div className="pb-2">
+      <div className="pb-6 pt-1">
         {sortedHours.map((hourKey) => {
           const hourSegments = groupedSegments[hourKey];
           const { hour24, label: hourLabel } = parseHourKey(hourKey);
           const hourState = getHourState(hourKey);
-          const isCollapsed = hourState === "collapsed";
           const isExpanded = hourState === "expanded";
-          const isCurrentHour =
-            currentHour !== undefined && hour24 === currentHour;
-
+          const isCurrentHour = currentHour !== undefined && hour24 === currentHour;
           const banner = getBannerContent(hourKey, hourSegments);
-          const summary = getHourSummary(hour24);
-          const hasSummary = summary && summary.segmentCount > 0;
-          const isGenerating = generatingHour === hour24;
+          const hasSummary = !!(getHourSummary(hour24)?.segmentCount);
+          const segCount = hourSegments.length;
+
+          // For compact (veryCollapsed) mode, show a minimal one-line row
+          if (hourState === "veryCollapsed") {
+            return (
+              <div key={hourKey} data-hour-section={hourKey} className="flex gap-3  mb-1">
+                <div className="flex flex-col items-center w-11 shrink-0 pt-0.5">
+                  <span className="text-[12px] font-red-hat font-bold text-[#1C1917] leading-4">
+                    {hourLabel}
+                  </span>
+                </div>
+                <button
+                  ref={(el) => { if (el) headerRefs.current.set(hourKey, el); }}
+                  onClick={() => toggleHour(hourKey)}
+                  className="grow flex items-center justify-between rounded-[10px] py-2.5 px-3 bg-white mb-2 text-left"
+                >
+                  <span className="text-[13px] font-red-hat text-[#A8A29E]">
+                    {isCurrentHour && displayInterimText
+                      ? displayInterimText
+                      : hasSummary
+                        ? banner.title || banner.preview
+                        : banner.preview
+                    }
+                  </span>
+                  <span className="text-[13px] font-red-hat font-semibold text-[#C9573A] ml-3 shrink-0">
+                    Expand <ChevronDown size={12} className="inline" />
+                  </span>
+                </button>
+              </div>
+            );
+          }
 
           return (
             <div
               key={hourKey}
               data-hour-section={hourKey}
-              className="border-b border-zinc-100 dark:border-[#3f4147] last:border-0 "
+              className="flex gap-3 mb-1"
             >
-              {/* Hour Header - Sticky when expanded */}
-              <button
-                ref={(el) => {
-                  if (el) headerRefs.current.set(hourKey, el);
-                }}
-                onClick={() => toggleHour(hourKey)}
-                className={clsx(
-                  "w-full flex items-start gap-3 px-4 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-900/30 text-left  px-6",
-                  isExpanded && "bg-[#f1f1f1] dark:bg-[#2b2d31] sticky top-0 z-10",
-                )}
-              >
-                {/* Hour Label */}
-                <div className="flex items-center gap-2 shrink-0 w-20">
-                  <span className="text-sm font-semibold text-zinc-900 dark:text-white">
-                    {hourLabel}
-                  </span>
-                  {isCurrentHour && (
-                    <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                  )}
-                </div>
+              {/* Left: hour label + vertical line */}
+              <div className="flex flex-col items-center w-11 shrink-0">
+                <span className={clsx(
+                  "text-[12px] font-red-hat font-bold leading-4 pt-0.5 shrink-0",
+                  isCurrentHour ? "text-[#C9573A]" : "text-[#1C1917]",
+                )}>
+                  {hourLabel}
+                </span>
+                <div className="w-px grow mt-1.5 bg-[#E7E5E0]" />
+              </div>
 
-                {/* Live transcription in veryCollapsed (compact) mode for current hour */}
-                {hourState === "veryCollapsed" && isCurrentHour && displayInterimText && (
-                  <div className="flex-1 min-w-0 overflow-hidden">
-                    <p
-                      className={clsx(
-                        "text-sm whitespace-nowrap transition-all duration-300",
-                        isInterimFinalized
-                          ? "text-zinc-700 dark:text-zinc-300"
-                          : "text-zinc-400 dark:text-zinc-500 font-light italic",
-                      )}
-                      style={{ direction: "rtl", textAlign: "left" }}
-                    >
-                      {displayInterimText}
-                    </p>
-                  </div>
-                )}
+              {/* Right: content column */}
+              <div className="grow flex flex-col pb-3 gap-1.5 min-w-0">
 
-                {/* Banner Content (when collapsed - normal state) */}
-                {isCollapsed && (
-                  <div className="flex-1 min-w-0">
-                    {/* Title + Body (when summary exists) */}
-                    {banner.hasSummary && banner.title ? (
-                      <>
-                        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                          {banner.title}
-                        </p>
-                        {banner.body && (() => {
-                          const { truncated, isTruncated } = truncateBody(banner.body);
-                          const isBodyExpanded = expandedBodies.has(hourKey);
-                          return (
-                            <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                              {isBodyExpanded ? banner.body : truncated}
-                              {isTruncated && (
-                                <span
-                                  role="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setExpandedBodies((prev) => {
-                                      const next = new Set(prev);
-                                      if (next.has(hourKey)) next.delete(hourKey);
-                                      else next.add(hourKey);
-                                      return next;
-                                    });
-                                  }}
-                                  className="ml-1 text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 cursor-pointer font-medium"
-                                >
-                                  {isBodyExpanded ? "Less" : "More"}
-                                </span>
-                              )}
-                            </p>
-                          );
-                        })()}
-                      </>
-                    ) : (
-                      /* Preview (when no summary) */
-                      <p className="text-sm text-zinc-400 dark:text-zinc-500 italic line-clamp-1">
-                        {banner.preview}
-                      </p>
-                    )}
-
-                    {/* Interim text shown BELOW summary for current hour */}
-                    {isCurrentHour && displayInterimText && (
-                      <p
+                {/* Conversation banner (summary title, or first-segment preview as fallback) */}
+                {segCount > 0 && (
+                  <div className="flex items-center gap-2 py-1">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0">
+                      <path d="M2 3C2 2.45 2.45 2 3 2h8C11.55 2 12 2.45 12 3v6c0 .55-.45 1-1 1H8L6 12V10H3c-.55 0-1-.45-1-1V3z" fill={hasSummary ? "#C9573A" : "#C9C9C9"} />
+                    </svg>
+                    <span className={clsx(
+                      "text-[13px] font-red-hat font-semibold leading-4 truncate",
+                      hasSummary ? "text-[#C9573A]" : "text-[#A8A29E]",
+                    )}>
+                      {banner.title || banner.preview}
+                    </span>
+                    <button onClick={() => toggleHour(hourKey)} className="ml-auto shrink-0">
+                      <ChevronDown
+                        size={13}
                         className={clsx(
-                          "text-sm mt-1 line-clamp-1 transition-all duration-300",
-                          isInterimFinalized
-                            ? "text-zinc-700 dark:text-zinc-300"
-                            : "text-zinc-400 dark:text-zinc-500 font-light italic",
+                          "transition-transform duration-200",
+                          isExpanded ? "rotate-180 text-[#A8A29E]" : "text-[#C9C9C9]",
                         )}
-                      >
-                        {displayInterimText}
-                      </p>
-                    )}
+                      />
+                    </button>
+                  </div>
+                )}
 
-                    {/* <div className="flex items-center gap-2 mt-1.5">
-                      <span className="text-xs text-zinc-400 dark:text-zinc-500">
-                        {hourSegments.length} segment
-                        {hourSegments.length !== 1 ? "s" : ""}
-                      </span>
-                      {!banner.hasSummary && onGenerateSummary && (
-                        <span
-                          role="button"
-                          onClick={(e) => handleGenerateSummary(e, hour24)}
-                          className={clsx(
-                            "text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer",
-                            isGenerating
-                              ? "text-zinc-400 dark:text-zinc-500"
-                              : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200",
-                          )}
-                        >
-                          {isGenerating ? (
-                            <>
-                              <Loader2 size={10} className="animate-spin" />
-                              <span>Summarizing...</span>
-                            </>
-                          ) : (
-                            <span>Generate summary</span>
-                          )}
+                {/* Collapsed: show preview segments + expand row */}
+                {!isExpanded && (
+                  <>
+                    {/* First PREVIEW_COUNT final segments */}
+                    {hourSegments.filter(s => s.isFinal && s.type !== "photo").slice(0, PREVIEW_COUNT).map((segment, idx) => (
+                      <SegmentRow
+                        key={segment.id || `prev-${idx}`}
+                        segment={segment}
+                        formatTime={formatTime}
+                        getPhotoSrc={getPhotoSrc}
+                      />
+                    ))}
+
+                    {/* "+N more segments" divider if there are more */}
+                    {segCount > PREVIEW_COUNT && (
+                      <button
+                        ref={(el) => { if (el) headerRefs.current.set(hourKey, el); }}
+                        onClick={() => toggleHour(hourKey)}
+                        className="flex items-center px-1 gap-1.5 py-0.5"
+                      >
+                        <div className="grow h-px bg-[#E7E5E0]" />
+                        <span className="text-[11px] font-red-hat text-[#A8A29E] shrink-0">
+                          +{segCount - PREVIEW_COUNT} more segment{segCount - PREVIEW_COUNT !== 1 ? "s" : ""}
                         </span>
-                      )}
-                    </div> */}
-                  </div>
-                )}
-
-                {/* Summary shown when expanded (not in compact mode) */}
-                {isExpanded && hasSummary && !isCompactMode && (
-                  <div className="flex-1 min-w-0">
-                    {banner.title && (
-                      <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                        {banner.title}
-                      </p>
+                        <div className="grow h-px bg-[#E7E5E0]" />
+                      </button>
                     )}
-                    {banner.body && (() => {
-                      const { truncated, isTruncated } = truncateBody(banner.body);
-                      const isBodyExpanded = expandedBodies.has(hourKey);
-                      return (
-                        <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                          {isBodyExpanded ? banner.body : truncated}
-                          {isTruncated && (
-                            <span
-                              role="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setExpandedBodies((prev) => {
-                                  const next = new Set(prev);
-                                  if (next.has(hourKey)) next.delete(hourKey);
-                                  else next.add(hourKey);
-                                  return next;
-                                });
-                              }}
-                              className="ml-1 text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 cursor-pointer font-medium"
-                            >
-                              {isBodyExpanded ? "Less" : "More"}
-                            </span>
-                          )}
-                        </p>
-                      );
-                    })()}
-                  </div>
+
+                    {/* If ≤ PREVIEW_COUNT segments, still need the header ref + expand affordance */}
+                    {segCount <= PREVIEW_COUNT && segCount > 0 && (
+                      <button
+                        ref={(el) => { if (el) headerRefs.current.set(hourKey, el); }}
+                        onClick={() => toggleHour(hourKey)}
+                        className="flex items-center justify-between rounded-[10px] py-2.5 px-3 bg-white text-left"
+                      >
+                        <span className="text-[13px] font-red-hat text-[#A8A29E]">
+                          {segCount} segment{segCount !== 1 ? "s" : ""} · {hasSummary ? "linked" : "no linked conversation"}
+                        </span>
+                        <span className="text-[13px] font-red-hat font-semibold text-[#C9573A] ml-3 shrink-0">
+                          Expand <ChevronDown size={12} className="inline" />
+                        </span>
+                      </button>
+                    )}
+
+                    {/* Empty hour */}
+                    {segCount === 0 && !isCurrentHour && (
+                      <div className="rounded-[10px] py-2.5 px-3 bg-white">
+                        <span className="text-[13px] font-red-hat text-[#A8A29E]">No segments</span>
+                      </div>
+                    )}
+
+                    {/* Live interim for current hour (collapsed) */}
+                    {isCurrentHour && displayInterimText && (
+                      <SegmentRow
+                        segment={{ id: "interim", text: displayInterimText, isFinal: false, timestamp: new Date().toISOString(), type: "text" } as any}
+                        formatTime={formatTime}
+                        getPhotoSrc={getPhotoSrc}
+                        isLive
+                      />
+                    )}
+                  </>
                 )}
 
-                {/* Expand indicator */}
-                <div className="text-zinc-400 dark:text-zinc-500 shrink-0 ml-auto ">
-                  {isExpanded ? (
-                    <ChevronDown size={18} />
-                  ) : (
-                    <ChevronRight size={18} />
-                  )}
-                </div>
-              </button>
+                {/* Expanded: spinner then all segments */}
+                {isExpanded && (
+                  <div
+                    ref={(el) => { if (el) headerRefs.current.set(hourKey, el as any); }}
+                    style={{ minHeight: loadingHours.has(hourKey) ? (spinnerHeights.get(hourKey) ?? 300) : undefined }}
+                  >
+                    <AnimatePresence>
+                      {loadingHours.has(hourKey) && (
+                        <motion.div
+                          key={`loader-${hourKey}`}
+                          initial={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="flex flex-col items-center justify-center gap-3"
+                          style={{ height: spinnerHeights.get(hourKey) ?? 300 }}
+                        >
+                          <DotsSpinner size={24} className="text-[#E7E5E0]" />
+                          <span className="text-[11px] font-red-hat text-[#A8A29E]">Loading transcription...</span>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
-              {/* Expanded Segments — wrapper keeps min-height to prevent layout collapse during transition */}
-              {isExpanded && (
-                <div style={{ minHeight: loadingHours.has(hourKey) ? (spinnerHeights.get(hourKey) ?? 300) : undefined }}>
-                  {/* Loading spinner — fades out */}
-                  <AnimatePresence>
-                    {loadingHours.has(hourKey) && (
+                    {!loadingHours.has(hourKey) && (
                       <motion.div
-                        key={`loader-${hourKey}`}
-                        initial={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="flex flex-col items-center justify-center gap-3"
-                        style={{ height: spinnerHeights.get(hourKey) ?? 300 }}
+                        key={`expand-${hourKey}`}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                        ref={() => handleContentReady(hourKey)}
+                        className="flex flex-col gap-1.5"
                       >
-                        <DotsSpinner size={24} className="text-zinc-300 dark:text-zinc-600" />
-                        <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Loading transcription...</span>
+                        {hourSegments.map((segment, idx) => {
+                          const isLastSegment = idx === hourSegments.length - 1;
+                          const isLiveSegment = isCurrentHour && isLastSegment && !segment.isFinal;
+                          return (
+                            <SegmentRow
+                              key={segment.id || `idx-${idx}`}
+                              segment={segment}
+                              formatTime={formatTime}
+                              getPhotoSrc={getPhotoSrc}
+                              onImageLoad={(e) => handleImageLoad(e, hourKey)}
+                              isLive={isLiveSegment}
+                            />
+                          );
+                        })}
+
+                        {/* Interim text */}
+                        {isCurrentHour && displayInterimText && (
+                          <SegmentRow
+                            segment={{ id: "interim", text: displayInterimText, isFinal: false, timestamp: new Date().toISOString(), type: "text" } as any}
+                            formatTime={formatTime}
+                            getPhotoSrc={getPhotoSrc}
+                            isLive
+                          />
+                        )}
+
+                        {/* Collapse button */}
+                        <button
+                          onClick={() => toggleHour(hourKey)}
+                          className="flex items-center px-1 gap-1.5 py-0.5 mt-1"
+                        >
+                          <div className="grow h-px bg-[#E7E5E0]" />
+                          <span className="text-[11px] font-red-hat text-[#A8A29E] shrink-0 flex items-center gap-1">
+                            <ChevronDown size={11} className="rotate-180" /> collapse
+                          </span>
+                          <div className="grow h-px bg-[#E7E5E0]" />
+                        </button>
                       </motion.div>
                     )}
-                  </AnimatePresence>
-
-                  {/* Content — fades in after spinner, scrolls to bottom on mount */}
-                  {!loadingHours.has(hourKey) && (
-                    <motion.div
-                      key={`expand-${hourKey}`}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.3, ease: "easeInOut" }}
-                      ref={() => handleContentReady(hourKey)}
-                    >
-                      <div className="px-6 pb-4 bg-zinc-50/50 dark:bg-[#313338]/20">
-                        <div className="space-y-3">
-                          {hourSegments.map((segment, idx) => {
-                            const segId = segment.id || `idx-${idx}`;
-                            return (
-                              <SegmentRow
-                                key={segId}
-                                segment={segment}
-                                formatTime={formatTime}
-                                getPhotoSrc={getPhotoSrc}
-                                onImageLoad={(e) => handleImageLoad(e, hourKey)}
-                              />
-                            );
-                          })}
-
-                          {/* Show interim/finalizing text at the bottom for current hour */}
-                          {isCurrentHour && displayInterimText && (
-                            <div
-                              className={clsx(
-                                "flex gap-3 transition-opacity duration-300",
-                                isInterimFinalized ? "opacity-100" : "opacity-70",
-                              )}
-                            >
-                              <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500 w-16 shrink-0 pt-0.5">
-                                {isInterimFinalized ? "" : "now"}
-                              </span>
-                              <p
-                                className={clsx(
-                                  "flex-1 text-sm leading-relaxed transition-all duration-300",
-                                  isInterimFinalized
-                                    ? "text-zinc-700 dark:text-zinc-300"
-                                    : "text-zinc-400 dark:text-zinc-500 font-light italic",
-                                )}
-                              >
-                                {displayInterimText}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}
 
         {/* Syncing photo indicator */}
         {isSyncingPhoto && (
-          <div className="flex items-center gap-2 px-4 py-3 text-zinc-400 dark:text-zinc-500">
+          <div className="flex items-center gap-2 px-5 py-2 text-[#A8A29E]">
             <Loader2 size={14} className="animate-spin" />
-            <span className="text-sm">Syncing image...</span>
+            <span className="text-[12px] font-red-hat">Syncing image...</span>
           </div>
         )}
-
       </div>
-
     </div>
 
-      {/* Scroll-to-bottom FAB — only shown for live (today) when unlocked */}
+      {/* Scroll-to-bottom FAB */}
       {isLive && !isScrollLocked && (
         <button
           onClick={scrollToBottomAndLock}
-          className="absolute bottom-4 right-4 z-20 w-9 h-9 rounded-full bg-zinc-800 dark:bg-zinc-200 text-white dark:text-zinc-900 flex items-center justify-center shadow-lg"
+          className="absolute bottom-4 left-1 z-20 w-9 h-9 rounded-full bg-[#1C1917] text-white flex items-center justify-center shadow-lg"
         >
           <ArrowDown size={18} />
         </button>

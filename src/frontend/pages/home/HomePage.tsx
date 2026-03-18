@@ -31,7 +31,6 @@ import { TabBar } from "./components/TabBar";
 import { Drawer } from "vaul";
 import { HomePageSkeleton } from "../../components/shared/SkeletonLoader";
 
-const FONT = "font-['Red_Hat_Display',system-ui,sans-serif]";
 
 export function HomePage() {
   const { userId } = useMentraAuth();
@@ -44,13 +43,15 @@ export function HomePage() {
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [showGlobalChat, setShowGlobalChat] = useState(false);
   const [showEmptyTrashConfirm, setShowEmptyTrashConfirm] = useState(false);
-  const [activeTimeFilter, setActiveTimeFilter] = useState<"all" | "today" | "transcripts">("all");
+  const [activeTimeFilter, setActiveTimeFilter] = useState<"conversations" | "transcripts">("conversations");
 
   // Derive data from session
   const files = session?.file?.files ?? [];
   const isRecording = session?.transcript?.isRecording ?? false;
+  const transcriptionPaused = session?.settings?.transcriptionPaused ?? false;
   const notes = session?.notes?.notes ?? [];
   const conversations = session?.conversation?.conversations ?? [];
+  const isConversationsHydrated = session?.conversation?.isHydrated ?? false;
   const availableDates = session?.transcript?.availableDates ?? [];
 
   // Backend filter state
@@ -88,15 +89,7 @@ export function HomePage() {
     });
   }, [files, isRecording]);
 
-  // Filter conversations by time filter
-  const filteredConversations = useMemo(() => {
-    if (activeTimeFilter === "today") {
-      const now = new Date();
-      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-      return conversations.filter((c) => c.date === todayStr);
-    }
-    return conversations;
-  }, [conversations, activeTimeFilter]);
+  const filteredConversations = conversations;
 
   // Count today's conversations for subtitle
   const todayConversationCount = useMemo(() => {
@@ -172,8 +165,11 @@ export function HomePage() {
   };
 
   const handleStopTranscribing = () => {
-    // stopRecording RPC not available on TranscriptManagerI yet — no-op for now
-    console.log("[HomePage] Stop transcribing requested (not yet implemented)");
+    session?.settings?.updateSettings({ transcriptionPaused: true });
+  };
+
+  const handleResumeTranscribing = () => {
+    session?.settings?.updateSettings({ transcriptionPaused: false });
   };
 
   const handleCalendarToggle = async () => {
@@ -220,18 +216,18 @@ export function HomePage() {
   }
 
   // --- Empty state (no conversations) ---
-  if (conversations.length === 0) {
+  if (isConversationsHydrated && conversations.length === 0) {
     return (
       <div className="flex h-full flex-col bg-[#FAFAF9] relative overflow-hidden">
         {/* Header */}
         <div className="flex flex-col pt-6 gap-2 px-6">
-          <div className={`text-[11px] tracking-widest uppercase leading-3.5 text-[#DC2626] ${FONT} font-bold`}>
+          <div className={`text-[11px] tracking-widest uppercase leading-3.5 text-[#DC2626] font-red-hat font-bold`}>
             Mentra Notes
           </div>
-          <div className={`text-[30px] tracking-[-0.03em] leading-[34px] text-[#1C1917] ${FONT} font-extrabold`}>
+          <div className={`text-[30px] tracking-[-0.03em] leading-[34px] text-[#1C1917] font-red-hat font-extrabold`}>
             Conversations
           </div>
-          <div className={`text-[14px] leading-[18px] text-[#A8A29E] ${FONT}`}>
+          <div className={`text-[14px] leading-[18px] text-[#A8A29E] font-red-hat`}>
             No conversations yet
           </div>
         </div>
@@ -243,16 +239,16 @@ export function HomePage() {
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="#A8A29E" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
-          <div className={`text-[18px] leading-[22px] text-center text-[#1C1917] ${FONT} font-bold`}>
+          <div className={`text-[18px] leading-[22px] text-center text-[#1C1917] font-red-hat font-bold`}>
             Start a conversation
           </div>
-          <div className={`text-[14px] leading-5 text-center text-[#A8A29E] ${FONT}`}>
+          <div className={`text-[14px] leading-5 text-center text-[#A8A29E] font-red-hat`}>
             Mentra Notes is listening in the background. When it detects a conversation, it will appear here.
           </div>
           {isRecording && (
             <div className="flex items-center mt-1 rounded-[20px] py-2 px-4 gap-2 bg-[#FEF2F2]">
               <div className="shrink-0 rounded-sm bg-[#EF4444] size-2 animate-pulse" />
-              <div className={`text-[13px] leading-4 text-[#DB2627] ${FONT} font-medium`}>
+              <div className={`text-[13px] leading-4 text-[#DB2627] font-red-hat font-medium`}>
                 Microphone active · Listening
               </div>
             </div>
@@ -260,7 +256,7 @@ export function HomePage() {
           {!isConnected && (
             <button
               onClick={reconnect}
-              className={`mt-2 px-5 py-2.5 bg-[#1C1917] text-[#FAFAF9] rounded-xl text-[14px] ${FONT} font-semibold`}
+              className={`mt-2 px-5 py-2.5 bg-[#1C1917] text-[#FAFAF9] rounded-xl text-[14px] font-red-hat font-semibold`}
             >
               Connect
             </button>
@@ -271,10 +267,11 @@ export function HomePage() {
 
         {/* FAB */}
         <FABMenu
-          isRecording={isRecording}
+          transcriptionPaused={transcriptionPaused}
           onAskAI={handleGlobalChat}
           onAddNote={handleAddNote}
           onStopTranscribing={handleStopTranscribing}
+          onResumeTranscribing={handleResumeTranscribing}
         />
 
         {/* Global AI Chat */}
@@ -309,7 +306,7 @@ export function HomePage() {
             >
               <ChevronLeft size={24} className="text-[#78716C]" />
             </button>
-            <h1 className={`text-xl text-[#1C1917] ${FONT} font-bold tracking-tight`}>
+            <h1 className={`text-xl text-[#1C1917] font-red-hat font-bold tracking-tight`}>
               Calendar
             </h1>
           </div>
@@ -332,16 +329,16 @@ export function HomePage() {
     <div className="flex h-full flex-col bg-[#FAFAF9] relative overflow-hidden">
       {/* Header */}
       <div className="flex flex-col pt-3 gap-3 px-6 shrink-0">
-        <div className={`text-[11px] tracking-widest leading-3.5 uppercase text-[#DC2626] ${FONT} font-bold`}>
+        <div className={`text-[11px] tracking-widest leading-3.5 uppercase text-[#DC2626] font-red-hat font-bold`}>
           Mentra Notes
         </div>
         <div className="flex items-end justify-between">
           <div className="flex flex-col gap-0.5">
-            <div className={`text-[30px] tracking-[-0.03em] leading-[34px] text-[#1C1917] ${FONT} font-extrabold`}>
-              Conversations
+            <div className={`text-[30px] tracking-[-0.03em] leading-[34px] text-[#1C1917] font-red-hat font-extrabold`}>
+              {activeTimeFilter === "conversations" ? "Conversations" : "Transcripts"}
             </div>
-            {todayConversationCount > 0 && (
-              <div className={`text-[14px] leading-[18px] text-[#A8A29E] ${FONT}`}>
+            {activeTimeFilter === "conversations" && todayConversationCount > 0 && (
+              <div className={`text-[14px] leading-[18px] text-[#A8A29E] font-red-hat`}>
                 Today · {todayConversationCount} {todayConversationCount === 1 ? "conversation" : "conversations"}
               </div>
             )}
@@ -387,34 +384,18 @@ export function HomePage() {
         </div>
       </div>
 
-      {/* Filter pills */}
+      {/* Tab switcher */}
       <div className="flex items-center pt-4 gap-2 px-6 shrink-0">
         <button
-          onClick={() => setActiveTimeFilter("all")}
+          onClick={() => setActiveTimeFilter("conversations")}
           className={`flex items-center rounded-[20px] py-[7px] px-4 ${
-            activeTimeFilter === "all" ? "bg-[#1C1917]" : "bg-[#F5F5F4]"
+            activeTimeFilter === "conversations" ? "bg-[#1C1917]" : "bg-[#F5F5F4]"
           }`}
         >
-          <span
-            className={`text-[13px] leading-4 ${FONT} ${
-              activeTimeFilter === "all" ? "text-[#FAFAF9] font-semibold" : "text-[#78716C] font-medium"
-            }`}
-          >
-            All
-          </span>
-        </button>
-        <button
-          onClick={() => setActiveTimeFilter("today")}
-          className={`flex items-center rounded-[20px] py-[7px] px-4 ${
-            activeTimeFilter === "today" ? "bg-[#1C1917]" : "bg-[#F5F5F4]"
-          }`}
-        >
-          <span
-            className={`text-[13px] leading-4 ${FONT} ${
-              activeTimeFilter === "today" ? "text-[#FAFAF9] font-semibold" : "text-[#78716C] font-medium"
-            }`}
-          >
-            Today
+          <span className={`text-[13px] leading-4 font-red-hat ${
+            activeTimeFilter === "conversations" ? "text-[#FAFAF9] font-semibold" : "text-[#78716C] font-medium"
+          }`}>
+            Conversations
           </span>
         </button>
         <button
@@ -423,11 +404,9 @@ export function HomePage() {
             activeTimeFilter === "transcripts" ? "bg-[#1C1917]" : "bg-[#F5F5F4]"
           }`}
         >
-          <span
-            className={`text-[13px] leading-4 ${FONT} ${
-              activeTimeFilter === "transcripts" ? "text-[#FAFAF9] font-semibold" : "text-[#78716C] font-medium"
-            }`}
-          >
+          <span className={`text-[13px] leading-4 font-red-hat ${
+            activeTimeFilter === "transcripts" ? "text-[#FAFAF9] font-semibold" : "text-[#78716C] font-medium"
+          }`}>
             Transcripts
           </span>
         </button>
@@ -446,7 +425,7 @@ export function HomePage() {
                   <line x1="12" y1="19" x2="12" y2="23" />
                   <line x1="8" y1="23" x2="16" y2="23" />
                 </svg>
-                <span className={`text-[14px] text-[#A8A29E] ${FONT}`}>No transcripts yet</span>
+                <span className={`text-[14px] text-[#A8A29E] font-red-hat`}>No transcripts yet</span>
               </div>
             ) : (
               [...availableDates].sort((a, b) => b.localeCompare(a)).map((dateStr, i, arr) => {
@@ -462,7 +441,7 @@ export function HomePage() {
                 return (
                   <button
                     key={dateStr}
-                    onClick={() => setLocation(`/day/${dateStr}?tab=transcript`)}
+                    onClick={() => setLocation(`/transcript/${dateStr}`)}
                     className={`flex items-center py-4 gap-3 w-full text-left ${
                       i < arr.length - 1 ? "border-b border-[#F5F5F4]" : ""
                     }`}
@@ -479,17 +458,17 @@ export function HomePage() {
                     {/* Content */}
                     <div className="flex flex-col grow shrink basis-0 gap-0.5 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className={`text-[15px] leading-5 text-[#1C1917] ${FONT} font-semibold`}>
+                        <span className={`text-[15px] leading-5 text-[#1C1917] font-red-hat font-semibold`}>
                           {label}
                         </span>
                         {today && isRecording && (
                           <div className="flex items-center rounded-md py-[2px] px-1.5 gap-1 bg-[#FEE2E2]">
                             <div className="w-1.5 h-1.5 rounded-full bg-[#DC2626] animate-pulse" />
-                            <span className={`text-[10px] leading-3 text-[#DC2626] ${FONT} font-semibold`}>Live</span>
+                            <span className={`text-[10px] leading-3 text-[#DC2626] font-red-hat font-semibold`}>Live</span>
                           </div>
                         )}
                       </div>
-                      <span className={`text-[13px] leading-4 text-[#A8A29E] ${FONT}`}>
+                      <span className={`text-[13px] leading-4 text-[#A8A29E] font-red-hat`}>
                         {segCount} segments{hourCount > 0 ? ` · ${hourCount} ${hourCount === 1 ? "hour" : "hours"}` : ""}
                       </span>
                     </div>
@@ -517,10 +496,11 @@ export function HomePage() {
 
       {/* FAB */}
       <FABMenu
-        isRecording={isRecording}
+        transcriptionPaused={transcriptionPaused}
         onAskAI={handleGlobalChat}
         onAddNote={handleAddNote}
         onStopTranscribing={handleStopTranscribing}
+        onResumeTranscribing={handleResumeTranscribing}
       />
 
       {/* Filter Drawer */}
@@ -550,10 +530,10 @@ export function HomePage() {
           <Drawer.Content className="bg-white flex flex-col rounded-t-2xl mt-24 fixed bottom-0 left-0 right-0 z-50 max-w-lg mx-auto outline-none border-t border-[#E7E5E4]">
             <div className="mx-auto w-12 h-1.5 shrink-0 rounded-full bg-[#D6D3D1] mt-4 mb-2" />
             <div className="px-6 pb-8 pt-4">
-              <Drawer.Title className={`text-lg font-semibold text-[#1C1917] text-center ${FONT}`}>
+              <Drawer.Title className={`text-lg font-semibold text-[#1C1917] text-center font-red-hat`}>
                 Empty Trash?
               </Drawer.Title>
-              <Drawer.Description className={`text-sm text-[#A8A29E] text-center mt-3 ${FONT}`}>
+              <Drawer.Description className={`text-sm text-[#A8A29E] text-center mt-3 font-red-hat`}>
                 You are about to permanently delete all {filterCounts.trash} items in trash.
                 This will remove all transcripts, notes, and chat history.
                 You will not be able to recover them.
@@ -561,13 +541,13 @@ export function HomePage() {
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={() => setShowEmptyTrashConfirm(false)}
-                  className={`flex-1 py-3 rounded-xl font-medium bg-[#F5F5F4] text-[#78716C] ${FONT}`}
+                  className={`flex-1 py-3 rounded-xl font-medium bg-[#F5F5F4] text-[#78716C] font-red-hat`}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleEmptyTrashConfirm}
-                  className={`flex-1 py-3 rounded-xl font-medium bg-[#DC2626] text-white ${FONT}`}
+                  className={`flex-1 py-3 rounded-xl font-medium bg-[#DC2626] text-white font-red-hat`}
                 >
                   Delete All
                 </button>

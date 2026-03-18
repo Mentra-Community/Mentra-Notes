@@ -21,7 +21,6 @@ import {
   DotSpiralSpinner,
 } from "./DotBurstSpinner";
 
-const FONT = "font-['Red_Hat_Display',system-ui,sans-serif]";
 
 const SPINNERS = [DotBurstSpinner, DotWaveSpinner, DotGridSpinner, DotSpiralSpinner];
 const SPINNER_KEYS = ["burst", "wave", "grid", "spiral"] as const;
@@ -109,7 +108,7 @@ export function LoadingState({
   return (
     <div className={`flex flex-col items-center justify-center gap-4 ${className || ""}`}>
       <Spinner size={size} color={color} />
-      <span className={`text-[13px] text-[#A8A29E] ${FONT} font-medium`}>
+      <span className={`text-[13px] text-[#A8A29E] font-red-hat font-medium`}>
         {currentMessage}
       </span>
     </div>

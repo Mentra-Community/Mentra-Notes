@@ -2,49 +2,62 @@
  * FABMenu - Expandable floating action button
  *
  * Default: Red "+" button
- * Expanded: X close button + stacked action pills (Ask AI, Add manual note, Stop transcribing)
+ * Expanded: X close button + stacked action pills (Ask AI, Add manual note, Stop/Resume transcribing)
  */
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
-const FONT = "font-['Red_Hat_Display',system-ui,sans-serif]";
 
 interface FABMenuProps {
-  isRecording: boolean;
+  transcriptionPaused: boolean;
   onAskAI: () => void;
   onAddNote: () => void;
   onStopTranscribing: () => void;
+  onResumeTranscribing: () => void;
 }
 
 export function FABMenu({
-  isRecording,
+  transcriptionPaused,
   onAskAI,
   onAddNote,
   onStopTranscribing,
+  onResumeTranscribing,
 }: FABMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const actions = [
-    ...(isRecording
-      ? [
-          {
-            id: "stop",
-            label: "Stop transcribing",
-            onClick: () => { onStopTranscribing(); setIsOpen(false); },
-            bg: "bg-[#FEE2E2]",
-            textColor: "text-[#DC2626]",
-            fontWeight: "font-bold",
-            icon: (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" fill="#DC2626" />
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" />
-                <line x1="12" y1="19" x2="12" y2="23" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            ),
-          },
-        ]
-      : []),
+    transcriptionPaused
+      ? {
+          id: "resume",
+          label: "Resume transcribing",
+          onClick: () => { onResumeTranscribing(); setIsOpen(false); },
+          bg: "bg-[#F0FDF4]",
+          textColor: "text-[#16A34A]",
+          fontWeight: "font-bold",
+          icon: (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" fill="#16A34A" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="#16A34A" strokeWidth="2" strokeLinecap="round" />
+              <line x1="12" y1="19" x2="12" y2="23" stroke="#16A34A" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          ),
+        }
+      : {
+          id: "stop",
+          label: "Stop transcribing",
+          onClick: () => { onStopTranscribing(); setIsOpen(false); },
+          bg: "bg-[#FEE2E2]",
+          textColor: "text-[#DC2626]",
+          fontWeight: "font-bold",
+          icon: (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" fill="#DC2626" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" />
+              <line x1="12" y1="19" x2="12" y2="23" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          ),
+        },
     {
       id: "note",
       label: "Add manual note",
@@ -110,7 +123,7 @@ export function FABMenu({
                 onClick={action.onClick}
                 className={`flex items-center gap-2.5 py-2.5 px-[18px] h-11 ${action.bg} [box-shadow:#0000001A_0px_2px_12px] rounded-xl`}
               >
-                <span className={`text-[15px] leading-5 ${action.textColor} ${FONT} ${action.fontWeight}`}>
+                <span className={`text-[15px] leading-5 ${action.textColor} font-red-hat ${action.fontWeight}`}>
                   {action.label}
                 </span>
                 {action.icon}

@@ -27,13 +27,26 @@ export function useFeatureFlag(
       setFlagsLoaded(true);
     }
 
-    return PostHog.onFeatureFlags(() => {
+    // Fallback: if PostHog never responds, unblock after 3s with default value
+    const timeout = setTimeout(() => {
+      setFlagsLoaded((loaded) => {
+        if (!loaded) console.warn(`[PostHog] Flag "${flag}" timed out — using default`);
+        return true;
+      });
+    }, 3000);
+
+    const unsubscribe = PostHog.onFeatureFlags(() => {
       const val = PostHog.isFeatureEnabled(flag);
       console.log(`[PostHog] onFeatureFlags "${flag}":`, val);
       // When flags have loaded, undefined means the flag is disabled/absent → treat as false
       setEnabled(val === true);
       setFlagsLoaded(true);
     });
+
+    return () => {
+      clearTimeout(timeout);
+      unsubscribe();
+    };
   }, [flag]);
 
   return { enabled: flagsLoaded ? enabled : defaultValue, loaded: flagsLoaded };

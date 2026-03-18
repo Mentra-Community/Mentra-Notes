@@ -10,7 +10,6 @@ import { format, isToday, isYesterday } from "date-fns";
 import type { Conversation } from "../../../../shared/types";
 import { ConversationRow } from "./ConversationRow";
 
-const FONT = "font-['Red_Hat_Display',system-ui,sans-serif]";
 
 interface ConversationListProps {
   conversations: Conversation[];
@@ -85,7 +84,7 @@ export function ConversationList({
           {/* Day section header */}
           <div className="pt-5 pb-2">
             <span
-              className={`text-[11px] tracking-widest leading-3.5 uppercase text-[#A8A29E] ${FONT} font-bold`}
+              className={`text-[11px] tracking-widest leading-3.5 uppercase text-[#A8A29E] font-red-hat font-bold`}
             >
               {group.label} · {group.count} {group.count === 1 ? "conversation" : "conversations"}
             </span>

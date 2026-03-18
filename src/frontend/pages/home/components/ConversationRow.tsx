@@ -10,7 +10,6 @@ import { motion, useMotionValue, useTransform, type PanInfo } from "motion/react
 import { useRef, useState } from "react";
 import type { Conversation } from "../../../../shared/types";
 
-const FONT = "font-['Red_Hat_Display',system-ui,sans-serif]";
 const SWIPE_THRESHOLD = 80;
 
 interface ConversationRowProps {
@@ -77,7 +76,7 @@ export function ConversationRow({
               <rect x="1" y="3" width="22" height="5" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M10 12h4" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            <span className={`text-[10px] leading-3 text-white ${FONT} font-semibold`}>Archive</span>
+            <span className={`text-[10px] leading-3 text-white font-red-hat font-semibold`}>Archive</span>
           </div>
         </motion.button>
         <motion.button
@@ -91,7 +90,7 @@ export function ConversationRow({
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            <span className={`text-[10px] leading-3 text-white ${FONT} font-semibold`}>Delete</span>
+            <span className={`text-[10px] leading-3 text-white font-red-hat font-semibold`}>Delete</span>
           </div>
         </motion.button>
       </div>
@@ -113,24 +112,24 @@ export function ConversationRow({
         {/* Time column */}
         <div className="flex flex-col items-center shrink-0 w-10">
           <div
-            className={`text-[14px] leading-[18px] ${FONT} font-semibold ${
+            className={`text-[14px] leading-[18px] font-red-hat font-semibold ${
               isActive ? "text-[#DC2626]" : "text-[#1C1917]"
             }`}
           >
             {format(startTime, "h:mm")}
           </div>
           <div
-            className={`text-[11px] leading-3.5 ${FONT} ${
+            className={`text-[11px] leading-3.5 font-red-hat font-semibold ${
               isActive ? "text-[#DC2626] opacity-60" : "text-[#A8A29E]"
             }`}
           >
-            {format(startTime, "a")}
+            {format(startTime, "a")} 
           </div>
         </div>
 
         {/* Content column */}
         <div className="flex flex-col grow shrink basis-0 gap-1.5 min-w-0">
-          <div className={`text-[16px] leading-5 ${FONT} font-semibold text-[#1C1917] truncate`}>
+          <div className={`text-[16px] leading-5 font-red-hat font-semibold text-[#1C1917] truncate`}>
             {conversation.title}
           </div>
           <div className="flex items-center gap-2">
@@ -141,13 +140,13 @@ export function ConversationRow({
                   <div className="w-0.5 h-2.5 rounded-[1px] bg-[#DC2626] shrink-0 animate-pulse [animation-delay:150ms]" />
                   <div className="w-0.5 h-[5px] rounded-[1px] bg-[#DC2626] shrink-0 animate-pulse [animation-delay:300ms]" />
                 </div>
-                <span className={`text-[12px] leading-4 text-[#DC2626] ${FONT} font-semibold`}>
+                <span className={`text-[12px] leading-4 text-[#DC2626] font-red-hat font-semibold`}>
                   Transcribing now
                 </span>
               </div>
             ) : duration !== null ? (
               <div className="rounded-md py-[3px] px-2 bg-[#F5F5F4]">
-                <span className={`text-[11px] leading-3.5 text-[#78716C] ${FONT} font-medium`}>
+                <span className={`text-[11px] leading-3.5 text-[#78716C] font-red-hat font-medium`}>
                   {duration} min
                 </span>
               </div>

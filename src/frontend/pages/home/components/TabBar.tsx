@@ -5,7 +5,6 @@
  * Matches Paper design with filled/outlined icon states.
  */
 
-const FONT = "font-['Red_Hat_Display',system-ui,sans-serif]";
 
 type Tab = "conversations" | "search" | "notes" | "settings";
 
@@ -32,7 +31,7 @@ export function TabBar({ activeTab = "conversations", onNavigate }: TabBarProps)
           </svg>
         )}
         <span
-          className={`text-[10px] leading-3 ${FONT} ${
+          className={`text-[10px] leading-3 font-red-hat ${
             activeTab === "conversations" ? "text-[#1C1917] font-semibold" : "text-[#A8A29E] font-medium"
           }`}
         >
@@ -50,7 +49,7 @@ export function TabBar({ activeTab = "conversations", onNavigate }: TabBarProps)
           <line x1="16.5" y1="16.5" x2="21" y2="21" stroke={activeTab === "search" ? "#1C1917" : "#A8A29E"} strokeWidth="1.75" strokeLinecap="round" />
         </svg>
         <span
-          className={`text-[10px] leading-3 ${FONT} ${
+          className={`text-[10px] leading-3 font-red-hat ${
             activeTab === "search" ? "text-[#1C1917] font-semibold" : "text-[#A8A29E] font-medium"
           }`}
         >
@@ -68,7 +67,7 @@ export function TabBar({ activeTab = "conversations", onNavigate }: TabBarProps)
           <polyline points="14,2 14,8 20,8" stroke={activeTab === "notes" ? "#1C1917" : "#A8A29E"} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <span
-          className={`text-[10px] leading-3 ${FONT} ${
+          className={`text-[10px] leading-3 font-red-hat ${
             activeTab === "notes" ? "text-[#1C1917] font-semibold" : "text-[#A8A29E] font-medium"
           }`}
         >
@@ -86,7 +85,7 @@ export function TabBar({ activeTab = "conversations", onNavigate }: TabBarProps)
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke={activeTab === "settings" ? "#1C1917" : "#A8A29E"} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <span
-          className={`text-[10px] leading-3 ${FONT} ${
+          className={`text-[10px] leading-3 font-red-hat ${
             activeTab === "settings" ? "text-[#1C1917] font-semibold" : "text-[#A8A29E] font-medium"
           }`}
         >

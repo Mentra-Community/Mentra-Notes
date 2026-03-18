@@ -30,6 +30,7 @@ import type {
 export class ConversationManager extends SyncedManager {
   @synced conversations = synced<Conversation[]>([]);
   @synced activeConversationId: string | null = null;
+  @synced isHydrated = false;
 
   // Pipeline components (not synced)
   private triageClassifier: TriageClassifier | null = null;
@@ -126,6 +127,8 @@ export class ConversationManager extends SyncedManager {
       );
     } catch (error) {
       console.error("[ConvManager] Failed to hydrate:", error);
+    } finally {
+      this.isHydrated = true;
     }
   }
 

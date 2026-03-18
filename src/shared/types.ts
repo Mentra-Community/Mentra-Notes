@@ -164,6 +164,7 @@ export interface SettingsManagerI {
   timezone: string | null; // IANA timezone e.g. "America/Los_Angeles"
   glassesDisplayMode: GlassesDisplayMode;
   superCollapsed: boolean;
+  transcriptionPaused: boolean;
   // Onboarding
   onboardingCompleted: boolean;
   role: string | null;
@@ -185,6 +186,7 @@ export interface SettingsManagerI {
     priorities?: string[];
     contacts?: string[];
     topics?: string[];
+    transcriptionPaused?: boolean;
   }): Promise<void>;
 }
 
@@ -220,6 +222,7 @@ export interface ConversationManagerI {
   // State
   conversations: Conversation[];
   activeConversationId: string | null;
+  isHydrated: boolean;
 
   // RPCs
   deleteConversation(conversationId: string): Promise<void>;

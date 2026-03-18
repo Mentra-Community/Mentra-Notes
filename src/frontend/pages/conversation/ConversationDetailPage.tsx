@@ -16,7 +16,6 @@ import { format } from "date-fns";
 import { useSynced } from "../../hooks/useSynced";
 import type { SessionI, Conversation, ConversationChunk } from "../../../shared/types";
 
-const FONT = "font-['Red_Hat_Display',system-ui,sans-serif]";
 
 // Speaker color palette (cycles for multiple speakers)
 const SPEAKER_COLORS = [
@@ -67,7 +66,7 @@ export function ConversationDetailPage() {
   if (!session || !conversation) {
     return (
       <div className="flex h-full flex-col items-center justify-center bg-[#FAFAF9]">
-        <div className={`text-[16px] text-[#A8A29E] ${FONT}`}>
+        <div className={`text-[16px] text-[#A8A29E] font-red-hat`}>
           {!session ? "Loading..." : "Conversation not found"}
         </div>
       </div>
@@ -117,10 +116,10 @@ export function ConversationDetailPage() {
           </svg>
         </button>
         <div className="flex flex-col grow shrink basis-0 gap-1 min-w-0">
-          <div className={`text-[22px] tracking-[-0.02em] leading-[26px] text-[#1C1917] ${FONT} font-extrabold`}>
+          <div className={`text-[22px] tracking-[-0.02em] leading-[26px] text-[#1C1917] font-red-hat font-extrabold`}>
             {conversation.title || "Untitled Conversation"}
           </div>
-          <div className={`text-[13px] leading-4 text-[#A8A29E] ${FONT}`}>
+          <div className={`text-[13px] leading-4 text-[#A8A29E] font-red-hat`}>
             {timeRange}
             {duration !== null ? ` · ${duration} min` : ""}
           </div>
@@ -150,14 +149,14 @@ export function ConversationDetailPage() {
         {/* Summary section */}
         <div className="flex flex-col gap-2.5">
           <div className="flex items-center gap-2">
-            <div className={`text-[11px] tracking-widest uppercase leading-3.5 text-[#A8A29E] ${FONT} font-bold`}>
+            <div className={`text-[11px] tracking-widest uppercase leading-3.5 text-[#A8A29E] font-red-hat font-bold`}>
               Summary
             </div>
             <div className="flex items-center rounded-sm py-0.5 px-2 gap-1 bg-[#FEE2E2]">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
                 <path d="M12 2l2.09 6.26L20.18 9l-4.91 3.74L17.18 19 12 15.27 6.82 19l1.91-6.26L3.82 9l6.09-.74z" fill="#DC2626" />
               </svg>
-              <div className={`text-[10px] leading-3.5 text-[#DC2626] ${FONT} font-bold`}>
+              <div className={`text-[10px] leading-3.5 text-[#DC2626] font-red-hat font-bold`}>
                 AI
               </div>
             </div>
@@ -168,18 +167,18 @@ export function ConversationDetailPage() {
               <div className="w-1.5 h-1.5 rounded-full bg-[#A8A29E] animate-pulse" />
               <div className="w-1.5 h-1.5 rounded-full bg-[#A8A29E] animate-pulse [animation-delay:150ms]" />
               <div className="w-1.5 h-1.5 rounded-full bg-[#A8A29E] animate-pulse [animation-delay:300ms]" />
-              <span className={`text-[14px] text-[#A8A29E] ${FONT}`}>Generating summary...</span>
+              <span className={`text-[14px] text-[#A8A29E] font-red-hat`}>Generating summary...</span>
             </div>
           ) : conversation.aiSummary ? (
-            <div className={`text-[15px] leading-[22px] text-[#44403C] ${FONT} whitespace-pre-wrap`}>
+            <div className={`text-[15px] leading-[22px] text-[#44403C] font-red-hat whitespace-pre-wrap`}>
               {conversation.aiSummary}
             </div>
           ) : conversation.runningSummary ? (
-            <div className={`text-[15px] leading-[22px] text-[#44403C] ${FONT} whitespace-pre-wrap`}>
+            <div className={`text-[15px] leading-[22px] text-[#44403C] font-red-hat whitespace-pre-wrap`}>
               {conversation.runningSummary}
             </div>
           ) : (
-            <div className={`text-[14px] leading-5 text-[#A8A29E] ${FONT}`}>
+            <div className={`text-[14px] leading-5 text-[#A8A29E] font-red-hat`}>
               No summary available yet
             </div>
           )}
@@ -189,7 +188,7 @@ export function ConversationDetailPage() {
             onClick={handleGenerateNote}
             className="flex items-center justify-center w-full h-14 rounded-2xl bg-[#1C1917] shrink-0 active:scale-[0.98] transition-transform"
           >
-            <span className={`text-[16px] leading-5 text-[#FAFAF9] ${FONT} font-semibold`}>
+            <span className={`text-[16px] leading-5 text-[#FAFAF9] font-red-hat font-semibold`}>
               Generate Note
             </span>
           </button>
@@ -199,10 +198,10 @@ export function ConversationDetailPage() {
         {chunks.length > 0 && (
           <div className="flex flex-col gap-3.5">
             <div className="flex items-center justify-between">
-              <div className={`text-[11px] leading-3.5 tracking-widest uppercase text-[#A8A29E] ${FONT} font-bold`}>
+              <div className={`text-[11px] leading-3.5 tracking-widest uppercase text-[#A8A29E] font-red-hat font-bold`}>
                 Transcript
               </div>
-              <div className={`text-[12px] leading-4 text-[#A8A29E] ${FONT} font-medium`}>
+              <div className={`text-[12px] leading-4 text-[#A8A29E] font-red-hat font-medium`}>
                 {totalDuration} total
               </div>
             </div>
@@ -216,16 +215,16 @@ export function ConversationDetailPage() {
                 <div key={chunk.id} className="flex items-start gap-2.5">
                   {/* Speaker avatar */}
                   <div className={`flex items-center justify-center shrink-0 rounded-full ${color.bg} size-7`}>
-                    <div className={`text-[12px] leading-3.5 ${color.text} ${FONT} font-bold`}>
+                    <div className={`text-[12px] leading-3.5 ${color.text} font-red-hat font-bold`}>
                       {speakerIdx + 1}
                     </div>
                   </div>
                   {/* Content */}
                   <div className="flex flex-col grow shrink basis-0 pt-1 gap-0.5 min-w-0">
-                    <div className={`text-[12px] leading-3.5 ${color.text} ${FONT} font-semibold`}>
+                    <div className={`text-[12px] leading-3.5 ${color.text} font-red-hat font-semibold`}>
                       Speaker {speakerIdx + 1} · {chunkTime}
                     </div>
-                    <div className={`text-[14px] leading-5 text-[#3F3F46] ${FONT}`}>
+                    <div className={`text-[14px] leading-5 text-[#3F3F46] font-red-hat`}>
                       {chunk.text}
                     </div>
                   </div>
@@ -239,7 +238,7 @@ export function ConversationDetailPage() {
                 onClick={() => setShowFullTranscript(!showFullTranscript)}
                 className="flex items-center justify-center pt-3 gap-1.5"
               >
-                <span className={`text-[13px] leading-4 text-[#71717A] ${FONT} font-medium`}>
+                <span className={`text-[13px] leading-4 text-[#71717A] font-red-hat font-medium`}>
                   {showFullTranscript ? "Show less" : `View full transcript (${chunks.length} segments)`}
                 </span>
                 <svg
@@ -263,7 +262,7 @@ export function ConversationDetailPage() {
         {/* Empty transcript state */}
         {chunks.length === 0 && (
           <div className="flex flex-col items-center gap-2 py-8">
-            <div className={`text-[14px] text-[#A8A29E] ${FONT}`}>
+            <div className={`text-[14px] text-[#A8A29E] font-red-hat`}>
               No transcript chunks recorded
             </div>
           </div>

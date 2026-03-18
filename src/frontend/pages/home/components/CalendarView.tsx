@@ -25,7 +25,6 @@ import {
 import type { DailyFolder } from "./FolderList";
 import type { Conversation, Note } from "../../../../shared/types";
 
-const FONT = "font-['Red_Hat_Display',system-ui,sans-serif]";
 const WEEK_DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
 interface CalendarViewProps {
@@ -95,7 +94,7 @@ export function CalendarView({ conversations = [], notes = [], onSelectDate }: C
             <polyline points="15,18 9,12 15,6" stroke="#78716C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
-        <span className={`text-[16px] leading-5 text-[#1C1917] ${FONT} font-semibold`}>
+        <span className={`text-[16px] leading-5 text-[#1C1917] font-red-hat font-semibold`}>
           {format(currentMonth, "MMMM yyyy")}
         </span>
         <button onClick={handleNextMonth} className="p-2 -mr-2">
@@ -108,26 +107,26 @@ export function CalendarView({ conversations = [], notes = [], onSelectDate }: C
       {/* Stats bar */}
       <div className="flex shrink-0 border-b border-[#FAFAFA] p-6">
         <div className="flex flex-col items-center grow shrink basis-0">
-          <div className={`text-[32px] leading-[38px] text-[#18181B] ${FONT} font-light`}>
+          <div className={`text-[32px] leading-[38px] text-[#18181B] font-red-hat font-light`}>
             {monthConversations.length}
           </div>
-          <div className={`text-[10px] uppercase tracking-widest mt-1 text-[#A1A1AA] ${FONT} font-semibold leading-3`}>
+          <div className={`text-[10px] uppercase tracking-widest mt-1 text-[#A1A1AA] font-red-hat font-semibold leading-3`}>
             Conversations
           </div>
         </div>
         <div className="flex flex-col items-center grow shrink basis-0 border-l border-[#F4F4F5]">
-          <div className={`text-[32px] leading-[38px] text-[#18181B] ${FONT} font-light`}>
+          <div className={`text-[32px] leading-[38px] text-[#18181B] font-red-hat font-light`}>
             {monthNotes.length}
           </div>
-          <div className={`text-[10px] uppercase tracking-widest mt-1 text-[#A1A1AA] ${FONT} font-semibold leading-3`}>
+          <div className={`text-[10px] uppercase tracking-widest mt-1 text-[#A1A1AA] font-red-hat font-semibold leading-3`}>
             Notes
           </div>
         </div>
         <div className="flex flex-col items-center grow shrink basis-0 border-l border-[#F4F4F5]">
-          <div className={`text-[32px] leading-[38px] text-[#18181B] ${FONT} font-light`}>
+          <div className={`text-[32px] leading-[38px] text-[#18181B] font-red-hat font-light`}>
             {monthDurationMin}m
           </div>
-          <div className={`text-[10px] uppercase tracking-widest mt-1 text-[#A1A1AA] ${FONT} font-semibold leading-3`}>
+          <div className={`text-[10px] uppercase tracking-widest mt-1 text-[#A1A1AA] font-red-hat font-semibold leading-3`}>
             Duration
           </div>
         </div>
@@ -138,7 +137,7 @@ export function CalendarView({ conversations = [], notes = [], onSelectDate }: C
         {/* Week day headers */}
         <div className="flex w-full mb-4">
           {WEEK_DAYS.map((day) => (
-            <div key={day} className={`grow shrink basis-0 text-center text-[12px] uppercase tracking-widest text-[#D4D4D8] ${FONT} font-semibold leading-4`}>
+            <div key={day} className={`grow shrink basis-0 text-center text-[12px] uppercase tracking-widest text-[#D4D4D8] font-red-hat font-semibold leading-4`}>
               {day}
             </div>
           ))}
@@ -167,12 +166,12 @@ export function CalendarView({ conversations = [], notes = [], onSelectDate }: C
                 >
                   {today ? (
                     <div className="flex items-center justify-center rounded-2xl bg-[#18181B] shrink-0 size-8">
-                      <span className={`text-[14px] text-white ${FONT} font-semibold leading-[18px]`}>
+                      <span className={`text-[14px] text-white font-red-hat font-semibold leading-[18px]`}>
                         {format(day, "d")}
                       </span>
                     </div>
                   ) : (
-                    <span className={`text-[14px] leading-[18px] ${FONT} font-medium ${
+                    <span className={`text-[14px] leading-[18px] font-red-hat font-medium ${
                       hasContent ? "text-[#18181B]" : "text-[#E4E4E7]"
                     }`}>
                       {format(day, "d")}
@@ -200,11 +199,11 @@ export function CalendarView({ conversations = [], notes = [], onSelectDate }: C
         <div className="flex items-center justify-center mt-8 gap-6">
           <div className="flex items-center gap-2">
             <div className="rounded-sm bg-[#EF4444] shrink-0 size-2" />
-            <span className={`text-[12px] text-[#71717A] ${FONT} font-medium leading-4`}>Conversation</span>
+            <span className={`text-[12px] text-[#71717A] font-red-hat font-medium leading-4`}>Conversation</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="rounded-sm bg-[#D4D4D8] shrink-0 size-2" />
-            <span className={`text-[12px] text-[#71717A] ${FONT} font-medium leading-4`}>Note</span>
+            <span className={`text-[12px] text-[#71717A] font-red-hat font-medium leading-4`}>Note</span>
           </div>
         </div>
       </div>

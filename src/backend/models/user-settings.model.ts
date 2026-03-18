@@ -25,6 +25,7 @@ export interface UserSettingsI extends Document {
   priorities?: string[];
   contacts?: string[];
   topics?: string[];
+  transcriptionPaused: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,6 +54,7 @@ const UserSettingsSchema = new Schema<UserSettingsI>(
     priorities: { type: [String], default: [] },
     contacts: { type: [String], default: [] },
     topics: { type: [String], default: [] },
+    transcriptionPaused: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
@@ -116,6 +118,7 @@ export async function updateUserSettings(
     priorities: string[];
     contacts: string[];
     topics: string[];
+    transcriptionPaused: boolean;
   }>,
 ): Promise<UserSettingsI | null> {
   return UserSettings.findOneAndUpdate(

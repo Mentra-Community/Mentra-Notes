@@ -8,6 +8,10 @@
  * - Syncs state in real-time via WebSocket
  */
 
+// Bun TLS workaround: disable cert verification for MongoDB Atlas connections
+// See: https://github.com/oven-sh/bun/issues/TLS
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
 import { NotesApp } from "./backend/NotesApp";
 import { api } from "./backend/api/router";
 import { createMentraAuthRoutes } from "@mentra/sdk";
@@ -98,12 +102,26 @@ Bun.serve({
     "/app": isDevelopment ? indexDev : indexProd,
     "/day/*": isDevelopment ? indexDev : indexProd,
     "/note/*": isDevelopment ? indexDev : indexProd,
+    "/transcript/*": isDevelopment ? indexDev : indexProd,
     "/search": isDevelopment ? indexDev : indexProd,
     "/settings": isDevelopment ? indexDev : indexProd,
     "/onboarding": isDevelopment ? indexDev : indexProd,
   },
-  fetch(request, server) {
+  async fetch(request, server) {
     const url = new URL(request.url);
+
+    // Serve static fonts
+    if (url.pathname.startsWith("/fonts/")) {
+      const fontFile = Bun.file(
+        import.meta.dir + "/public" + url.pathname,
+      );
+      if (await fontFile.exists()) {
+        return new Response(fontFile, {
+          headers: { "Cache-Control": "public, max-age=31536000, immutable" },
+        });
+      }
+      return new Response("Not found", { status: 404 });
+    }
 
     // WebSocket upgrade for synced clients
     if (url.pathname === "/ws/sync") {

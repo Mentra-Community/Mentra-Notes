@@ -152,6 +152,12 @@ export class NotesSession extends SyncedSession {
    * Handle incoming transcription from glasses
    */
   onTranscription(text: string, isFinal: boolean, speakerId?: string): void {
+    // Drop everything if user has stopped transcription
+    if (this.settings.transcriptionPaused) {
+      if (isFinal) console.log(`[NotesSession] Transcription paused — dropping segment for ${this.userId}: "${text.slice(0, 60)}"`);
+      return;
+    }
+
     // Add to transcript
     this.transcript.addSegment(text, isFinal, speakerId);
 

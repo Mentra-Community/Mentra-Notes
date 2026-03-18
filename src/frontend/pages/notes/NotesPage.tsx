@@ -14,7 +14,6 @@ import { useSynced } from "../../hooks/useSynced";
 import type { SessionI, Note } from "../../../shared/types";
 import { TabBar } from "../home/components/TabBar";
 
-const FONT = "font-['Red_Hat_Display',system-ui,sans-serif]";
 
 type NoteFilter = "all" | "favorites" | "manual" | "ai";
 
@@ -126,15 +125,15 @@ export function NotesPage() {
       <div className="flex h-full flex-col bg-[#FAFAF9] relative overflow-hidden">
         {/* Header */}
         <div className="flex flex-col pt-6 gap-2 px-6 shrink-0">
-          <div className={`text-[11px] tracking-widest uppercase leading-3.5 text-[#DC2626] ${FONT} font-bold`}>
+          <div className={`text-[11px] tracking-widest uppercase leading-3.5 text-[#DC2626] font-red-hat font-bold`}>
             MENTRA NOTES
           </div>
           <div className="flex items-end justify-between">
             <div className="flex flex-col gap-0.5">
-              <div className={`text-[32px] leading-10 text-[#1C1917] ${FONT} font-extrabold`}>
+              <div className={`text-[32px] leading-10 text-[#1C1917] font-red-hat font-extrabold`}>
                 Notes
               </div>
-              <div className={`text-[14px] leading-[18px] text-[#A8A29E] ${FONT}`}>
+              <div className={`text-[14px] leading-[18px] text-[#A8A29E] font-red-hat`}>
                 0 notes
               </div>
             </div>
@@ -152,7 +151,7 @@ export function NotesPage() {
               }`}
             >
               <span
-                className={`text-[13px] leading-4 ${FONT} ${
+                className={`text-[13px] leading-4 font-red-hat ${
                   activeFilter === f.key ? "text-[#FAFAF9] font-semibold" : "text-[#78716C] font-medium"
                 }`}
               >
@@ -174,10 +173,10 @@ export function NotesPage() {
               </svg>
             </div>
             <div className="flex flex-col items-center gap-2">
-              <div className={`text-[20px] leading-6 text-[#1C1917] ${FONT} font-extrabold`}>
+              <div className={`text-[20px] leading-6 text-[#1C1917] font-red-hat font-extrabold`}>
                 No notes yet
               </div>
-              <div className={`text-[14px] leading-5 text-center text-[#A8A29E] ${FONT}`}>
+              <div className={`text-[14px] leading-5 text-center text-[#A8A29E] font-red-hat`}>
                 Your notes will show up here
               </div>
             </div>
@@ -196,10 +195,10 @@ export function NotesPage() {
                 </svg>
               </div>
               <div className="flex flex-col grow shrink basis-0 gap-0.5">
-                <div className={`text-[14px] leading-[18px] text-[#1C1917] ${FONT} font-bold`}>
+                <div className={`text-[14px] leading-[18px] text-[#1C1917] font-red-hat font-bold`}>
                   Write a note
                 </div>
-                <div className={`text-[12px] leading-4 text-[#78716C] ${FONT}`}>
+                <div className={`text-[12px] leading-4 text-[#78716C] font-red-hat`}>
                   Tap + to create a manual note
                 </div>
               </div>
@@ -218,10 +217,10 @@ export function NotesPage() {
                 </svg>
               </div>
               <div className="flex flex-col grow shrink basis-0 gap-0.5">
-                <div className={`text-[14px] leading-[18px] text-[#1C1917] ${FONT} font-bold`}>
+                <div className={`text-[14px] leading-[18px] text-[#1C1917] font-red-hat font-bold`}>
                   Generate AI note
                 </div>
-                <div className={`text-[12px] leading-4 text-[#78716C] ${FONT}`}>
+                <div className={`text-[12px] leading-4 text-[#78716C] font-red-hat`}>
                   From any conversation
                 </div>
               </div>
@@ -254,15 +253,15 @@ export function NotesPage() {
     <div className="flex h-full flex-col bg-[#FAFAF9] relative overflow-hidden">
       {/* Header */}
       <div className="flex flex-col pt-6 gap-2 px-6 shrink-0">
-        <div className={`text-[11px] tracking-widest uppercase leading-3.5 text-[#DC2626] ${FONT} font-bold`}>
+        <div className={`text-[11px] tracking-widest uppercase leading-3.5 text-[#DC2626] font-red-hat font-bold`}>
           Mentra Notes
         </div>
         <div className="flex items-end justify-between">
           <div className="flex flex-col gap-0.5">
-            <div className={`text-[30px] tracking-[-0.03em] leading-[34px] text-[#1C1917] ${FONT} font-extrabold`}>
+            <div className={`text-[30px] tracking-[-0.03em] leading-[34px] text-[#1C1917] font-red-hat font-extrabold`}>
               Notes
             </div>
-            <div className={`text-[14px] leading-[18px] text-[#A8A29E] ${FONT}`}>
+            <div className={`text-[14px] leading-[18px] text-[#A8A29E] font-red-hat`}>
               {filteredNotes.length} {filteredNotes.length === 1 ? "note" : "notes"}
             </div>
           </div>
@@ -306,7 +305,7 @@ export function NotesPage() {
             }`}
           >
             <span
-              className={`text-[13px] leading-4 ${FONT} ${
+              className={`text-[13px] leading-4 font-red-hat ${
                 activeFilter === f.key ? "text-[#FAFAF9] font-semibold" : "text-[#78716C] font-medium"
               }`}
             >
@@ -331,25 +330,25 @@ export function NotesPage() {
               }`}
             >
               <div className="flex items-center gap-1.5">
-                <div className={`text-[15px] leading-5 text-[#1C1917] ${FONT} font-bold truncate`}>
+                <div className={`text-[15px] leading-5 text-[#1C1917] font-red-hat font-bold truncate`}>
                   {note.title || "Untitled Note"}
                 </div>
                 {note.isAIGenerated ? (
                   <div className="flex items-center rounded-sm py-0.5 px-2 bg-[#FEE2E2] shrink-0">
-                    <span className={`text-[10px] leading-3.5 text-[#DC2626] ${FONT} font-bold`}>AI</span>
+                    <span className={`text-[10px] leading-3.5 text-[#DC2626] font-red-hat font-bold`}>AI</span>
                   </div>
                 ) : (
                   <div className="flex items-center rounded-sm py-0.5 px-2 bg-[#DBEAFE] shrink-0">
-                    <span className={`text-[10px] leading-3.5 text-[#2563EB] ${FONT} font-semibold`}>
+                    <span className={`text-[10px] leading-3.5 text-[#2563EB] font-red-hat font-semibold`}>
                       Manual
                     </span>
                   </div>
                 )}
               </div>
-              <div className={`text-[14px] leading-5 text-[#78716C] ${FONT} line-clamp-2`}>
+              <div className={`text-[14px] leading-5 text-[#78716C] font-red-hat line-clamp-2`}>
                 {stripHtmlAndTruncate(note.content) || "No content"}
               </div>
-              <div className={`text-[12px] leading-4 text-[#A8A29E] ${FONT}`}>
+              <div className={`text-[12px] leading-4 text-[#A8A29E] font-red-hat`}>
                 {fromLabel || formatNoteDate(note)}
               </div>
             </button>

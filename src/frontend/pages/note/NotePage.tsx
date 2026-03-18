@@ -25,7 +25,6 @@ import { NotePageSkeleton } from "../../components/shared/SkeletonLoader";
 import { EmailDrawer } from "../../components/shared/EmailDrawer";
 import { rewriteR2Urls } from "../../../shared/constants";
 
-const FONT = "font-['Red_Hat_Display',system-ui,sans-serif]";
 
 // =============================================================================
 // Content parser — extracts structured sections from note content
@@ -268,8 +267,8 @@ export function NotePage() {
   if (!note) {
     return (
       <div className="flex h-full flex-col items-center justify-center bg-[#FAFAF9]">
-        <div className={`text-[16px] text-[#A8A29E] ${FONT}`}>Note not found</div>
-        <button onClick={() => setLocation("/notes")} className={`mt-4 text-[14px] text-[#78716C] underline ${FONT}`}>
+        <div className={`text-[16px] text-[#A8A29E] font-red-hat`}>Note not found</div>
+        <button onClick={() => setLocation("/notes")} className={`mt-4 text-[14px] text-[#78716C] underline font-red-hat`}>
           Go back
         </button>
       </div>
@@ -338,11 +337,11 @@ export function NotePage() {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <polyline points="15,18 9,12 15,6" stroke="#1C1917" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          <span className={`text-[16px] leading-5 text-[#1C1917] ${FONT} font-semibold`}>Note</span>
+          <span className={`text-[16px] leading-5 text-[#1C1917] font-red-hat font-semibold`}>Note</span>
         </button>
         <div className="flex items-center gap-4">
           {/* Save status */}
-          <span className={`text-[11px] text-[#A8A29E] ${FONT}`}>
+          <span className={`text-[11px] text-[#A8A29E] font-red-hat`}>
             {isSaving ? "Saving..." : showSaved ? "Saved" : ""}
           </span>
           {/* Favorite star */}
@@ -363,7 +362,7 @@ export function NotePage() {
             {showMenu && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-                <div className={`absolute right-0 top-full mt-1 z-50 bg-white border border-[#E7E5E4] rounded-xl shadow-lg py-1 min-w-40 ${FONT}`}>
+                <div className={`absolute right-0 top-full mt-1 z-50 bg-white border border-[#E7E5E4] rounded-xl shadow-lg py-1 min-w-40 font-red-hat`}>
                   <button
                     onClick={() => { setShowMenu(false); setShowEmailDrawer(true); }}
                     className="w-full px-4 py-2.5 text-left text-[14px] text-[#1C1917] flex items-center gap-3"
@@ -401,20 +400,20 @@ export function NotePage() {
           <div className="flex items-center gap-2">
             {note.isAIGenerated ? (
               <div className="flex items-center rounded-sm py-0.5 px-2 bg-[#FEE2E2]">
-                <span className={`text-[10px] leading-3.5 text-[#DC2626] ${FONT} font-bold`}>AI</span>
+                <span className={`text-[10px] leading-3.5 text-[#DC2626] font-red-hat font-bold`}>AI</span>
               </div>
             ) : (
               <div className="flex items-center rounded-sm py-0.5 px-2 bg-[#DBEAFE]">
-                <span className={`text-[10px] leading-3.5 text-[#2563EB] ${FONT} font-semibold`}>Manual</span>
+                <span className={`text-[10px] leading-3.5 text-[#2563EB] font-red-hat font-semibold`}>Manual</span>
               </div>
             )}
             <div className="flex items-center rounded-sm py-0.5 px-2 gap-1 bg-[#F5F5F4]">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" stroke="#78716C" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
               </svg>
-              <span className={`text-[10px] leading-3.5 text-[#78716C] ${FONT} font-semibold`}>Work Notes</span>
+              <span className={`text-[10px] leading-3.5 text-[#78716C] font-red-hat font-semibold`}>Work Notes</span>
             </div>
-            <span className={`text-[12px] leading-4 text-[#A8A29E] ${FONT}`}>{dateLabel}</span>
+            <span className={`text-[12px] leading-4 text-[#A8A29E] font-red-hat`}>{dateLabel}</span>
           </div>
 
           {/* Title (editable, auto-wrapping) */}
@@ -433,7 +432,7 @@ export function NotePage() {
             }}
             placeholder="Untitled Note"
             rows={1}
-            className={`w-full text-[24px] leading-[30px] text-[#1C1917] ${FONT} font-extrabold bg-transparent border-none focus:outline-none placeholder-[#D6D3D1] resize-none overflow-hidden break-words p-0`}
+            className={`w-full text-[24px] leading-[30px] text-[#1C1917] font-red-hat font-extrabold bg-transparent border-none focus:outline-none placeholder-[#D6D3D1] resize-none overflow-hidden break-words p-0`}
           />
 
           {/* Source conversation */}
@@ -442,7 +441,7 @@ export function NotePage() {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="#A8A29E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              <span className={`text-[13px] leading-[18px] text-[#78716C] ${FONT} font-medium`}>
+              <span className={`text-[13px] leading-[18px] text-[#78716C] font-red-hat font-medium`}>
                 {sourceLabel}
               </span>
             </div>
@@ -456,7 +455,7 @@ export function NotePage() {
         {note.isAIGenerated && parsed?.summary && (
           <div className="flex flex-col gap-2.5 px-6">
             <div className="flex items-center gap-2">
-              <span className={`text-[11px] tracking-[0.08em] uppercase leading-3.5 text-[#A8A29E] ${FONT} font-bold`}>
+              <span className={`text-[11px] tracking-[0.08em] uppercase leading-3.5 text-[#A8A29E] font-red-hat font-bold`}>
                 Summary
               </span>
               
@@ -467,14 +466,14 @@ export function NotePage() {
         {/* Key Decisions section */}
         {note.isAIGenerated && parsed && parsed.keyDecisions.length > 0 && (
           <div className="flex flex-col pt-6 gap-2.5 px-6">
-            <span className={`text-[11px] tracking-[0.08em] uppercase leading-3.5 text-[#A8A29E] ${FONT} font-bold`}>
+            <span className={`text-[11px] tracking-[0.08em] uppercase leading-3.5 text-[#A8A29E] font-red-hat font-bold`}>
               Key Decisions
             </span>
             <div className="flex flex-col gap-2">
               {parsed.keyDecisions.map((decision, i) => (
                 <div key={i} className="flex items-start gap-2.5">
                   <div className="w-[5px] h-[5px] shrink-0 mt-[7px] rounded-[3px] bg-[#1C1917]" />
-                  <span className={`text-[15px] leading-[22px] text-[#1C1917] ${FONT}`}>{decision}</span>
+                  <span className={`text-[15px] leading-[22px] text-[#1C1917] font-red-hat`}>{decision}</span>
                 </div>
               ))}
             </div>
@@ -490,7 +489,7 @@ export function NotePage() {
         <div className="px-6 pt-0 pb-32">
           <EditorContent
             editor={editor}
-            className={`${FONT} text-[15px] leading-[22px] text-[#1C1917]
+            className={`font-red-hat text-[15px] leading-[22px] text-[#1C1917]
               prose prose-stone max-w-none
               prose-headings:font-bold prose-headings:text-[#1C1917]
               prose-h1:text-[20px] prose-h2:text-[18px] prose-h3:text-[16px]
@@ -588,21 +587,21 @@ export function NotePage() {
           <Drawer.Content className="bg-[#FAFAF9] flex flex-col rounded-t-2xl mt-24 fixed bottom-0 left-0 right-0 z-50 max-w-lg mx-auto outline-none border-t border-[#E7E5E4]">
             <div className="mx-auto w-12 h-1.5 shrink-0 rounded-full bg-[#D6D3D1] mt-4 mb-2" />
             <div className="px-6 pb-8 pt-4">
-              <Drawer.Title className={`text-lg font-semibold text-[#1C1917] text-center ${FONT}`}>
+              <Drawer.Title className={`text-lg font-semibold text-[#1C1917] text-center font-red-hat`}>
                 Delete Note?
               </Drawer.Title>
-              <Drawer.Description className={`text-sm text-[#A8A29E] text-center mt-3 ${FONT}`}>
+              <Drawer.Description className={`text-sm text-[#A8A29E] text-center mt-3 font-red-hat`}>
                 This action cannot be undone. The note will be permanently deleted.
               </Drawer.Description>
               <div className="flex gap-3 mt-6">
                 <Drawer.Close asChild>
-                  <button className={`flex-1 py-3 rounded-xl font-medium bg-[#F5F5F4] text-[#78716C] ${FONT}`}>
+                  <button className={`flex-1 py-3 rounded-xl font-medium bg-[#F5F5F4] text-[#78716C] font-red-hat`}>
                     Cancel
                   </button>
                 </Drawer.Close>
                 <button
                   onClick={handleDelete}
-                  className={`flex-1 py-3 rounded-xl font-medium bg-[#DC2626] text-white ${FONT}`}
+                  className={`flex-1 py-3 rounded-xl font-medium bg-[#DC2626] text-white font-red-hat`}
                 >
                   Delete
                 </button>

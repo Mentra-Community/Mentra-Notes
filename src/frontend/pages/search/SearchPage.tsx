@@ -18,7 +18,6 @@ import type { SessionI } from "../../../shared/types";
 import { TabBar } from "../home/components/TabBar";
 import { LoadingState } from "../../components/shared/LoadingState";
 
-const FONT = "font-['Red_Hat_Display',system-ui,sans-serif]";
 const RECENT_SEARCHES_KEY = "mentra_recent_searches";
 const MAX_RECENT = 10;
 
@@ -198,10 +197,10 @@ export function SearchPage() {
     <div className="flex h-full flex-col bg-[#FAFAF9] overflow-hidden">
       {/* Header */}
       <div className="flex flex-col pt-4 gap-3 px-6 shrink-0">
-        <div className={`text-[11px] leading-3.5 tracking-widest uppercase text-[#DC2626] ${FONT} font-bold`}>
+        <div className={`text-[11px] leading-3.5 tracking-widest uppercase text-[#DC2626] font-red-hat font-bold`}>
           Mentra Notes
         </div>
-        <div className={`text-[28px] leading-[34px] text-[#1C1917] ${FONT} font-black`}>
+        <div className={`text-[28px] leading-[34px] text-[#1C1917] font-red-hat font-normal font-black`}>
           Search
         </div>
       </div>
@@ -220,7 +219,7 @@ export function SearchPage() {
             onChange={(e) => handleInputChange(e.target.value)}
             placeholder="Search notes & conversations..."
             autoFocus
-            className={`text-[15px] leading-5 grow bg-transparent border-none focus:outline-none text-[#1C1917] ${FONT} font-medium placeholder-[#A8A29E]`}
+            className={`text-[15px] leading-5 grow bg-transparent border-none focus:outline-none text-[#1C1917] font-red-hat font-medium placeholder-[#A8A29E]`}
           />
           {query ? (
             <button onClick={handleClear} className="shrink-0">
@@ -245,7 +244,7 @@ export function SearchPage() {
             }`}
           >
             <span
-              className={`text-[13px] leading-4 ${FONT} ${
+              className={`text-[13px] leading-4 font-red-hat ${
                 activeFilter === f.key ? "text-[#FAFAF9] font-semibold" : "text-[#78716C] font-medium"
               }`}
             >
@@ -258,7 +257,7 @@ export function SearchPage() {
       {/* Results count */}
       {hasSearched && !isSearching && (
         <div className="flex items-center justify-between pt-4 px-6 shrink-0">
-          <span className={`text-[12px] leading-4 text-[#A8A29E] ${FONT}`}>
+          <span className={`text-[12px] leading-4 text-[#A8A29E] font-red-hat`}>
             {filteredResults.length} {filteredResults.length === 1 ? "result" : "results"} for "{query}"
           </span>
         </div>
@@ -276,7 +275,7 @@ export function SearchPage() {
         {/* Notes section */}
         {!isSearching && noteResults.length > 0 && (
           <div className="flex flex-col pt-5 px-6">
-            <div className={`text-[11px] leading-3.5 tracking-widest uppercase pb-3 text-[#DC2626] ${FONT} font-bold`}>
+            <div className={`text-[11px] leading-3.5 tracking-widest uppercase pb-3 text-[#DC2626] font-red-hat font-bold`}>
               Notes · {noteResults.length}
             </div>
             {noteResults.map((result, i) => (
@@ -288,23 +287,23 @@ export function SearchPage() {
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <span className={`text-[15px] leading-5 text-[#1C1917] ${FONT} font-semibold truncate`}>
+                  <span className={`text-[15px] leading-5 text-[#1C1917] font-red-hat font-semibold truncate`}>
                     {result.title || "Untitled"}
                   </span>
                   {result.isAIGenerated ? (
                     <div className="flex items-center rounded-sm py-0.5 px-1.5 bg-[#FEE2E2] shrink-0">
-                      <span className={`text-[10px] leading-3.5 text-[#DC2626] ${FONT} font-semibold`}>AI</span>
+                      <span className={`text-[10px] leading-3.5 text-[#DC2626] font-red-hat font-semibold`}>AI</span>
                     </div>
                   ) : (
                     <div className="flex items-center rounded-sm py-0.5 px-1.5 bg-[#E7E5E4] shrink-0">
-                      <span className={`text-[10px] leading-3.5 text-[#78716C] ${FONT} font-semibold`}>Manual</span>
+                      <span className={`text-[10px] leading-3.5 text-[#78716C] font-red-hat font-semibold`}>Manual</span>
                     </div>
                   )}
                 </div>
-                <span className={`text-[13px] leading-[18px] text-[#78716C] ${FONT} line-clamp-2`}>
+                <span className={`text-[13px] leading-[18px] text-[#78716C] font-red-hat line-clamp-2`}>
                   {stripHtml(result.summary || result.content || "")}
                 </span>
-                <span className={`text-[12px] leading-4 text-[#A8A29E] ${FONT}`}>
+                <span className={`text-[12px] leading-4 text-[#A8A29E] font-red-hat`}>
                   {formatResultDate(result.date)}
                 </span>
               </button>
@@ -315,7 +314,7 @@ export function SearchPage() {
         {/* Conversations section */}
         {!isSearching && conversationResults.length > 0 && (
           <div className="flex flex-col pt-3 px-6">
-            <div className={`text-[11px] leading-3.5 tracking-widest uppercase pb-3 text-[#DC2626] ${FONT} font-bold`}>
+            <div className={`text-[11px] leading-3.5 tracking-widest uppercase pb-3 text-[#DC2626] font-red-hat font-bold`}>
               Conversations · {conversationResults.length}
             </div>
             {conversationResults.map((result, i) => (
@@ -327,14 +326,14 @@ export function SearchPage() {
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <span className={`text-[15px] leading-5 text-[#1C1917] ${FONT} font-semibold truncate`}>
+                  <span className={`text-[15px] leading-5 text-[#1C1917] font-red-hat font-semibold truncate`}>
                     {result.title || "Untitled"}
                   </span>
                 </div>
-                <span className={`text-[13px] leading-[18px] text-[#78716C] ${FONT} line-clamp-2`}>
+                <span className={`text-[13px] leading-[18px] text-[#78716C] font-red-hat line-clamp-2`}>
                   {stripHtml(result.summary || result.content || "")}
                 </span>
-                <span className={`text-[12px] leading-4 text-[#A8A29E] ${FONT}`}>
+                <span className={`text-[12px] leading-4 text-[#A8A29E] font-red-hat`}>
                   {formatResultDate(result.date)}
                 </span>
               </button>
@@ -349,8 +348,8 @@ export function SearchPage() {
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
-            <span className={`text-[14px] text-[#A8A29E] ${FONT}`}>No results found</span>
-            <span className={`text-[12px] text-[#D6D3D1] ${FONT}`}>Try a different search term</span>
+            <span className={`text-[14px] text-[#A8A29E] font-red-hat`}>No results found</span>
+            <span className={`text-[12px] text-[#D6D3D1] font-red-hat`}>Try a different search term</span>
           </div>
         )}
 
@@ -358,7 +357,7 @@ export function SearchPage() {
         {!isSearching && !hasSearched && (
           recentSearches.length > 0 ? (
             <div className="flex flex-col pt-6 gap-4 px-6 w-full">
-              <span className={`text-[11px] tracking-widest uppercase leading-3.5 text-[#A8A29E] ${FONT} font-bold`}>
+              <span className={`text-[11px] tracking-widest uppercase leading-3.5 text-[#A8A29E] font-red-hat font-bold`}>
                 Recent searches
               </span>
               <div className="flex flex-col">
@@ -377,7 +376,7 @@ export function SearchPage() {
                     {/* Tappable search term */}
                     <button
                       onClick={() => handleRecentTap(term)}
-                      className={`text-[15px] leading-5 grow shrink basis-0 text-left text-[#1C1917] ${FONT}`}
+                      className={`text-[15px] leading-5 grow shrink basis-0 text-left text-[#1C1917] font-red-hat`}
                     >
                       {term}
                     </button>
@@ -398,7 +397,7 @@ export function SearchPage() {
                 <circle cx="11" cy="11" r="8" />
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
-              <span className={`text-[14px] text-[#A8A29E] ${FONT}`}>Search across all your notes and conversations</span>
+              <span className={`text-[14px] text-[#A8A29E] font-red-hat`}>Search across all your notes and conversations</span>
             </div>
           )
         )}

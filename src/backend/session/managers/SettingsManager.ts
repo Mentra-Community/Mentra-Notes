@@ -31,6 +31,7 @@ export class SettingsManager extends SyncedManager {
   @synced timezone: string | null = null; // IANA timezone e.g. "America/Los_Angeles"
   @synced glassesDisplayMode: GlassesDisplayMode = "live_transcript";
   @synced superCollapsed = false;
+  @synced transcriptionPaused = false;
   // Onboarding
   @synced onboardingCompleted = false;
   @synced role: string | null = null;
@@ -54,6 +55,7 @@ export class SettingsManager extends SyncedManager {
       this.glassesDisplayMode =
         (settings.glassesDisplayMode as GlassesDisplayMode) || "live_transcript";
       this.superCollapsed = settings.superCollapsed ?? false;
+      this.transcriptionPaused = settings.transcriptionPaused ?? false;
       this.displayName = settings.displayName || null;
       this.timezone = settings.timezone || null;
       // Onboarding
@@ -81,6 +83,7 @@ export class SettingsManager extends SyncedManager {
     timezone?: string;
     glassesDisplayMode?: GlassesDisplayMode;
     superCollapsed?: boolean;
+    transcriptionPaused?: boolean;
     onboardingCompleted?: boolean;
     role?: string;
     company?: string;
@@ -108,6 +111,10 @@ export class SettingsManager extends SyncedManager {
     }
     if (settings.superCollapsed !== undefined) {
       this.superCollapsed = settings.superCollapsed;
+    }
+    if (settings.transcriptionPaused !== undefined) {
+      this.transcriptionPaused = settings.transcriptionPaused;
+      console.log(`[SettingsManager] Transcription ${settings.transcriptionPaused ? "paused" : "resumed"} for ${userId}`);
     }
     if (settings.onboardingCompleted !== undefined) {
       this.onboardingCompleted = settings.onboardingCompleted;
@@ -143,6 +150,7 @@ export class SettingsManager extends SyncedManager {
           priorities: this.priorities,
           contacts: this.contacts,
           topics: this.topics,
+          transcriptionPaused: this.transcriptionPaused,
         });
       } catch (error) {
         console.error("[SettingsManager] Failed to persist settings:", error);
