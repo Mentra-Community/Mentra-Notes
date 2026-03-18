@@ -7,12 +7,9 @@
 
 import mongoose, { Schema, Document, Model } from "mongoose";
 import { embedConversation } from "../services/embedding.service";
+import type { ConversationStatus } from "../../shared/types";
 
-// =============================================================================
-// Interfaces
-// =============================================================================
-
-export type ConversationStatus = "active" | "paused" | "ended";
+export type { ConversationStatus };
 
 export interface ConversationI extends Document {
   userId: string;

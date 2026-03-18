@@ -141,6 +141,23 @@ export async function getChunksByConversationId(
 }
 
 /**
+ * Get all non-empty chunks for a user within a time range (inclusive).
+ * Used to assemble the full conversation transcript regardless of classification.
+ */
+export async function getChunksByTimeRange(
+  userId: string,
+  startTime: Date,
+  endTime: Date,
+): Promise<TranscriptChunkI[]> {
+  return TranscriptChunk.find({
+    userId,
+    startTime: { $gte: startTime },
+    endTime: { $lte: endTime },
+    wordCount: { $gt: 0 },
+  }).sort({ chunkIndex: 1 });
+}
+
+/**
  * Delete chunks older than the retention window
  */
 export async function deleteOldChunks(olderThan: Date): Promise<number> {

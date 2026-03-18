@@ -105,43 +105,29 @@ export class TriageClassifier {
 
       const domainContext = getDomainPromptContext(this.domainProfile);
 
-      const prompt = `You are a transcript triage classifier for smart glasses worn by a single user. Your job is to decide if a transcript chunk contains meaningful conversation the user is participating in, or is just filler/background noise.
+      const prompt = `You are a transcript triage classifier for smart glasses worn by a single user. Your job is to decide if a transcript chunk is worth tracking as a conversation.
 
-If the chunk sounds like TV, a podcast, YouTube, a lecture, or any broadcast playing in the background — not a conversation the user is actively participating in — classify as FILLER.
+Default to MEANINGFUL when in doubt. Only classify as FILLER if the chunk is clearly worthless to capture.
 
 Domain context: ${domainContext}
 
 ${contextText ? `Recent context:\n${contextText}\n\n` : ""}Current chunk to classify:
 "${chunk.text}"
 
-Classify this chunk as either FILLER or MEANINGFUL.
+FILLER (only these cases):
+- Pure background noise, music, or transcription artifacts with no real words
+- Unambiguous one-way broadcast audio (TV, radio, podcast) with zero user participation
+- Single-word or near-empty acknowledgments with nothing else ("yeah", "okay", "mmhmm", "uh huh" alone)
+- Completely empty filler sounds with no content ("um", "uh", "like" repeated with nothing else)
 
-FILLER means:
-- Background noise, music, TV, or transcription artifacts (e.g. "[inaudible]", "[crosstalk]")
-- One-way monologues: lectures, podcasts, news segments, YouTube videos, audiobooks
-- Content that lacks conversational markers (no turn-taking, no direct address to the user)
-- Audio that sounds scripted, read aloud, or educational without user participation
-- Greetings and goodbyes with no substance ("hey how's it going", "see you later")
-- Small talk about weather, food, commute, sports, weekend plans
-- Pure acknowledgments and backchannel ("yeah", "okay sure", "mmhmm", "that's interesting")
-- Stalling and non-committal responses ("we'll see", "let me think about it", "hmm")
-- Transition phrases with no content ("anyway, moving on", "so yeah")
-- Vague agreement or deference with no new information ("whatever you think is best")
-- Personal momentary interruptions with no lasting info ("hold on, left my keys", "let me grab my charger", "one sec, bathroom break")
-- Standalone location references without context that don't convey who/what/why (e.g. "Room 204" alone with no surrounding discussion)
+MEANINGFUL (everything else, including):
+- Any real conversation the user is part of, regardless of topic — work, personal, casual, plants, hobbies, anything
+- Small talk, casual chat, or social exchanges — these are real conversations worth capturing
+- Questions, answers, opinions, stories, plans, or updates of any kind
+- Greetings and introductions that open a conversation
+- Even short but real statements ("she quit", "Thursday at nine", "let's do it")
 
-MEANINGFUL means:
-- Specific facts, numbers, names, dates, or times that answer a question or advance a discussion (e.g. "Thursday at nine", "two fifty", "she quit")
-- Decisions, agreements, or disagreements about something concrete
-- Action items, requests, or commitments
-- Problem reports, incidents, or complaints with specifics
-- Planning, scheduling, or coordination
-- Any statement that a note-taker would want to capture
-- Must involve the user participating in the conversation (not just overhearing it)
-
-IMPORTANT: Even very short phrases can be meaningful if they convey a specific fact, data point, or decision. "She quit" is meaningful (important news). "Thursday at nine" is meaningful (scheduling). "Two fifty" is meaningful (a number/price). But "okay sure" is filler (pure acknowledgment).
-
-When transcription produces doubled/repeated words (e.g. "I I left left my my keys keys"), look past the repetition to judge the underlying content. A personal errand interruption is still filler even with transcription artifacts.
+IMPORTANT: Topic does not determine filler. A conversation about plants, the weekend, or someone's dog is MEANINGFUL — it is a real human conversation. Only classify FILLER for audio that has no conversational content at all.
 
 Respond with exactly one word: FILLER or MEANINGFUL`;
 

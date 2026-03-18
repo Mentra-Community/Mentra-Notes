@@ -9,9 +9,11 @@ import { format } from "date-fns";
 import { motion, useMotionValue, useTransform, type PanInfo } from "motion/react";
 import { useRef, useState, useEffect } from "react";
 import type { Conversation } from "../../../../shared/types";
+import { WaveIndicator } from "../../../components/shared/WaveIndicator";
 
 const SWIPE_THRESHOLD = 80;
 const AUTO_CLOSE_DELAY = 6000; // 6 seconds
+
 
 interface ConversationRowProps {
   conversation: Conversation;
@@ -163,17 +165,19 @@ export function ConversationRow({
 
         {/* Content column */}
         <div className="flex flex-col grow shrink basis-0 gap-1.5 min-w-0">
-          <div className={`text-[16px] leading-5 font-red-hat font-semibold text-[#1C1917] truncate`}>
-            {conversation.title}
+          <div className={`text-[16px] leading-5 font-red-hat font-semibold truncate ${
+            conversation.title ? "text-[#1C1917]" : "text-[#A8A29E] italic"
+          }`}>
+            {conversation.title
+              ? conversation.title
+              : conversation.status === "ended" && !conversation.generatingSummary
+                ? "Untitled Conversation"
+                : "Generating title..."}
           </div>
           <div className="flex items-center gap-2">
             {isActive ? (
               <div className="flex items-center rounded-md py-[3px] px-2 gap-[5px] bg-[#FEE2E2]">
-                <div className="flex items-center h-3 gap-px">
-                  <div className="w-0.5 h-1.5 rounded-[1px] bg-[#DC2626] shrink-0 animate-pulse" />
-                  <div className="w-0.5 h-2.5 rounded-[1px] bg-[#DC2626] shrink-0 animate-pulse [animation-delay:150ms]" />
-                  <div className="w-0.5 h-[5px] rounded-[1px] bg-[#DC2626] shrink-0 animate-pulse [animation-delay:300ms]" />
-                </div>
+                <WaveIndicator color="#DC2626" height={10} barWidth={2} gap={1} />
                 <span className={`text-[12px] leading-4 text-[#DC2626] font-red-hat font-semibold`}>
                   Transcribing now
                 </span>

@@ -297,7 +297,7 @@ export class ChunkBufferManager extends SyncedManager {
     }
   }
 
-  private clearBuffer(): void {
+  clearBuffer(): void {
     this.buffer = [];
     this.bufferStartTime = null;
   }

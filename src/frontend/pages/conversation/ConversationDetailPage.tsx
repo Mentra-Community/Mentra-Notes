@@ -9,12 +9,23 @@
  * - "View full transcript" expand toggle
  */
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useLocation, useParams } from "wouter";
 import { useMentraAuth } from "@mentra/react";
 import { format } from "date-fns";
 import { useSynced } from "../../hooks/useSynced";
-import type { SessionI, Conversation, ConversationChunk } from "../../../shared/types";
+import { WaveIndicator } from "../../components/shared/WaveIndicator";
+import type { SessionI, Conversation, ConversationChunk, TranscriptSegment } from "../../../shared/types";
+
+/** Stable speakerId string → sequential color index (first seen = 0, second = 1, …) */
+function buildSpeakerMap(segments: TranscriptSegment[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const seg of segments) {
+    const id = seg.speakerId ?? "default";
+    if (!map.has(id)) map.set(id, map.size);
+  }
+  return map;
+}
 
 
 // Speaker color palette (cycles for multiple speakers)
@@ -56,12 +67,34 @@ export function ConversationDetailPage() {
   const { session } = useSynced<SessionI>(userId || "");
   const [, setLocation] = useLocation();
   const [showFullTranscript, setShowFullTranscript] = useState(false);
+  const transcriptBottomRef = useRef<HTMLDivElement>(null);
 
   // Find conversation from session state
   const conversation = useMemo(() => {
     const conversations = session?.conversation?.conversations ?? [];
     return conversations.find((c) => c.id === id) ?? null;
   }, [session?.conversation?.conversations, id]);
+
+  const isActive = conversation?.status === "active" || conversation?.status === "paused";
+
+  // Live segments filtered to this conversation's time range
+  const liveSegments = useMemo(() => {
+    if (!conversation || !isActive) return [];
+    const allSegments: TranscriptSegment[] = session?.transcript?.segments ?? [];
+    const start = new Date(conversation.startTime).getTime();
+    return allSegments.filter(
+      (s) => s.isFinal && s.type !== "photo" && new Date(s.timestamp).getTime() >= start,
+    );
+  }, [session?.transcript?.segments, conversation?.startTime, isActive]);
+
+  // Stable speaker ID → color index map for live segments
+  const liveSpeakerMap = useMemo(() => buildSpeakerMap(liveSegments), [liveSegments]);
+
+  // Preview: last 2 live segments shown on detail page
+  const previewSegments = useMemo(() => liveSegments.slice(-2), [liveSegments]);
+
+  // No auto-scroll on detail page — active state is non-scrollable
+  useEffect(() => { void transcriptBottomRef; }, []);
 
   if (!session || !conversation) {
     return (
@@ -144,8 +177,8 @@ export function ConversationDetailPage() {
         </div>
       </div>
 
-      {/* Scrollable content */}
-      <div className="flex flex-col grow overflow-y-auto gap-7 px-6 pb-12">
+      {/* Content — non-scrollable when active, scrollable when ended */}
+      <div className={`flex flex-col grow gap-7 px-6 pb-12 ${isActive ? "overflow-hidden" : "overflow-y-auto"}`}>
         {/* Summary section */}
         <div className="flex flex-col gap-2.5">
           <div className="flex items-center gap-2">
@@ -162,7 +195,14 @@ export function ConversationDetailPage() {
             </div>
           </div>
 
-          {conversation.generatingSummary ? (
+          {isActive ? (
+            <div className="flex flex-col items-center gap-3 py-8">
+              <WaveIndicator color="#A8A29E" height={16} barWidth={3} gap={3} />
+              <p className={`text-[13px] leading-5 text-[#A8A29E] font-red-hat text-center`}>
+                Waiting for conversation to end{"\n"}to generate AI summary
+              </p>
+            </div>
+          ) : conversation.generatingSummary ? (
             <div className="flex items-center gap-2 py-4">
               <div className="w-1.5 h-1.5 rounded-full bg-[#A8A29E] animate-pulse" />
               <div className="w-1.5 h-1.5 rounded-full bg-[#A8A29E] animate-pulse [animation-delay:150ms]" />
@@ -173,100 +213,122 @@ export function ConversationDetailPage() {
             <div className={`text-[15px] leading-[22px] text-[#44403C] font-red-hat whitespace-pre-wrap`}>
               {conversation.aiSummary}
             </div>
-          ) : conversation.runningSummary ? (
-            <div className={`text-[15px] leading-[22px] text-[#44403C] font-red-hat whitespace-pre-wrap`}>
-              {conversation.runningSummary}
-            </div>
           ) : (
             <div className={`text-[14px] leading-5 text-[#A8A29E] font-red-hat`}>
-              No summary available yet
+              No summary available
             </div>
           )}
 
-          {/* Generate Note button */}
-          <button
-            onClick={handleGenerateNote}
-            className="flex items-center justify-center w-full h-14 rounded-2xl bg-[#1C1917] shrink-0 active:scale-[0.98] transition-transform"
-          >
-            <span className={`text-[16px] leading-5 text-[#FAFAF9] font-red-hat font-semibold`}>
-              Generate Note
-            </span>
-          </button>
+          {/* Generate Note button — only when conversation has ended */}
+          {!isActive && (
+            <button
+              onClick={handleGenerateNote}
+              className="flex items-center justify-center w-full h-14 rounded-2xl bg-[#1C1917] shrink-0 active:scale-[0.98] transition-transform"
+            >
+              <span className={`text-[16px] leading-5 text-[#FAFAF9] font-red-hat font-semibold`}>
+                Generate Note
+              </span>
+            </button>
+          )}
         </div>
 
-        {/* Transcript section */}
-        {chunks.length > 0 && (
-          <div className="flex flex-col gap-3.5">
-            <div className="flex items-center justify-between">
-              <div className={`text-[11px] leading-3.5 tracking-widest uppercase text-[#A8A29E] font-red-hat font-bold`}>
-                Transcript
-              </div>
+        {/* Transcript section — live segments when active, chunks when ended */}
+        <div className="flex flex-col gap-3.5">
+          <div className="flex items-center justify-between">
+            <div className={`text-[11px] leading-3.5 tracking-widest uppercase text-[#A8A29E] font-red-hat font-bold`}>
+              Transcript
+            </div>
+            {!isActive && chunks.length > 0 && (
               <div className={`text-[12px] leading-4 text-[#A8A29E] font-red-hat font-medium`}>
                 {totalDuration} total
               </div>
-            </div>
-
-            {displayChunks.map((chunk, i) => {
-              const speakerIdx = speakerMap.get(chunks.indexOf(chunk)) ?? 0;
-              const color = SPEAKER_COLORS[speakerIdx % SPEAKER_COLORS.length];
-              const chunkTime = format(new Date(chunk.startTime), "h:mm");
-
-              return (
-                <div key={chunk.id} className="flex items-start gap-2.5">
-                  {/* Speaker avatar */}
-                  <div className={`flex items-center justify-center shrink-0 rounded-full ${color.bg} size-7`}>
-                    <div className={`text-[12px] leading-3.5 ${color.text} font-red-hat font-bold`}>
-                      {speakerIdx + 1}
-                    </div>
-                  </div>
-                  {/* Content */}
-                  <div className="flex flex-col grow shrink basis-0 pt-1 gap-0.5 min-w-0">
-                    <div className={`text-[12px] leading-3.5 ${color.text} font-red-hat font-semibold`}>
-                      Speaker {speakerIdx + 1} · {chunkTime}
-                    </div>
-                    <div className={`text-[14px] leading-5 text-[#3F3F46] font-red-hat`}>
-                      {chunk.text}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* View full transcript toggle */}
-            {chunks.length > 4 && (
-              <button
-                onClick={() => setShowFullTranscript(!showFullTranscript)}
-                className="flex items-center justify-center pt-3 gap-1.5"
-              >
-                <span className={`text-[13px] leading-4 text-[#71717A] font-red-hat font-medium`}>
-                  {showFullTranscript ? "Show less" : `View full transcript (${chunks.length} segments)`}
-                </span>
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#71717A"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className={`transition-transform ${showFullTranscript ? "rotate-180" : ""}`}
-                >
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
-              </button>
             )}
           </div>
-        )}
 
-        {/* Empty transcript state */}
-        {chunks.length === 0 && (
-          <div className="flex flex-col items-center gap-2 py-8">
-            <div className={`text-[14px] text-[#A8A29E] font-red-hat`}>
-              No transcript chunks recorded
+          {isActive ? (
+            <div className="flex flex-col gap-3.5">
+              {previewSegments.length > 0 ? (
+                previewSegments.map((seg) => {
+                  const speakerIdx = (liveSpeakerMap.get(seg.speakerId ?? "default") ?? 0) % SPEAKER_COLORS.length;
+                  const color = SPEAKER_COLORS[speakerIdx];
+                  return (
+                    <div key={seg.id} className="flex items-start gap-2.5">
+                      <div className={`flex items-center justify-center shrink-0 rounded-full ${color.bg} size-7`}>
+                        <span className={`text-[12px] leading-3.5 ${color.text} font-red-hat font-bold`}>
+                          {speakerIdx + 1}
+                        </span>
+                      </div>
+                      <div className="flex flex-col grow shrink basis-0 pt-1 gap-0.5 min-w-0">
+                        <span className={`text-[12px] leading-3.5 ${color.text} font-red-hat font-semibold`}>
+                          Speaker {speakerIdx + 1} · {format(new Date(seg.timestamp), "h:mm")}
+                        </span>
+                        <span className={`text-[14px] leading-5 text-[#3F3F46] font-red-hat`}>
+                          {seg.text}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <span className={`text-[13px] text-[#A8A29E] font-red-hat`}>Listening...</span>
+              )}
+              {/* View transcript link — always shown when active */}
+              <button
+                onClick={() => setLocation(`/conversation/${id}/transcript`)}
+                className="flex items-center gap-1.5 pt-1"
+              >
+                <span className="text-[13px] leading-4 text-[#71717A] font-red-hat font-medium">
+                  View transcript
+                </span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#71717A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m9 18 6-6-6-6" />
+                </svg>
+              </button>
             </div>
-          </div>
-        )}
+          ) : chunks.length > 0 ? (
+            <>
+              {displayChunks.map((chunk) => {
+                const speakerIdx = speakerMap.get(chunks.indexOf(chunk)) ?? 0;
+                const color = SPEAKER_COLORS[speakerIdx % SPEAKER_COLORS.length];
+                const chunkTime = format(new Date(chunk.startTime), "h:mm");
+                return (
+                  <div key={chunk.id} className="flex items-start gap-2.5">
+                    <div className={`flex items-center justify-center shrink-0 rounded-full ${color.bg} size-7`}>
+                      <div className={`text-[12px] leading-3.5 ${color.text} font-red-hat font-bold`}>
+                        {speakerIdx + 1}
+                      </div>
+                    </div>
+                    <div className="flex flex-col grow shrink basis-0 pt-1 gap-0.5 min-w-0">
+                      <div className={`text-[12px] leading-3.5 ${color.text} font-red-hat font-semibold`}>
+                        Speaker {speakerIdx + 1} · {chunkTime}
+                      </div>
+                      <div className={`text-[14px] leading-5 text-[#3F3F46] font-red-hat`}>
+                        {chunk.text}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {chunks.length > 4 && (
+                <button
+                  onClick={() => setShowFullTranscript(!showFullTranscript)}
+                  className="flex items-center justify-center pt-3 gap-1.5"
+                >
+                  <span className={`text-[13px] leading-4 text-[#71717A] font-red-hat font-medium`}>
+                    {showFullTranscript ? "Show less" : `View full transcript (${chunks.length} segments)`}
+                  </span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#71717A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform ${showFullTranscript ? "rotate-180" : ""}`}>
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </button>
+              )}
+            </>
+          ) : (
+            <div className={`text-[13px] text-[#A8A29E] font-red-hat`}>
+              No transcript recorded
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

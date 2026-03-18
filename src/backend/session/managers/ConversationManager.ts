@@ -10,7 +10,7 @@
 
 import { SyncedManager, synced, rpc } from "../../../lib/sync";
 import { getAllConversations, deleteConversation, updateConversation } from "../../models/conversation.model";
-import { getChunksByConversationId } from "../../models/transcript-chunk.model";
+import { getChunksByConversationId, getChunksByTimeRange } from "../../models/transcript-chunk.model";
 import type { ConversationI } from "../../models/conversation.model";
 import type { TranscriptChunkI } from "../../models/transcript-chunk.model";
 import { TriageClassifier } from "../../classifier/TriageClassifier";
@@ -186,22 +186,95 @@ export class ConversationManager extends SyncedManager {
     conv: ConversationI,
     event: string,
   ): Promise<void> {
-    const frontendConv = await this.toFrontendConversation(conv);
+    const convId = conv._id!.toString();
 
-    this.conversations.mutate((list) => {
-      const idx = list.findIndex((c) => c.id === (conv._id!.toString()));
-      if (idx >= 0) {
-        list[idx] = frontendConv;
-      } else {
-        // New conversation — add to beginning (newest first)
-        list.unshift(frontendConv);
+    if (event === "chunk_added") {
+      // For chunk updates, do a lightweight sync instead of re-fetching all chunks from DB
+      this.conversations.mutate((list) => {
+        const idx = list.findIndex((c) => c.id === convId);
+        if (idx >= 0) {
+          list[idx].runningSummary = conv.runningSummary;
+          list[idx].status = conv.status;
+        }
+      });
+
+      // Fire provisional title generation every 3 chunks (fire-and-forget)
+      const chunkCount = conv.chunkIds.length;
+      if (chunkCount > 0 && chunkCount % 3 === 0 && conv.status === "active") {
+        this.generateProvisionalTitle(conv).catch(() => {});
       }
-    });
+    } else {
+      // For started/paused/resumed/ended — do the full conversion (new card or status change)
+      const frontendConv = await this.toFrontendConversation(conv);
+
+      this.conversations.mutate((list) => {
+        const idx = list.findIndex((c) => c.id === convId);
+        if (idx >= 0) {
+          list[idx] = frontendConv;
+        } else {
+          // New conversation — add to beginning (newest first)
+          list.unshift(frontendConv);
+        }
+      });
+    }
 
     if (event === "started" || event === "resumed") {
-      this.activeConversationId = conv._id!.toString();
+      this.activeConversationId = convId;
     } else if (event === "ended") {
       this.activeConversationId = null;
+    }
+  }
+
+  // =========================================================================
+  // Provisional Title Generation (mid-conversation, every 3 chunks)
+  // =========================================================================
+
+  // Guard: prevent concurrent provisional title calls for the same conversation
+  private provisionalTitleInFlight = new Set<string>();
+
+  private async generateProvisionalTitle(conv: ConversationI): Promise<void> {
+    if (!this.llmProvider) return;
+
+    const convId = conv._id!.toString();
+    if (this.provisionalTitleInFlight.has(convId)) return;
+
+    const summary = conv.runningSummary?.trim();
+    if (!summary) return;
+
+    this.provisionalTitleInFlight.add(convId);
+    try {
+      const response = await this.llmProvider.chat(
+        [{
+          role: "user",
+          content: `Generate a short title (max 5 words) for this in-progress conversation. Respond with ONLY the title, no punctuation, no quotes.\n\nConversation so far:\n${summary}`,
+        }],
+        { tier: "fast", maxTokens: 24, temperature: 0.3 },
+      );
+
+      const title = response.content
+        .filter((c) => c.type === "text")
+        .map((c) => (c as any).text)
+        .join("")
+        .trim()
+        .replace(/^["']|["']$/g, ""); // strip any surrounding quotes
+
+      if (!title) return;
+
+      // Only update if conversation is still active and title actually changed
+      const existing = (this.conversations as unknown as Conversation[]).find((c) => c.id === convId);
+      if (!existing || existing.status !== "active" || existing.title === title) return;
+
+      await updateConversation(convId, { title });
+      this.conversations.mutate((list) => {
+        const idx = list.findIndex((c) => c.id === convId);
+        if (idx >= 0) list[idx].title = title;
+      });
+
+      console.log(`[ConvManager] Provisional title for ${convId}: "${title}"`);
+    } catch (error) {
+      console.error(`[ConvManager] Provisional title failed for ${convId}:`, error);
+    } finally {
+      this.provisionalTitleInFlight.delete(convId);
     }
   }
 
@@ -225,7 +298,10 @@ export class ConversationManager extends SyncedManager {
     });
 
     try {
-      const chunks = await getChunksByConversationId(convId);
+      // Fetch ALL chunks in the conversation's time range (not just linked ones),
+      // so filler/skipped segments between meaningful ones are included in the summary transcript.
+      const endTime = conv.endTime ?? new Date();
+      const chunks = await getChunksByTimeRange(conv.userId, conv.startTime, endTime);
       if (chunks.length === 0) {
         console.warn(`[ConvManager] No chunks for conversation ${convId}, skipping summary`);
         await updateConversation(convId, { generatingSummary: false });
@@ -242,22 +318,16 @@ export class ConversationManager extends SyncedManager {
         })
         .join("\n\n");
 
-      const prompt = `You are summarizing a conversation captured from smart glasses. Respond with EXACTLY this format:
+      const prompt = `Summarize this conversation from smart glasses. Respond with EXACTLY this format:
 
-TITLE: <a short, descriptive title for the conversation, max 5 words>
+TITLE: <max 5 words>
 
-<1-2 sentence overview of what was discussed>
-
-<bullet points covering: key topics, important details, any decisions made, and action items (if any)>
-
-Keep it concise and useful. Skip bullet categories that don't apply. The title should capture the main topic.
+<2-3 sentences max. Key points and decisions only. Be extremely concise.>
 
 Transcript:
 ---
 ${transcript}
----
-
-Respond now:`;
+---`;
 
       const response = await this.llmProvider.chat(
         [{ role: "user", content: prompt }],
@@ -311,6 +381,55 @@ Respond now:`;
       await updateConversation(convId, { generatingSummary: false }).catch(() => {});
       this.conversations.mutate((list) => {
         const idx = list.findIndex((c) => c.id === convId);
+        if (idx >= 0) list[idx].generatingSummary = false;
+      });
+    }
+  }
+
+  // =========================================================================
+  // Pipeline Control
+  // =========================================================================
+
+  /**
+   * Immediately end any active or paused conversation and trigger AI summary.
+   * Called when the user stops transcription — we treat it as a hard conversation end.
+   */
+  async forceEndActiveConversation(): Promise<void> {
+    const activeId = this.activeConversationId;
+    if (!activeId) return;
+
+    console.log(`[ConvManager] Force-ending active conversation: ${activeId} (transcription stopped)`);
+
+    const now = new Date();
+    await updateConversation(activeId, { status: "ended", endTime: now });
+
+    // Update frontend state immediately
+    this.conversations.mutate((list) => {
+      const idx = list.findIndex((c) => c.id === activeId);
+      if (idx >= 0) {
+        list[idx].status = "ended";
+        list[idx].endTime = now;
+        list[idx].generatingSummary = true;
+      }
+    });
+
+    this.activeConversationId = null;
+
+    // Reset tracker to IDLE so it doesn't fire stale callbacks
+    if (this.conversationTracker) {
+      this.conversationTracker.clearActiveConversation(activeId);
+    }
+
+    // Trigger AI summary generation
+    const conv = await import("../../models/conversation.model").then((m) =>
+      m.getConversationById(activeId)
+    );
+    if (conv && conv.chunkIds.length > 0) {
+      this.generateAISummary(conv).catch(() => {});
+    } else if (conv) {
+      await updateConversation(activeId, { generatingSummary: false });
+      this.conversations.mutate((list) => {
+        const idx = list.findIndex((c) => c.id === activeId);
         if (idx >= 0) list[idx].generatingSummary = false;
       });
     }

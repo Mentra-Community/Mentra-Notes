@@ -5,8 +5,9 @@
  * Each group shows a count and renders ConversationRow items.
  */
 
-import { useMemo } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import { format, isToday, isYesterday } from "date-fns";
+import { AnimatePresence, motion } from "motion/react";
 import type { Conversation } from "../../../../shared/types";
 import { ConversationRow } from "./ConversationRow";
 
@@ -31,6 +32,31 @@ export function ConversationList({
   onArchive,
   onDelete,
 }: ConversationListProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // Track IDs seen on first render — only animate rows that arrive after mount
+  const seenIds = useRef<Set<string> | null>(null);
+  if (seenIds.current === null) {
+    seenIds.current = new Set(conversations.map((c) => c.id));
+  }
+
+  // Auto-scroll to bottom when a new active conversation appears
+  useEffect(() => {
+    const activeNew = conversations.find(
+      (c) => c.status === "active" && !seenIds.current!.has(c.id),
+    );
+    if (activeNew) {
+      seenIds.current!.add(activeNew.id);
+      // Small delay so the row has mounted and measured before scrolling
+      setTimeout(() => {
+        scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      }, 100);
+    }
+    // Track any new IDs we haven't seen
+    for (const c of conversations) {
+      seenIds.current!.add(c.id);
+    }
+  }, [conversations]);
+
   const groups = useMemo((): DayGroup[] => {
     // Group by date string (YYYY-MM-DD)
     const byDate = new Map<string, Conversation[]>();
@@ -44,10 +70,10 @@ export function ConversationList({
     }
 
     // Sort each group by startTime (newest first within a day — or oldest first, matching design)
-    // Design shows oldest first (2:10 PM, 3:05 PM, 4:30 PM, 5:15 PM)
+    // Newest first within each day
     for (const [, convs] of byDate) {
       convs.sort(
-        (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+        (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
       );
     }
 
@@ -78,7 +104,7 @@ export function ConversationList({
   }, [conversations]);
 
   return (
-    <div className="h-full overflow-y-auto px-6 pb-32">
+    <div ref={scrollRef} className="h-full overflow-y-auto px-6 pb-32">
       {groups.map((group) => (
         <div key={group.key}>
           {/* Day section header */}
@@ -91,16 +117,27 @@ export function ConversationList({
           </div>
 
           {/* Conversation rows */}
-          {group.conversations.map((conv, i) => (
-            <ConversationRow
-              key={conv.id}
-              conversation={conv}
-              onSelect={onSelectConversation}
-              onArchive={onArchive}
-              onDelete={onDelete}
-              isLast={i === group.conversations.length - 1}
-            />
-          ))}
+          <AnimatePresence initial={false}>
+            {group.conversations.map((conv, i) => {
+              const isNew = !seenIds.current!.has(conv.id);
+              return (
+                <motion.div
+                  key={conv.id}
+                  initial={isNew ? { opacity: 0, y: 16 } : false}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                >
+                  <ConversationRow
+                    conversation={conv}
+                    onSelect={onSelectConversation}
+                    onArchive={onArchive}
+                    onDelete={onDelete}
+                    isLast={i === group.conversations.length - 1}
+                  />
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         </div>
       ))}
     </div>

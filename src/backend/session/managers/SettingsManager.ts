@@ -115,6 +115,14 @@ export class SettingsManager extends SyncedManager {
     if (settings.transcriptionPaused !== undefined) {
       this.transcriptionPaused = settings.transcriptionPaused;
       console.log(`[SettingsManager] Transcription ${settings.transcriptionPaused ? "paused" : "resumed"} for ${userId}`);
+
+      const session = this._session as any;
+      if (settings.transcriptionPaused) {
+        // Hard stop: flush buffer, stop heartbeat, end any active conversation
+        session?.chunkBuffer?.stop();
+        session?.chunkBuffer?.clearBuffer?.();
+        session?.conversation?.forceEndActiveConversation?.();
+      }
     }
     if (settings.onboardingCompleted !== undefined) {
       this.onboardingCompleted = settings.onboardingCompleted;

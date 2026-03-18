@@ -86,10 +86,6 @@ export function HomePage() {
   const activeFilter: FilterType =
     backendFilter === "favourites" ? "all" : (backendFilter as FilterType);
 
-  console.log(
-    `[HomePage] Render - backendFilter: ${backendFilter}, activeView: ${activeView}, conversations: ${conversations.length}`,
-  );
-
   // Transform FileData to DailyFolder format (kept for calendar view)
   const folders = useMemo((): DailyFolder[] => {
     const now = new Date();
