@@ -6,7 +6,6 @@
  * - Search bar with clear button
  * - Filter pills: All, Conversations, Notes, People
  * - Results grouped by type with section headers
- * - TabBar at bottom
  */
 
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
@@ -15,7 +14,6 @@ import { useMentraAuth } from "@mentra/react";
 import { format, isToday, isYesterday } from "date-fns";
 import { useSynced } from "../../hooks/useSynced";
 import type { SessionI } from "../../../shared/types";
-import { TabBar } from "../home/components/TabBar";
 import { LoadingState } from "../../components/shared/LoadingState";
 
 const RECENT_SEARCHES_KEY = "mentra_recent_searches";
@@ -162,19 +160,6 @@ export function SearchPage() {
     }
   };
 
-  const handleTabNavigate = (tab: "conversations" | "search" | "notes" | "settings") => {
-    switch (tab) {
-      case "conversations":
-        setLocation("/");
-        break;
-      case "notes":
-        setLocation("/notes");
-        break;
-      case "settings":
-        setLocation("/settings");
-        break;
-    }
-  };
 
   // Filter results
   const filteredResults = useMemo(() => {
@@ -403,8 +388,6 @@ export function SearchPage() {
         )}
       </div>
 
-      {/* Tab Bar */}
-      <TabBar activeTab="search" onNavigate={handleTabNavigate} />
     </div>
   );
 }

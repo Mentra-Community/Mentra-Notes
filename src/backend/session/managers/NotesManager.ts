@@ -386,7 +386,7 @@ Rules:
 
     const note: NoteData = {
       id: `note_${Date.now()}`,
-      title,
+      title: title || "Untitled Note",
       content,
       summary:
         content.length > 200 ? content.substring(0, 200) + "..." : content,

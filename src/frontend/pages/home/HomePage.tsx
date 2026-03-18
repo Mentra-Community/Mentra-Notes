@@ -26,7 +26,6 @@ import { CalendarView } from "./components/CalendarView";
 import { GlobalAIChat } from "./components/GlobalAIChat";
 import { ConversationList } from "./components/ConversationList";
 import { FABMenu } from "./components/FABMenu";
-import { TabBar } from "./components/TabBar";
 import { TranscriptList } from "./components/TranscriptList";
 import { Drawer } from "vaul";
 import { HomePageSkeleton } from "../../components/shared/SkeletonLoader";
@@ -161,23 +160,6 @@ export function HomePage() {
     }
   };
 
-  const handleTabNavigate = (
-    tab: "conversations" | "search" | "notes" | "settings",
-  ) => {
-    switch (tab) {
-      case "search":
-        setLocation("/search");
-        break;
-      case "notes":
-        setLocation("/notes");
-        break;
-      case "settings":
-        setLocation("/settings");
-        break;
-      // "conversations" = already here
-    }
-  };
-
   const handleSelectConversation = useCallback((conversation: Conversation) => {
     setLocation(`/conversation/${conversation.id}`);
   }, [setLocation]);
@@ -186,10 +168,12 @@ export function HomePage() {
     setShowGlobalChat(true);
   };
 
-  const handleAddNote = () => {
-    const now = new Date();
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    setLocation(`/day/${todayStr}`);
+  const handleAddNote = async () => {
+    if (!session?.notes?.createManualNote) return;
+    const note = await session.notes.createManualNote("", "");
+    if (note?.id) {
+      setLocation(`/note/${note.id}`);
+    }
   };
 
   const handleStopTranscribing = () => {
@@ -327,9 +311,6 @@ export function HomePage() {
           onClose={() => setShowGlobalChat(false)}
         />
 
-        {/* Tab Bar */}
-        <TabBar activeTab="conversations" onNavigate={handleTabNavigate} />
-
         {/* Filter Drawer (still needed for filter-based empty states) */}
         <FilterDrawer
           isOpen={isFilterOpen}
@@ -368,10 +349,9 @@ export function HomePage() {
             folders={folders}
             conversations={conversations}
             notes={notes}
-            onSelectDate={(dateString) => setLocation(`/day/${dateString}`)}
+            onSelectDate={() => {}}
           />
         </div>
-        <TabBar activeTab="conversations" onNavigate={handleTabNavigate} />
       </div>
     );
   }
@@ -593,9 +573,6 @@ export function HomePage() {
         onViewChange={handleViewChange}
         counts={filterCounts}
       />
-
-      {/* Tab Bar */}
-      <TabBar activeTab="conversations" onNavigate={handleTabNavigate} />
 
       {/* Global AI Chat */}
       <GlobalAIChat

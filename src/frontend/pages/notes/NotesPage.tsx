@@ -12,7 +12,6 @@ import { useMentraAuth } from "@mentra/react";
 import { format, isToday, isYesterday } from "date-fns";
 import { useSynced } from "../../hooks/useSynced";
 import type { SessionI, Note } from "../../../shared/types";
-import { TabBar } from "../home/components/TabBar";
 
 
 type NoteFilter = "all" | "favorites" | "manual" | "ai";
@@ -72,28 +71,16 @@ export function NotesPage() {
     }
   }, [notes, activeFilter]);
 
-  const handleTabNavigate = (tab: "conversations" | "search" | "notes" | "settings") => {
-    switch (tab) {
-      case "conversations":
-        setLocation("/");
-        break;
-      case "search":
-        setLocation("/search");
-        break;
-      case "settings":
-        setLocation("/settings");
-        break;
-    }
-  };
-
   const handleSelectNote = (note: Note) => {
     setLocation(`/note/${note.id}`);
   };
 
-  const handleAddNote = () => {
-    const now = new Date();
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    setLocation(`/day/${todayStr}`);
+  const handleAddNote = async () => {
+    if (!session?.notes?.createManualNote) return;
+    const note = await session.notes.createManualNote("", "");
+    if (note?.id) {
+      setLocation(`/note/${note.id}`);
+    }
   };
 
   const formatNoteDate = (note: Note): string => {
@@ -242,8 +229,6 @@ export function NotesPage() {
           </svg>
         </button>
 
-        {/* Tab Bar */}
-        <TabBar activeTab="notes" onNavigate={handleTabNavigate} />
       </div>
     );
   }
@@ -359,7 +344,7 @@ export function NotesPage() {
       {/* FAB */}
       <button
         onClick={handleAddNote}
-        className="absolute bottom-[111px] right-6 flex items-center justify-center w-[52px] h-[52px] rounded-2xl bg-[#DC2626] shadow-[0px_4px_16px_#DC262640] z-10"
+        className="absolute bottom-[25px] right-6 flex items-center justify-center w-[52px] h-[52px] rounded-2xl bg-[#DC2626] shadow-[0px_4px_16px_#DC262640] z-10"
       >
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="12" y1="5" x2="12" y2="19" />
@@ -367,8 +352,6 @@ export function NotesPage() {
         </svg>
       </button>
 
-      {/* Tab Bar */}
-      <TabBar activeTab="notes" onNavigate={handleTabNavigate} />
     </div>
   );
 }

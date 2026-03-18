@@ -103,7 +103,7 @@ export function FABMenu({
       />
 
       {/* FAB container */}
-      <div className="absolute bottom-[104px] right-6 z-50 flex flex-col items-end gap-2.5 pointer-events-none">
+      <div className="fixed bottom-[100px] right-6 z-50 flex flex-col items-end gap-2.5 pointer-events-none">
         {/* Action pills */}
         {actions.map((action, i) => (
           <button
