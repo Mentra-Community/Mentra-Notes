@@ -91,6 +91,7 @@ export interface Conversation {
   runningSummary: string;
   aiSummary: string;
   generatingSummary: boolean;
+  noteId: string | null;
   chunks: ConversationChunk[];
   segments: ConversationSegment[];
 }
@@ -234,6 +235,7 @@ export interface ConversationManagerI {
 
   // RPCs
   deleteConversation(conversationId: string): Promise<void>;
+  linkNoteToConversation(conversationId: string, noteId: string): Promise<void>;
 }
 
 export interface FileManagerI {

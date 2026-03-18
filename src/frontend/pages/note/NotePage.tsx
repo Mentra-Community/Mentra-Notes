@@ -32,22 +32,21 @@ import { rewriteR2Urls } from "../../../shared/constants";
 
 interface ParsedNote {
   summary: string;
-  keyDecisions: string[];
 }
 
 function parseNoteContent(content: string, summary?: string): ParsedNote {
   const result: ParsedNote = {
     summary: "",
-    keyDecisions: [],
   };
 
   if (summary) {
     result.summary = summary;
+    return result;
   }
 
   if (!content) return result;
 
-  // Strip HTML tags for parsing
+  // Strip HTML tags to extract a plain-text summary
   const text = content
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p>/gi, "\n")
@@ -62,35 +61,11 @@ function parseNoteContent(content: string, summary?: string): ParsedNote {
     .trim();
 
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
-  let currentSection = "body";
-
   for (const line of lines) {
-    const lower = line.toLowerCase();
-
-    if (lower.includes("key decision") || lower.includes("decisions made") || lower.includes("key points")) {
-      currentSection = "decisions";
-      continue;
-    }
-    // Skip action items section headers
-    if (lower.includes("action item") || lower.includes("next step") || lower.includes("to-do") || lower.includes("todos")) {
-      currentSection = "skip";
-      continue;
-    }
-    if (lower.includes("summary") && !result.summary) {
-      currentSection = "summary";
-      continue;
-    }
-
     const bulletText = line.replace(/^[-•*]\s*/, "").replace(/^\d+\.\s*/, "").trim();
     if (!bulletText) continue;
-
-    if (currentSection === "decisions") {
-      result.keyDecisions.push(bulletText);
-    } else if (currentSection === "summary") {
-      result.summary += (result.summary ? " " : "") + bulletText;
-    } else if (currentSection === "body" && !result.summary) {
-      result.summary += (result.summary ? " " : "") + bulletText;
-    }
+    result.summary += (result.summary ? " " : "") + bulletText;
+    if (result.summary.length > 200) break;
   }
 
   return result;
@@ -120,10 +95,10 @@ export function NotePage() {
   const note = allNotes.find((n) => n.id === noteId);
   const conversations = session?.conversation?.conversations ?? [];
 
-  // Find the source conversation for this note
+  // Find the source conversation for this note (match by noteId link)
   const sourceConversation = useMemo(() => {
     if (!note) return null;
-    return conversations.find((c) => c.date === note.date && c.title) ?? null;
+    return conversations.find((c) => c.noteId === note.id) ?? null;
   }, [note, conversations]);
 
   // Parse structured content
@@ -463,27 +438,7 @@ export function NotePage() {
           </div>
         )}
 
-        {/* Key Decisions section */}
-        {note.isAIGenerated && parsed && parsed.keyDecisions.length > 0 && (
-          <div className="flex flex-col pt-6 gap-2.5 px-6">
-            <span className={`text-[11px] tracking-[0.08em] uppercase leading-3.5 text-[#A8A29E] font-red-hat font-bold`}>
-              Key Decisions
-            </span>
-            <div className="flex flex-col gap-2">
-              {parsed.keyDecisions.map((decision, i) => (
-                <div key={i} className="flex items-start gap-2.5">
-                  <div className="w-[5px] h-[5px] shrink-0 mt-[7px] rounded-[3px] bg-[#1C1917]" />
-                  <span className={`text-[15px] leading-[22px] text-[#1C1917] font-red-hat`}>{decision}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {/* Divider before editor */}
-          {/* {(parsed?.summary || (parsed && parsed.keyDecisions.length > 0)) && (
-            <div className="h-px mt-6 bg-[#E7E5E4] mx-6" />
-          )} */}
 
         {/* Inline TipTap editor — always visible, always editable */}
         <div className="px-6 pt-0 pb-32">

@@ -126,13 +126,19 @@ export function ConversationDetailPage() {
     if (!session?.notes) return;
     const firstChunk = chunks[0];
     const lastChunk = chunks[chunks.length - 1];
-    await session.notes.generateNote(
+    const note = await session.notes.generateNote(
       conversation.title || undefined,
       firstChunk ? new Date(firstChunk.startTime) : undefined,
       lastChunk ? new Date(lastChunk.endTime) : undefined,
     );
-    // Navigate to day page to see the note
-    setLocation(`/day/${conversation.date}`);
+    // Link the note to this conversation
+    if (note?.id && session?.conversation) {
+      await session.conversation.linkNoteToConversation(conversation.id, note.id);
+    }
+    // Navigate to the note
+    if (note?.id) {
+      setLocation(`/note/${note.id}`);
+    }
   };
 
   return (
@@ -215,16 +221,27 @@ export function ConversationDetailPage() {
             </div>
           )}
 
-          {/* Generate Note button — only when conversation has ended */}
+          {/* Generate Note / Go to Note button — only when conversation has ended */}
           {!isActive && (
-            <button
-              onClick={handleGenerateNote}
-              className="flex items-center justify-center w-full h-14 rounded-2xl bg-[#1C1917] shrink-0 active:scale-[0.98] transition-transform"
-            >
-              <span className={`text-[16px] leading-5 text-[#FAFAF9] font-red-hat font-semibold`}>
-                Generate Note
-              </span>
-            </button>
+            conversation.noteId ? (
+              <button
+                onClick={() => setLocation(`/note/${conversation.noteId}`)}
+                className="flex items-center justify-center w-full h-14 rounded-2xl bg-[#1C1917] shrink-0 active:scale-[0.98] transition-transform"
+              >
+                <span className={`text-[16px] leading-5 text-[#FAFAF9] font-red-hat font-semibold`}>
+                  Go to Note
+                </span>
+              </button>
+            ) : (
+              <button
+                onClick={handleGenerateNote}
+                className="flex items-center justify-center w-full h-14 rounded-2xl bg-[#1C1917] shrink-0 active:scale-[0.98] transition-transform"
+              >
+                <span className={`text-[16px] leading-5 text-[#FAFAF9] font-red-hat font-semibold`}>
+                  Generate Note
+                </span>
+              </button>
+            )
           )}
         </div>
 

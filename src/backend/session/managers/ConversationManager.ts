@@ -217,6 +217,7 @@ export class ConversationManager extends SyncedManager {
         runningSummary: conv.runningSummary,
         aiSummary: conv.aiSummary || "",
         generatingSummary: conv.generatingSummary || false,
+        noteId: conv.noteId || null,
         chunks: [],
         segments: [],
       };
@@ -482,6 +483,30 @@ ${transcript}
     console.log(`[ConvManager] Deleted conversation: ${conversationId}`);
   }
 
+  @rpc
+  async linkNoteToConversation(conversationId: string, noteId: string): Promise<void> {
+    await updateConversation(conversationId, { noteId });
+    this.conversations.mutate((list) => {
+      const idx = list.findIndex((c) => c.id === conversationId);
+      if (idx >= 0) list[idx].noteId = noteId;
+    });
+  }
+
+  /**
+   * Clear noteId from any conversation that references the given note.
+   * Called when a note is deleted so the "Generate Note" button reappears.
+   */
+  clearNoteLink(noteId: string): void {
+    this.conversations.mutate((list) => {
+      for (const conv of list) {
+        if (conv.noteId === noteId) {
+          conv.noteId = null;
+          updateConversation(conv.id, { noteId: null }).catch(() => {});
+        }
+      }
+    });
+  }
+
   // =========================================================================
   // Helpers
   // =========================================================================
@@ -513,6 +538,7 @@ ${transcript}
       runningSummary: conv.runningSummary,
       aiSummary: conv.aiSummary || "",
       generatingSummary: conv.generatingSummary || false,
+      noteId: conv.noteId || null,
       chunks,
       segments,
     };

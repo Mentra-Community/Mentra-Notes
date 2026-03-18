@@ -19,7 +19,7 @@ import { TabBar } from "../home/components/TabBar";
 import { LoadingState } from "../../components/shared/LoadingState";
 
 const RECENT_SEARCHES_KEY = "mentra_recent_searches";
-const MAX_RECENT = 10;
+const MAX_RECENT = 5;
 
 function getRecentSearches(): string[] {
   try {

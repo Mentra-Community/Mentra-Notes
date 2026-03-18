@@ -271,10 +271,11 @@ export class NotesManager extends SyncedManager {
 
 Requirements:
 - Between 100-500 words
-- Use <h2> headings to organize sections
+- Use <h2> headings to organize by topic
 - Use bullet lists for key points
 - Bold important terms with <strong>
-- Output valid HTML only (no markdown)${photoInstruction}
+- Output valid HTML only (no markdown)
+- Do NOT include sections like "Key Decisions", "Action Items", "Conclusion", or "Next Steps" — just organize naturally by topic${photoInstruction}
 
 Transcript:
 ${transcriptText || "(No speech transcript - only photos captured)"}
@@ -302,10 +303,11 @@ ${photos.length > 0 ? "- <img> for photos (use the exact URLs provided, do NOT i
 
 Rules:
 - Write between 100-500 words
-- Focus on key points, decisions, and actionable items
-- Use headings to organize different topics
+- Focus on key points and important details
+- Use headings to organize by topic naturally
 - Use bullet lists for multiple related items
-- Bold important names, dates, or key terms`,
+- Bold important names, dates, or key terms
+- Do NOT add formulaic sections like "Key Decisions", "Action Items", "Conclusion", or "Next Steps"`,
           });
 
           const responseText =
@@ -436,6 +438,12 @@ Rules:
 
     if (noteDate) {
       await this.persistNoteDelete(noteId, noteDate);
+    }
+
+    // Clear noteId link from any conversation that referenced this note
+    const conversationManager = (this._session as any)?.conversation;
+    if (conversationManager?.clearNoteLink) {
+      conversationManager.clearNoteLink(noteId);
     }
   }
 

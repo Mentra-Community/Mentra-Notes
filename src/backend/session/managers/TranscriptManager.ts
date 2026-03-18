@@ -256,13 +256,14 @@ export class TranscriptManager extends SyncedManager {
 
     this.segments.mutate((s) => s.push(segment));
 
-    // Notify FileManager on first segment (transcript started)
-    if (!wasRecording) {
-      const fileManager = this.getFileManager();
-      if (fileManager) {
-        const today = this.getTimeManager().today();
+    // Notify FileManager
+    const fileManager = this.getFileManager();
+    if (fileManager) {
+      const today = this.getTimeManager().today();
+      if (!wasRecording) {
         fileManager.onTranscriptStarted(today);
       }
+      fileManager.onSegmentAdded(today, this.segments.length);
     }
 
     this.pendingSegments.push({

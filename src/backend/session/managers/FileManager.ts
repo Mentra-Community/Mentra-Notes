@@ -207,6 +207,17 @@ export class FileManager extends SyncedManager {
       const files = await this.getFilesRpc(this.activeFilter);
       this.files.set(files);
 
+      // Sync today's segment count from TranscriptManager (DB count is 0 until R2 batch)
+      const transcriptManager = (this._session as any)?.transcript;
+      if (transcriptManager?.segments?.length > 0) {
+        this.files.mutate((list) => {
+          const idx = list.findIndex((f) => f.date === today);
+          if (idx >= 0) {
+            list[idx].transcriptSegmentCount = transcriptManager.segments.length;
+          }
+        });
+      }
+
       // Update counts
       await this.refreshCounts();
 
@@ -397,6 +408,19 @@ export class FileManager extends SyncedManager {
         files[idx].hasTranscript = true;
       } else {
         this.refreshFile(date);
+      }
+    });
+  }
+
+  /**
+   * Called by TranscriptManager when a new segment is added.
+   * Updates the in-memory count so the UI shows the correct number for today.
+   */
+  onSegmentAdded(date: string, totalSegments: number): void {
+    this.files.mutate((files) => {
+      const idx = files.findIndex((f) => f.date === date);
+      if (idx >= 0) {
+        files[idx].transcriptSegmentCount = totalSegments;
       }
     });
   }
