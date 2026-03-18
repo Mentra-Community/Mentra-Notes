@@ -9,7 +9,7 @@
  * <WaveIndicator color="#EF4444" height={12} />
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo } from "react";
 
 const FPS = 7;
 const FRAME_MS = 1000 / FPS;
@@ -27,7 +27,7 @@ interface WaveIndicatorProps {
   gap?: number;
 }
 
-export function WaveIndicator({
+export const WaveIndicator = memo(function WaveIndicator({
   color = "#EF4444",
   height = 10,
   barWidth = 2,
@@ -68,4 +68,4 @@ export function WaveIndicator({
       })}
     </div>
   );
-}
+});

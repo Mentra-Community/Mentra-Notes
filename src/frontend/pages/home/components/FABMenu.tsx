@@ -103,7 +103,7 @@ export function FABMenu({
       />
 
       {/* FAB container */}
-      <div className="absolute bottom-[104px] right-6 z-50 flex flex-col items-end gap-2.5">
+      <div className="absolute bottom-[104px] right-6 z-50 flex flex-col items-end gap-2.5 pointer-events-none">
         {/* Action pills */}
         {actions.map((action, i) => (
           <button
@@ -127,7 +127,7 @@ export function FABMenu({
         {/* Main FAB button */}
         <button
           onClick={() => setIsOpen((v) => !v)}
-          className="flex items-center justify-center w-[52px] h-[52px] rounded-2xl bg-[#DC2626] [box-shadow:#DC262640_0px_4px_16px]"
+          className="flex items-center justify-center w-[52px] h-[52px] rounded-2xl bg-[#DC2626] [box-shadow:#DC262640_0px_4px_16px] pointer-events-auto"
           style={{
             transform: `rotate(${isOpen ? 45 : 0}deg)`,
             transition: "transform 0.2s ease-in-out",

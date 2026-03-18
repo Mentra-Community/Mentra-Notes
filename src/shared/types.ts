@@ -73,6 +73,13 @@ export interface ConversationChunk {
   wordCount: number;
 }
 
+export interface ConversationSegment {
+  id: string;
+  text: string;
+  timestamp: Date;
+  speakerId?: string;
+}
+
 export interface Conversation {
   id: string;
   userId: string;
@@ -85,6 +92,7 @@ export interface Conversation {
   aiSummary: string;
   generatingSummary: boolean;
   chunks: ConversationChunk[];
+  segments: ConversationSegment[];
 }
 
 /**

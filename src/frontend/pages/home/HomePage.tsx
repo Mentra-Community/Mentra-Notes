@@ -10,7 +10,7 @@
  * - Keeps all existing backend logic (filters, trash, archive, calendar)
  */
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useMentraAuth } from "@mentra/react";
 import { ChevronLeft } from "lucide-react";
@@ -178,9 +178,9 @@ export function HomePage() {
     }
   };
 
-  const handleSelectConversation = (conversation: Conversation) => {
+  const handleSelectConversation = useCallback((conversation: Conversation) => {
     setLocation(`/conversation/${conversation.id}`);
-  };
+  }, [setLocation]);
 
   const handleGlobalChat = () => {
     setShowGlobalChat(true);
@@ -226,17 +226,17 @@ export function HomePage() {
     }
   };
 
-  const handleArchiveConversation = async (conversation: Conversation) => {
+  const handleArchiveConversation = useCallback(async (conversation: Conversation) => {
     if (session?.file) {
       await session.file.archiveFile(conversation.date);
     }
-  };
+  }, [session?.file]);
 
-  const handleDeleteConversation = async (conversation: Conversation) => {
+  const handleDeleteConversation = useCallback(async (conversation: Conversation) => {
     if (session?.conversation) {
       await session.conversation.deleteConversation(conversation.id);
     }
-  };
+  }, [session?.conversation]);
 
   // --- Loading state ---
   if (!session) {

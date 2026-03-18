@@ -21,6 +21,7 @@ import { TimeManager } from "./TimeManager";
 import type {
   Conversation,
   ConversationChunk,
+  ConversationSegment,
 } from "../../../shared/types";
 
 // =============================================================================
@@ -203,23 +204,43 @@ export class ConversationManager extends SyncedManager {
       if (chunkCount > 0 && chunkCount % 3 === 0 && conv.status === "active") {
         this.generateProvisionalTitle(conv).catch(() => {});
       }
+    } else if (event === "started") {
+      // New conversation — build frontend object inline (no DB query needed, conv was just created)
+      const frontendConv: Conversation = {
+        id: convId,
+        userId: conv.userId,
+        date: conv.date,
+        title: conv.title || "",
+        status: conv.status,
+        startTime: conv.startTime,
+        endTime: conv.endTime,
+        runningSummary: conv.runningSummary,
+        aiSummary: conv.aiSummary || "",
+        generatingSummary: conv.generatingSummary || false,
+        chunks: [],
+        segments: [],
+      };
+      this.conversations.mutate((list) => {
+        list.unshift(frontendConv);
+      });
     } else {
-      // For started/paused/resumed/ended — do the full conversion (new card or status change)
+      // For paused/resumed/ended — do the full conversion (status change, need chunks)
       const frontendConv = await this.toFrontendConversation(conv);
 
       this.conversations.mutate((list) => {
         const idx = list.findIndex((c) => c.id === convId);
         if (idx >= 0) {
           list[idx] = frontendConv;
-        } else {
-          // New conversation — add to beginning (newest first)
-          list.unshift(frontendConv);
         }
       });
     }
 
     if (event === "started" || event === "resumed") {
       this.activeConversationId = convId;
+      // Generate title immediately — we already have meaningful chunks by the time a conversation starts
+      if (event === "started" && conv.runningSummary?.trim()) {
+        this.generateProvisionalTitle(conv).catch(() => {});
+      }
     } else if (event === "ended") {
       this.activeConversationId = null;
     }
@@ -478,6 +499,9 @@ ${transcript}
       wordCount: c.wordCount,
     }));
 
+    // Get transcript segments (with speaker IDs) from the conversation's time range
+    const segments: ConversationSegment[] = this.getSegmentsForConversation(conv);
+
     return {
       id: conv._id!.toString(),
       userId: conv.userId,
@@ -490,7 +514,34 @@ ${transcript}
       aiSummary: conv.aiSummary || "",
       generatingSummary: conv.generatingSummary || false,
       chunks,
+      segments,
     };
+  }
+
+  /**
+   * Pull transcript segments from TranscriptManager that fall within
+   * the conversation's start→end time range. These have speaker IDs.
+   */
+  private getSegmentsForConversation(conv: ConversationI): ConversationSegment[] {
+    const transcriptManager = (this._session as any)?.transcript;
+    if (!transcriptManager) return [];
+
+    const allSegments = transcriptManager.segments as import("./TranscriptManager").TranscriptSegment[];
+    const startMs = new Date(conv.startTime).getTime();
+    const endMs = conv.endTime ? new Date(conv.endTime).getTime() : Date.now();
+
+    return allSegments
+      .filter((s) => {
+        if (!s.isFinal || s.type === "photo") return false;
+        const ts = new Date(s.timestamp).getTime();
+        return ts >= startMs && ts <= endMs;
+      })
+      .map((s) => ({
+        id: s.id,
+        text: s.text,
+        timestamp: s.timestamp,
+        speakerId: s.speakerId,
+      }));
   }
 
   private getTimeManager(): TimeManager {

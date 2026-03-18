@@ -118,7 +118,8 @@ export class SettingsManager extends SyncedManager {
 
       const session = this._session as any;
       if (settings.transcriptionPaused) {
-        // Hard stop: flush buffer, stop heartbeat, end any active conversation
+        // Hard stop: finalize any interim text, flush buffer, stop heartbeat, end any active conversation
+        session?.transcript?.finalizeInterim();
         session?.chunkBuffer?.stop();
         session?.chunkBuffer?.clearBuffer?.();
         session?.conversation?.forceEndActiveConversation?.();

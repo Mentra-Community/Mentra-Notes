@@ -15,10 +15,10 @@ import { useMentraAuth } from "@mentra/react";
 import { format } from "date-fns";
 import { useSynced } from "../../hooks/useSynced";
 import { WaveIndicator } from "../../components/shared/WaveIndicator";
-import type { SessionI, Conversation, ConversationChunk, TranscriptSegment } from "../../../shared/types";
+import type { SessionI, Conversation, ConversationChunk, ConversationSegment, TranscriptSegment } from "../../../shared/types";
 
 /** Stable speakerId string → sequential color index (first seen = 0, second = 1, …) */
-function buildSpeakerMap(segments: TranscriptSegment[]): Map<string, number> {
+function buildSpeakerMap(segments: (TranscriptSegment | ConversationSegment)[]): Map<string, number> {
   const map = new Map<string, number>();
   for (const seg of segments) {
     const id = seg.speakerId ?? "default";
@@ -75,7 +75,7 @@ export function ConversationDetailPage() {
     return conversations.find((c) => c.id === id) ?? null;
   }, [session?.conversation?.conversations, id]);
 
-  const isActive = conversation?.status === "active" || conversation?.status === "paused";
+  const isActive = conversation?.status === "active";
 
   // Live segments filtered to this conversation's time range
   const liveSegments = useMemo(() => {
@@ -109,18 +109,14 @@ export function ConversationDetailPage() {
   const duration = getDurationMinutes(conversation);
   const timeRange = formatTimeRange(conversation);
   const chunks = conversation.chunks ?? [];
-  const displayChunks = showFullTranscript ? chunks : chunks.slice(0, 4);
   const totalDuration = getTotalDuration(chunks);
 
-  // Build a simple speaker map from chunk ordering (speaker detection not in schema yet)
-  // For now, alternate or use a single speaker
-  const speakerMap = useMemo(() => {
-    const map = new Map<number, number>();
-    // Simple: assign speaker index based on chunk position pattern
-    // Once real speaker IDs exist, this can use those
-    chunks.forEach((_, i) => map.set(i, 0));
-    return map;
-  }, [chunks]);
+  // Segments with speaker IDs for ended conversations
+  const endedSegments = conversation.segments ?? [];
+  const displaySegments = showFullTranscript ? endedSegments : endedSegments.slice(0, 8);
+
+  // Speaker map for ended conversation segments
+  const endedSpeakerMap = useMemo(() => buildSpeakerMap(endedSegments), [endedSegments]);
 
   const handleBack = () => {
     setLocation("/");
@@ -142,14 +138,14 @@ export function ConversationDetailPage() {
   return (
     <div className="flex h-full flex-col bg-[#FAFAF9] overflow-hidden">
       {/* Header */}
-      <div className="flex items-start pt-6 pb-4 gap-3 px-6 shrink-0">
-        <button onClick={handleBack} className="shrink-0 mt-1 -ml-1 p-1">
+      <div className="flex items-start pt-3 pb-4 gap-3 px-6 shrink-0">
+        <button onClick={handleBack} className="shrink-0 mt-1 -ml-2 p-1">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="m15 18-6-6 6-6" stroke="#1C1917" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
         <div className="flex flex-col grow shrink basis-0 gap-1 min-w-0">
-          <div className={`text-[22px] tracking-[-0.02em] leading-[26px] text-[#1C1917] font-red-hat font-extrabold`}>
+          <div className={`text-[22px] tracking-[-0.02em] leading-[26px] text-[#1C1917] font-red-hat font-extrabold max-w-[90%]`}>
             {conversation.title || "Untitled Conversation"}
           </div>
           <div className={`text-[13px] leading-4 text-[#A8A29E] font-red-hat`}>
@@ -159,7 +155,7 @@ export function ConversationDetailPage() {
         </div>
 
         {/* Share + More buttons */}
-        <div className="flex items-center shrink-0 mt-0.5 gap-2">
+        <div className="flex  shrink-0 mt-10 gap-2 ">
           <button className="p-1">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" stroke="#52525B" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
@@ -178,7 +174,7 @@ export function ConversationDetailPage() {
       </div>
 
       {/* Content — non-scrollable when active, scrollable when ended */}
-      <div className={`flex flex-col grow gap-7 px-6 pb-12 ${isActive ? "overflow-hidden" : "overflow-y-auto"}`}>
+      <div className={`flex flex-col grow min-h-0 gap-7 px-6 pb-12 ${isActive ? "overflow-hidden" : "overflow-y-auto"}`}>
         {/* Summary section */}
         <div className="flex flex-col gap-2.5">
           <div className="flex items-center gap-2">
@@ -285,14 +281,14 @@ export function ConversationDetailPage() {
                 </svg>
               </button>
             </div>
-          ) : chunks.length > 0 ? (
+          ) : endedSegments.length > 0 ? (
             <>
-              {displayChunks.map((chunk) => {
-                const speakerIdx = speakerMap.get(chunks.indexOf(chunk)) ?? 0;
-                const color = SPEAKER_COLORS[speakerIdx % SPEAKER_COLORS.length];
-                const chunkTime = format(new Date(chunk.startTime), "h:mm");
+              {displaySegments.map((seg) => {
+                const speakerIdx = (endedSpeakerMap.get(seg.speakerId ?? "default") ?? 0) % SPEAKER_COLORS.length;
+                const color = SPEAKER_COLORS[speakerIdx];
+                const segTime = format(new Date(seg.timestamp), "h:mm");
                 return (
-                  <div key={chunk.id} className="flex items-start gap-2.5">
+                  <div key={seg.id} className="flex items-start gap-2.5">
                     <div className={`flex items-center justify-center shrink-0 rounded-full ${color.bg} size-7`}>
                       <div className={`text-[12px] leading-3.5 ${color.text} font-red-hat font-bold`}>
                         {speakerIdx + 1}
@@ -300,22 +296,22 @@ export function ConversationDetailPage() {
                     </div>
                     <div className="flex flex-col grow shrink basis-0 pt-1 gap-0.5 min-w-0">
                       <div className={`text-[12px] leading-3.5 ${color.text} font-red-hat font-semibold`}>
-                        Speaker {speakerIdx + 1} · {chunkTime}
+                        Speaker {speakerIdx + 1} · {segTime}
                       </div>
                       <div className={`text-[14px] leading-5 text-[#3F3F46] font-red-hat`}>
-                        {chunk.text}
+                        {seg.text}
                       </div>
                     </div>
                   </div>
                 );
               })}
-              {chunks.length > 4 && (
+              {endedSegments.length > 8 && (
                 <button
                   onClick={() => setShowFullTranscript(!showFullTranscript)}
                   className="flex items-center justify-center pt-3 gap-1.5"
                 >
                   <span className={`text-[13px] leading-4 text-[#71717A] font-red-hat font-medium`}>
-                    {showFullTranscript ? "Show less" : `View full transcript (${chunks.length} segments)`}
+                    {showFullTranscript ? "Show less" : `View full transcript (${endedSegments.length} segments)`}
                   </span>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#71717A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform ${showFullTranscript ? "rotate-180" : ""}`}>
                     <path d="m6 9 6 6 6-6" />

@@ -7,7 +7,7 @@
 
 import { format } from "date-fns";
 import { motion, useMotionValue, useTransform, type PanInfo } from "motion/react";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, memo } from "react";
 import type { Conversation } from "../../../../shared/types";
 import { WaveIndicator } from "../../../components/shared/WaveIndicator";
 
@@ -30,7 +30,7 @@ function getDurationMinutes(conversation: Conversation): number | null {
   return Math.round((end - start) / 60000);
 }
 
-export function ConversationRow({
+export const ConversationRow = memo(function ConversationRow({
   conversation,
   onSelect,
   onArchive,
@@ -199,4 +199,4 @@ export function ConversationRow({
       </motion.div>
     </div>
   );
-}
+});

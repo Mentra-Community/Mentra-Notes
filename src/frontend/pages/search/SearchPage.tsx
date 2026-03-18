@@ -200,7 +200,7 @@ export function SearchPage() {
         <div className={`text-[11px] leading-3.5 tracking-widest uppercase text-[#DC2626] font-red-hat font-bold`}>
           Mentra Notes
         </div>
-        <div className={`text-[28px] leading-[34px] text-[#1C1917] font-red-hat font-normal font-black`}>
+        <div className={`text-[28px] leading-[34px] text-[#1C1917] font-red-hat font-extrabold font-black`}>
           Search
         </div>
       </div>

@@ -319,6 +319,18 @@ export class TranscriptManager extends SyncedManager {
     this.interimText = "";
   }
 
+  /**
+   * Finalize any in-progress interim text as a final segment.
+   * Called when transcription is paused so partial speech isn't lost.
+   */
+  finalizeInterim(): void {
+    if (this.interimText.trim()) {
+      console.log(`[TranscriptManager] Finalizing interim text: "${this.interimText.slice(0, 60)}"`);
+      this.addSegment(this.interimText, true);
+    }
+    this.stopRecording();
+  }
+
   // ===========================================================================
   // RPC Methods
   // ===========================================================================
