@@ -11,6 +11,7 @@
 import { SyncedManager, synced, rpc } from "../../../lib/sync";
 import { getAllConversations, deleteConversation, updateConversation } from "../../models/conversation.model";
 import { getChunksByConversationId, getChunksByTimeRange } from "../../models/transcript-chunk.model";
+import { getDailyTranscript } from "../../models";
 import type { ConversationI } from "../../models/conversation.model";
 import type { TranscriptChunkI } from "../../models/transcript-chunk.model";
 import { TriageClassifier } from "../../classifier/TriageClassifier";
@@ -448,7 +449,7 @@ ${transcript}
     }
 
     // Get transcript segments for this conversation's time range
-    const segments = this.getSegmentsForConversation(tempConv as any);
+    const segments = await this.getSegmentsForConversation(tempConv as any);
 
     // Update frontend state immediately — include segments so they don't disappear
     this.conversations.mutate((list) => {
@@ -551,7 +552,7 @@ ${transcript}
     }));
 
     // Get transcript segments (with speaker IDs) from the conversation's time range
-    const segments: ConversationSegment[] = this.getSegmentsForConversation(conv);
+    const segments: ConversationSegment[] = await this.getSegmentsForConversation(conv);
 
     return {
       id: conv._id!.toString(),
@@ -573,27 +574,73 @@ ${transcript}
   /**
    * Pull transcript segments from TranscriptManager that fall within
    * the conversation's start→end time range. These have speaker IDs.
+   *
+   * For today's conversations, reads from in-memory segments.
+   * For historical conversations, fetches from MongoDB, then R2.
    */
-  private getSegmentsForConversation(conv: ConversationI): ConversationSegment[] {
-    const transcriptManager = (this._session as any)?.transcript;
-    if (!transcriptManager) return [];
-
-    const allSegments = transcriptManager.segments as import("./TranscriptManager").TranscriptSegment[];
+  private async getSegmentsForConversation(conv: ConversationI): Promise<ConversationSegment[]> {
     const startMs = new Date(conv.startTime).getTime();
     const endMs = conv.endTime ? new Date(conv.endTime).getTime() : Date.now();
 
-    return allSegments
-      .filter((s) => {
-        if (!s.isFinal || s.type === "photo") return false;
-        const ts = new Date(s.timestamp).getTime();
-        return ts >= startMs && ts <= endMs;
-      })
-      .map((s) => ({
-        id: s.id,
-        text: s.text,
-        timestamp: s.timestamp,
-        speakerId: s.speakerId,
-      }));
+    const filterAndMap = (
+      segments: { text: string; timestamp: Date; isFinal: boolean; speakerId?: string; type?: string; id?: string }[],
+    ): ConversationSegment[] =>
+      segments
+        .filter((s) => {
+          if (!s.isFinal || s.type === "photo") return false;
+          const ts = new Date(s.timestamp).getTime();
+          return ts >= startMs && ts <= endMs;
+        })
+        .map((s, i) => ({
+          id: s.id || `seg_${conv.date}_${i}`,
+          text: s.text,
+          timestamp: s.timestamp,
+          speakerId: s.speakerId,
+        }));
+
+    // 1. Try in-memory segments (works for today's loaded date)
+    const transcriptManager = (this._session as any)?.transcript;
+    if (transcriptManager) {
+      const loadedDate = transcriptManager.loadedDate as string | undefined;
+      if (loadedDate === conv.date) {
+        const allSegments = transcriptManager.segments as import("./TranscriptManager").TranscriptSegment[];
+        const filtered = filterAndMap(allSegments);
+        if (filtered.length > 0) return filtered;
+      }
+    }
+
+    const userId = this._session?.userId;
+    if (!userId || !conv.date) return [];
+
+    try {
+      // 2. Try MongoDB (segments not yet migrated to R2)
+      const dailyTranscript = await getDailyTranscript(userId, conv.date);
+      if (dailyTranscript?.segments?.length) {
+        const filtered = filterAndMap(dailyTranscript.segments as any[]);
+        if (filtered.length > 0) return filtered;
+      }
+
+      // 3. Try R2 (historical segments migrated to cloud storage)
+      const r2Manager = (this._session as any)?.r2;
+      if (r2Manager) {
+        const r2Data = await r2Manager.fetchTranscript(conv.date);
+        if (r2Data?.segments?.length) {
+          const mapped = r2Data.segments.map((seg: any, idx: number) => ({
+            id: `seg_${seg.index || idx + 1}`,
+            text: seg.text,
+            timestamp: new Date(seg.timestamp),
+            isFinal: seg.isFinal,
+            speakerId: seg.speakerId,
+            type: seg.type,
+          }));
+          return filterAndMap(mapped);
+        }
+      }
+    } catch (error) {
+      console.error("[ConversationManager] Failed to load historical segments:", error);
+    }
+
+    return [];
   }
 
   private getTimeManager(): TimeManager {

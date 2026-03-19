@@ -37,7 +37,20 @@ export {
   deleteNote,
   getNotesByDateRange,
   deleteNotesByDate,
+  unassignNotesFromFolder,
 } from "./note.model";
+
+// Folder
+export {
+  Folder,
+  type FolderI,
+  type FolderColor,
+  createFolder,
+  getFolders,
+  updateFolder,
+  deleteFolder,
+  seedDefaultFolders,
+} from "./folder.model";
 
 // User Settings
 export {

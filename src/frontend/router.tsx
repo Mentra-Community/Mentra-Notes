@@ -21,6 +21,8 @@ import { ConversationDetailPage } from "./pages/conversation/ConversationDetailP
 import { ConversationTranscriptPage } from "./pages/conversation/ConversationTranscriptPage";
 import { GeneratingNotePage } from "./pages/conversation/GeneratingNotePage";
 import { NotesPage } from "./pages/notes/NotesPage";
+import { CollectionsPage } from "./pages/notes/CollectionsPage";
+import { FolderPage } from "./pages/notes/FolderPage";
 import { TranscriptPage } from "./pages/transcript/TranscriptPage";
 
 /** Renders routes frozen to a specific location so exit animations show the old page */
@@ -35,6 +37,8 @@ function FrozenRoutes({ location }: { location: string }) {
       <Route path="/conversation/:id/transcript" component={ConversationTranscriptPage} />
       <Route path="/conversation/:id/generating" component={GeneratingNotePage} />
       <Route path="/notes" component={NotesPage} />
+      <Route path="/collections" component={CollectionsPage} />
+      <Route path="/folder/:id" component={FolderPage} />
       <Route path="/search" component={SearchPage} />
       <Route path="/settings" component={SettingsPage} />
       <Route>

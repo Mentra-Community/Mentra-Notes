@@ -21,6 +21,7 @@ import {
   PhotoManager,
   ChunkBufferManager,
   ConversationManager,
+  FoldersManager,
 } from "./managers";
 import { InputManager } from "./managers/InputManager";
 import { createUserState } from "../services/userState.service";
@@ -41,6 +42,7 @@ export class NotesSession extends SyncedSession {
   @manager input = new InputManager();
   @manager chunkBuffer = new ChunkBufferManager();
   @manager conversation = new ConversationManager();
+  @manager folders = new FoldersManager();
 
   // MentraOS AppSession - null if no glasses connected (not synced)
   private _appSession: AppSession | null = null;

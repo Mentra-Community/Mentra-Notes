@@ -257,7 +257,7 @@ export function NotesPage() {
         <NotesFABMenu
           onAddNote={handleAddNote}
           onAskAI={() => setLocation("/")}
-          onCreateFolder={() => {}}
+          onCreateFolder={() => setLocation("/collections")}
         />
 
       </div>
@@ -318,14 +318,17 @@ export function NotesPage() {
                   <line x1="4" y1="18" x2="20" y2="18" stroke="#FAFAF9" strokeWidth="2" strokeLinecap="round" />
                 </svg>
               </div>
-              <div className="flex items-center justify-center w-[34px] h-[30px] rounded-lg shrink-0">
+              <button
+                onClick={() => setLocation("/collections")}
+                className="flex items-center justify-center w-[34px] h-[30px] rounded-lg shrink-0"
+              >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <rect x="3" y="3" width="7" height="7" rx="1" stroke="#78716C" strokeWidth="2" />
                   <rect x="14" y="3" width="7" height="7" rx="1" stroke="#78716C" strokeWidth="2" />
                   <rect x="3" y="14" width="7" height="7" rx="1" stroke="#78716C" strokeWidth="2" />
                   <rect x="14" y="14" width="7" height="7" rx="1" stroke="#78716C" strokeWidth="2" />
                 </svg>
-              </div>
+              </button>
             </div>
           </div>
         </div>
@@ -378,7 +381,7 @@ export function NotesPage() {
       <NotesFABMenu
         onAddNote={handleAddNote}
         onAskAI={() => setLocation("/")}
-        onCreateFolder={() => {}}
+        onCreateFolder={() => setLocation("/collections")}
       />
 
     </div>

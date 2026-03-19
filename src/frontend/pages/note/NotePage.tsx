@@ -20,7 +20,14 @@ import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 import { Drawer } from "vaul";
 import { useSynced } from "../../hooks/useSynced";
-import type { SessionI, Note } from "../../../shared/types";
+import type { SessionI, Note, FolderColor } from "../../../shared/types";
+import { FolderPicker } from "./FolderPicker";
+
+const FOLDER_COLOR_MAP: Record<FolderColor, string> = {
+  red: "#DC2626",
+  gray: "#78716C",
+  blue: "#2563EB",
+};
 import { NotePageSkeleton } from "../../components/shared/SkeletonLoader";
 import { EmailDrawer } from "../../components/shared/EmailDrawer";
 import { rewriteR2Urls } from "../../../shared/constants";
@@ -477,23 +484,29 @@ export function NotePage() {
                 </span>
               </div>
             )}
-            <div className="flex items-center rounded-sm py-0.5 px-2 gap-1 bg-[#F5F5F4]">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
-                  stroke="#78716C"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  fill="none"
-                />
-              </svg>
-              <span
-                className={`text-[10px] leading-3.5 text-[#78716C] font-red-hat font-semibold`}
-              >
-                Work Notes
-              </span>
-            </div>
+            {(() => {
+              const folders = session?.folders?.folders ?? [];
+              const noteFolder = folders.find((f) => f.id === note.folderId);
+              if (!noteFolder) return null;
+              const color = FOLDER_COLOR_MAP[noteFolder.color];
+              return (
+                <div className="flex items-center rounded-sm py-0.5 px-2 gap-1 bg-[#F5F5F4]">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+                      stroke={color}
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      fill="none"
+                    />
+                  </svg>
+                  <span className="text-[10px] leading-3.5 text-[#78716C] font-red-hat font-semibold">
+                    {noteFolder.name}
+                  </span>
+                </div>
+              );
+            })()}
             <span
               className={`text-[12px] leading-4 text-[#A8A29E] font-red-hat`}
             >
@@ -544,8 +557,20 @@ export function NotePage() {
           )}
         </div>
 
+        {/* Folder picker */}
+        <div className="pt-4">
+          <FolderPicker
+            folders={session?.folders?.folders ?? []}
+            currentFolderId={note?.folderId}
+            onSelect={async (folderId) => {
+              if (!session?.notes?.updateNote || !note) return;
+              await session.notes.updateNote(note.id, { folderId });
+            }}
+          />
+        </div>
+
         {/* Divider */}
-        <div className="h-px mt-5 mb-5 bg-[#E7E5E4] mx-6" />
+        <div className="h-px mt-1 mb-5 bg-[#E7E5E4] mx-6" />
 
         {/* Summary section (AI-generated notes only) */}
         {note.isAIGenerated && parsed?.summary && (
