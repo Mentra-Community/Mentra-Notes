@@ -5,7 +5,7 @@
  * Each group shows a count and renders ConversationRow items.
  */
 
-import { useMemo, useRef, useEffect } from "react";
+import { useMemo, useRef, useEffect, useState, useCallback } from "react";
 import { format, isToday, isYesterday } from "date-fns";
 import { AnimatePresence, motion } from "motion/react";
 import type { Conversation } from "../../../../shared/types";
@@ -26,6 +26,8 @@ interface DayGroup {
   conversations: Conversation[];
 }
 
+const PAGE_SIZE = 20;
+
 export function ConversationList({
   conversations,
   onSelectConversation,
@@ -33,35 +35,64 @@ export function ConversationList({
   onDelete,
 }: ConversationListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  // Reset visible count when conversations change (e.g. filter switch)
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [conversations.length]);
+
   // Track IDs seen on first render — only animate rows that arrive after mount
   const seenIds = useRef<Set<string> | null>(null);
   if (seenIds.current === null) {
     seenIds.current = new Set(conversations.map((c) => c.id));
   }
 
-  // Auto-scroll to bottom when a new active conversation appears
+  // Auto-scroll to top when a new active conversation appears
   useEffect(() => {
     const activeNew = conversations.find(
       (c) => c.status === "active" && !seenIds.current!.has(c.id),
     );
     if (activeNew) {
       seenIds.current!.add(activeNew.id);
-      // Small delay so the row has mounted and measured before scrolling
       setTimeout(() => {
         scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
       }, 100);
     }
-    // Track any new IDs we haven't seen
     for (const c of conversations) {
       seenIds.current!.add(c.id);
     }
   }, [conversations]);
 
+  // Infinite scroll — load more when sentinel enters viewport
+  const loadMore = useCallback(() => {
+    setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, conversations.length));
+  }, [conversations.length]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) loadMore();
+      },
+      { root: scrollRef.current, rootMargin: "200px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadMore]);
+
+  // Slice conversations to visible count, then group
+  const visibleConversations = useMemo(
+    () => conversations.slice(0, visibleCount),
+    [conversations, visibleCount],
+  );
+
   const groups = useMemo((): DayGroup[] => {
-    // Group by date string (YYYY-MM-DD)
     const byDate = new Map<string, Conversation[]>();
 
-    for (const conv of conversations) {
+    for (const conv of visibleConversations) {
       const dateKey = conv.date;
       if (!byDate.has(dateKey)) {
         byDate.set(dateKey, []);
@@ -69,15 +100,12 @@ export function ConversationList({
       byDate.get(dateKey)!.push(conv);
     }
 
-    // Sort each group by startTime (newest first within a day — or oldest first, matching design)
-    // Newest first within each day
     for (const [, convs] of byDate) {
       convs.sort(
         (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
       );
     }
 
-    // Sort date keys newest first
     const sortedKeys = [...byDate.keys()].sort((a, b) => b.localeCompare(a));
 
     return sortedKeys.map((dateKey) => {
@@ -101,7 +129,9 @@ export function ConversationList({
         conversations: convs,
       };
     });
-  }, [conversations]);
+  }, [visibleConversations]);
+
+  const hasMore = visibleCount < conversations.length;
 
   return (
     <div ref={scrollRef} className="h-full overflow-y-auto px-6 pb-32">
@@ -140,6 +170,13 @@ export function ConversationList({
           </AnimatePresence>
         </div>
       ))}
+
+      {/* Scroll sentinel — triggers loading more */}
+      {hasMore && (
+        <div ref={sentinelRef} className="flex items-center justify-center py-4">
+          <span className="text-[12px] text-[#A8A29E] font-red-hat">Loading more...</span>
+        </div>
+      )}
     </div>
   );
 }

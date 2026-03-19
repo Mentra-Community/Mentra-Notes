@@ -1,10 +1,14 @@
 /**
  * TranscriptList - List of transcript dates for the Transcripts tab.
+ * Loads 20 at a time, with more loaded on scroll.
  */
 
+import { useState, useRef, useCallback } from "react";
 import { format, isToday, isYesterday } from "date-fns";
 import type { FileData } from "../../../../shared/types";
 import { WaveIndicator } from "../../../components/shared/WaveIndicator";
+
+const PAGE_SIZE = 20;
 
 interface TranscriptListProps {
   availableDates: string[];
@@ -21,6 +25,27 @@ export function TranscriptList({
   transcriptionPaused,
   onSelect,
 }: TranscriptListProps) {
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const observer = useRef<IntersectionObserver | null>(null);
+
+  const sorted = [...availableDates].sort((a, b) => b.localeCompare(a));
+  const visible = sorted.slice(0, visibleCount);
+  const hasMore = visibleCount < sorted.length;
+
+  const lastItemRef = useCallback(
+    (node: HTMLButtonElement | null) => {
+      if (observer.current) observer.current.disconnect();
+      if (!node || !hasMore) return;
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, sorted.length));
+        }
+      });
+      observer.current.observe(node);
+    },
+    [hasMore, sorted.length],
+  );
+
   if (availableDates.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -37,7 +62,7 @@ export function TranscriptList({
 
   return (
     <>
-      {[...availableDates].sort((a, b) => b.localeCompare(a)).map((dateStr, i, arr) => {
+      {visible.map((dateStr, i) => {
         const [year, month, day] = dateStr.split("-").map(Number);
         const dateObj = new Date(year, month - 1, day);
         const today = isToday(dateObj);
@@ -47,13 +72,15 @@ export function TranscriptList({
         const segCount = file?.transcriptSegmentCount ?? 0;
         const hourCount = file?.transcriptHourCount ?? 0;
         const isLive = today && isRecording && !transcriptionPaused;
+        const isLast = i === visible.length - 1;
 
         return (
           <button
             key={dateStr}
+            ref={isLast ? lastItemRef : undefined}
             onClick={() => onSelect(dateStr)}
             className={`flex items-center py-4 gap-3 w-full text-left ${
-              i < arr.length - 1 ? "border-b border-[#F5F5F4]" : ""
+              i < visible.length - 1 ? "border-b border-[#F5F5F4]" : ""
             }`}
           >
             {/* Mic icon / Wave indicator */}

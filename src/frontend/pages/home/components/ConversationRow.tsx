@@ -3,17 +3,19 @@
  *
  * Displays: time | title + metadata (duration, transcribing status) | chevron
  * Active conversations show red styling with "Transcribing now" badge.
+ *
+ * Uses native touch events via useSwipeToReveal for smooth,
+ * jank-free swipe gesture on mobile.
  */
 
 import { format } from "date-fns";
-import { motion, useMotionValue, useTransform, type PanInfo } from "motion/react";
-import { useRef, useState, useEffect, memo } from "react";
+import { motion, useTransform } from "motion/react";
+import { memo } from "react";
 import type { Conversation } from "../../../../shared/types";
 import { WaveIndicator } from "../../../components/shared/WaveIndicator";
+import { useSwipeToReveal } from "../../../hooks/useSwipeToReveal";
 
-const SWIPE_THRESHOLD = 80;
-const AUTO_CLOSE_DELAY = 6000; // 6 seconds
-
+const SWIPE_OPEN_DISTANCE = 146;
 
 interface ConversationRowProps {
   conversation: Conversation;
@@ -40,64 +42,17 @@ export const ConversationRow = memo(function ConversationRow({
   const isActive = conversation.status === "active" || conversation.status === "paused";
   const startTime = new Date(conversation.startTime);
   const duration = getDurationMinutes(conversation);
-  const x = useMotionValue(0);
-  const [isSwiped, setIsSwiped] = useState(false);
-  const constraintsRef = useRef<HTMLDivElement>(null);
-  const isDraggingRef = useRef(false);
-  const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Map swipe offset to action button widths
-  const archiveOpacity = useTransform(x, [-SWIPE_THRESHOLD, -20], [1, 0]);
-  const deleteOpacity = useTransform(x, [-SWIPE_THRESHOLD * 2, -SWIPE_THRESHOLD], [1, 0]);
+  const { x, handlers, handleClick } = useSwipeToReveal({
+    openDistance: SWIPE_OPEN_DISTANCE,
+    threshold: 0.3,
+  });
 
-  const clearAutoClose = () => {
-    if (autoCloseTimerRef.current) {
-      clearTimeout(autoCloseTimerRef.current);
-      autoCloseTimerRef.current = null;
-    }
-  };
-
-  const startAutoClose = () => {
-    clearAutoClose();
-    autoCloseTimerRef.current = setTimeout(() => {
-      setIsSwiped(false);
-    }, AUTO_CLOSE_DELAY);
-  };
-
-  useEffect(() => {
-    return () => clearAutoClose();
-  }, []);
-
-  const handleDragStart = () => {
-    isDraggingRef.current = true;
-    clearAutoClose();
-  };
-
-  const handleDragEnd = (_: unknown, info: PanInfo) => {
-    if (info.offset.x < -SWIPE_THRESHOLD) {
-      setIsSwiped(true);
-      startAutoClose();
-    } else {
-      setIsSwiped(false);
-    }
-    // Keep flag true briefly so onTap doesn't fire on the same gesture
-    setTimeout(() => {
-      isDraggingRef.current = false;
-    }, 50);
-  };
-
-  const handleTap = () => {
-    if (isDraggingRef.current) return;
-    if (isSwiped) {
-      setIsSwiped(false);
-      clearAutoClose();
-    } else {
-      onSelect(conversation);
-    }
-  };
+  const archiveOpacity = useTransform(x, [-SWIPE_OPEN_DISTANCE * 0.3, -10], [1, 0]);
+  const deleteOpacity = useTransform(x, [-SWIPE_OPEN_DISTANCE, -SWIPE_OPEN_DISTANCE * 0.3], [1, 0]);
 
   return (
-    <div className="relative overflow-hidden" ref={constraintsRef}>
+    <div className="relative overflow-hidden" {...handlers}>
       {/* Swipe action buttons (behind the row) */}
       <div className="absolute inset-y-0 right-0 flex">
         <motion.button
@@ -111,7 +66,7 @@ export const ConversationRow = memo(function ConversationRow({
               <rect x="1" y="3" width="22" height="5" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M10 12h4" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            <span className={`text-[10px] leading-3 text-white font-red-hat font-semibold`}>Archive</span>
+            <span className="text-[10px] leading-3 text-white font-red-hat font-semibold">Archive</span>
           </div>
         </motion.button>
         <motion.button
@@ -125,22 +80,15 @@ export const ConversationRow = memo(function ConversationRow({
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            <span className={`text-[10px] leading-3 text-white font-red-hat font-semibold`}>Delete</span>
+            <span className="text-[10px] leading-3 text-white font-red-hat font-semibold">Delete</span>
           </div>
         </motion.button>
       </div>
 
-      {/* Draggable row content */}
+      {/* Row content */}
       <motion.div
-        drag="x"
-        dragConstraints={{ left: -146, right: 0 }}
-        dragElastic={0.1}
         style={{ x }}
-        animate={{ x: isSwiped ? -146 : 0 }}
-        transition={{ type: "spring", damping: 25, stiffness: 300 }}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        onTap={handleTap}
+        onClick={() => handleClick(() => onSelect(conversation))}
         className={`flex items-center py-3.5 gap-3.5 bg-[#FAFAF9] relative z-10 ${
           !isLast ? (isActive ? "border-b border-b-[#FEE2E2]" : "border-b border-b-[#F5F5F4]") : ""
         }`}
@@ -159,7 +107,7 @@ export const ConversationRow = memo(function ConversationRow({
               isActive ? "text-[#DC2626] opacity-60" : "text-[#A8A29E]"
             }`}
           >
-            {format(startTime, "a")} 
+            {format(startTime, "a")}
           </div>
         </div>
 
@@ -174,13 +122,13 @@ export const ConversationRow = memo(function ConversationRow({
             {isActive ? (
               <div className="flex items-center rounded-md py-[3px] px-2 gap-[5px] bg-[#FEE2E2]">
                 <WaveIndicator color="#DC2626" height={10} barWidth={2} gap={1} />
-                <span className={`text-[12px] leading-4 text-[#DC2626] font-red-hat font-semibold`}>
+                <span className="text-[12px] leading-4 text-[#DC2626] font-red-hat font-semibold">
                   Transcribing now
                 </span>
               </div>
             ) : duration !== null ? (
               <div className="rounded-md py-[3px] px-2 bg-[#F5F5F4]">
-                <span className={`text-[11px] leading-3.5 text-[#78716C] font-red-hat font-medium`}>
+                <span className="text-[11px] leading-3.5 text-[#78716C] font-red-hat font-medium">
                   {duration} min
                 </span>
               </div>

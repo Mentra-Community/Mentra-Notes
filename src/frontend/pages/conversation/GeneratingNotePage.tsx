@@ -60,11 +60,12 @@ export function GeneratingNotePage() {
     return Array.from(seen.keys());
   }, [conversation?.segments]);
 
-  // Animate steps forward
+  // Animate steps forward — random delay between 500ms and 3s per step
   useEffect(() => {
-    if (activeStep >= 4) return; // Stop at Generate step (index 3 = active means generating)
-    const delay = activeStep === 0 ? 600 : activeStep === 1 ? 800 : activeStep === 2 ? 700 : 0;
-    if (delay === 0) return;
+    if (activeStep >= 4) return;
+    // Steps 0-2 auto-advance with random timing, step 3 (Generate) waits for API
+    if (activeStep >= 3) return;
+    const delay = Math.random() * 2500 + 500; // 500ms – 3000ms
     const timer = setTimeout(() => setActiveStep((s) => s + 1), delay);
     return () => clearTimeout(timer);
   }, [activeStep]);

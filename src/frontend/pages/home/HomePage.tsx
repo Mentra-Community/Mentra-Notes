@@ -42,6 +42,7 @@ export function HomePage() {
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [showGlobalChat, setShowGlobalChat] = useState(false);
   const [showEmptyTrashConfirm, setShowEmptyTrashConfirm] = useState(false);
+  const [timeFilter, setTimeFilter] = useState<"all" | "today">("all");
   const initialTab =
     new URLSearchParams(search).get("tab") === "transcripts"
       ? "transcripts"
@@ -62,7 +63,7 @@ export function HomePage() {
     const swap = setTimeout(() => {
       setRenderedFilter(activeTimeFilter);
       setTabOpacity(1);
-    }, 250);
+    }, 150);
     return () => clearTimeout(swap);
   }, [activeTimeFilter]);
 
@@ -110,14 +111,22 @@ export function HomePage() {
     });
   }, [files, isRecording]);
 
-  const filteredConversations = conversations;
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  }, []);
+
+  const filteredConversations = useMemo(() => {
+    if (timeFilter === "today") {
+      return conversations.filter((c) => c.date === todayStr);
+    }
+    return conversations;
+  }, [conversations, timeFilter, todayStr]);
 
   // Count today's conversations for subtitle
   const todayConversationCount = useMemo(() => {
-    const now = new Date();
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     return conversations.filter((c) => c.date === todayStr).length;
-  }, [conversations]);
+  }, [conversations, todayStr]);
 
   // Filter counts
   const fileCounts = session?.file?.counts ?? {
@@ -382,7 +391,7 @@ export function HomePage() {
   return (
     <div className="flex h-full flex-col bg-[#FAFAF9] relative overflow-hidden">
       {/* Header */}
-      <div className="flex flex-col pt-3 gap-3 px-6 shrink-0" style={{ opacity: tabOpacity, transition: "opacity 0.3s ease-in-out" }}>
+      <div className="flex flex-col pt-3 gap-3 px-6 shrink-0" style={{ opacity: tabOpacity, transition: "opacity 0.15s ease-in-out" }}>
         <div className="flex items-center  gap-2">
           <div
             className={`text-[11px] tracking-widest leading-3.5 uppercase text-[#DC2626] font-red-hat font-bold`}
@@ -409,7 +418,7 @@ export function HomePage() {
             )}
           </div>
         </div>
-        <div className="flex items-end justify-between">
+        <div className="flex items-start justify-between">
           <div className="flex flex-col gap-0.5">
             <div
               className={`text-[30px] tracking-[-0.03em] leading-[34px] text-[#1C1917] font-red-hat font-extrabold`}
@@ -447,81 +456,27 @@ export function HomePage() {
               </svg>
             </button>
 
-            {/* List/Calendar toggle */}
+            {/* Conversations / Transcripts toggle */}
             <div className="flex items-center rounded-[10px] py-[3px] px-[3px] bg-[#F5F5F4]">
-              {/* List view (active) */}
-              <button className="flex items-center justify-center w-[34px] h-[30px] rounded-lg shrink-0 bg-[#1C1917]">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <line
-                    x1="3"
-                    y1="6"
-                    x2="21"
-                    y2="6"
-                    stroke="#FAFAF9"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                  <line
-                    x1="3"
-                    y1="12"
-                    x2="21"
-                    y2="12"
-                    stroke="#FAFAF9"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                  <line
-                    x1="3"
-                    y1="18"
-                    x2="21"
-                    y2="18"
-                    stroke="#FAFAF9"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
+              {/* Conversations */}
+              <button
+                onClick={() => setActiveTimeFilter("conversations")}
+                className={`flex items-center justify-center w-[34px] h-[30px] rounded-lg shrink-0 ${renderedFilter === "conversations" ? "bg-[#1C1917]" : ""}`}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={renderedFilter === "conversations" ? "#FAFAF9" : "#78716C"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />
                 </svg>
               </button>
-              {/* Calendar view (inactive) */}
+              {/* Transcripts */}
               <button
-                onClick={handleCalendarToggle}
-                className="flex items-center justify-center w-[34px] h-[30px] rounded-lg shrink-0"
+                onClick={() => setActiveTimeFilter("transcripts")}
+                className={`flex items-center justify-center w-[34px] h-[30px] rounded-lg shrink-0 ${renderedFilter === "transcripts" ? "bg-[#1C1917]" : ""}`}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <rect
-                    x="3"
-                    y="4"
-                    width="18"
-                    height="18"
-                    rx="2"
-                    stroke="#78716C"
-                    strokeWidth="2"
-                  />
-                  <line
-                    x1="3"
-                    y1="10"
-                    x2="21"
-                    y2="10"
-                    stroke="#78716C"
-                    strokeWidth="2"
-                  />
-                  <line
-                    x1="8"
-                    y1="2"
-                    x2="8"
-                    y2="6"
-                    stroke="#78716C"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                  <line
-                    x1="16"
-                    y1="2"
-                    x2="16"
-                    y2="6"
-                    stroke="#78716C"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={renderedFilter === "transcripts" ? "#FAFAF9" : "#78716C"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 14h6" />
+                  <path d="M4 2h10" />
+                  <rect x="4" y="18" width="16" height="4" rx="1" />
+                  <rect x="4" y="6" width="16" height="4" rx="1" />
                 </svg>
               </button>
             </div>
@@ -530,42 +485,44 @@ export function HomePage() {
       </div>
 
       {/* Tab switcher */}
-      <div className="flex items-center pt-4 gap-2 px-6 shrink-0" style={{ opacity: tabOpacity, transition: "opacity 0.3s ease-in-out" }}>
+      {renderedFilter === "conversations" && (
+      <div className="flex items-center pt-4 gap-2 px-6 shrink-0" style={{ opacity: tabOpacity, transition: "opacity 0.15s ease-in-out" }}>
         <button
-          onClick={() => setActiveTimeFilter("conversations")}
+          onClick={() => setTimeFilter("all")}
           className={`flex items-center rounded-[20px] py-[7px] px-4 ${
-            renderedFilter === "conversations"
+            timeFilter === "all"
               ? "bg-[#1C1917]"
               : "bg-[#F5F5F4]"
           }`}
         >
           <span
             className={`text-[13px] leading-4 font-red-hat ${
-              renderedFilter === "conversations"
+              timeFilter === "all"
                 ? "text-[#FAFAF9] font-semibold"
                 : "text-[#78716C] font-medium"
             }`}
           >
-            Conversations
+            All
           </span>
         </button>
         <button
-          onClick={() => setActiveTimeFilter("transcripts")}
+          onClick={() => setTimeFilter("today")}
           className={`flex items-center rounded-[20px] py-[7px] px-4 ${
-            renderedFilter === "transcripts" ? "bg-[#1C1917]" : "bg-[#F5F5F4]"
+            timeFilter === "today" ? "bg-[#1C1917]" : "bg-[#F5F5F4]"
           }`}
         >
           <span
             className={`text-[13px] leading-4 font-red-hat ${
-              renderedFilter === "transcripts"
+              timeFilter === "today"
                 ? "text-[#FAFAF9] font-semibold"
                 : "text-[#78716C] font-medium"
             }`}
           >
-            Transcripts
+            Today
           </span>
         </button>
       </div>
+      )}
 
       {/* Content area — single wrapper fades out/in on tab switch */}
       <div className="flex-1 overflow-hidden">
@@ -573,7 +530,7 @@ export function HomePage() {
           className="h-full"
           style={{
             opacity: tabOpacity,
-            transition: "opacity 0.3s ease-in-out",
+            transition: "opacity 0.15s ease-in-out",
           }}
         >
           {renderedFilter === "transcripts" ? (

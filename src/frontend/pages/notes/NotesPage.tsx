@@ -12,6 +12,8 @@ import { useMentraAuth } from "@mentra/react";
 import { format, isToday, isYesterday } from "date-fns";
 import { useSynced } from "../../hooks/useSynced";
 import type { SessionI, Note } from "../../../shared/types";
+import { NoteRow } from "./NoteRow";
+import { NotesFABMenu } from "./NotesFABMenu";
 
 
 type NoteFilter = "all" | "favorites" | "manual" | "ai";
@@ -75,6 +77,16 @@ export function NotesPage() {
 
   const handleSelectNote = (note: Note) => {
     setLocation(`/note/${note.id}`);
+  };
+
+  const handleDeleteNote = async (note: Note) => {
+    if (!session?.notes?.deleteNote) return;
+    await session.notes.deleteNote(note.id);
+  };
+
+  const handleArchiveNote = async (note: Note) => {
+    if (!session?.file?.archiveFile) return;
+    await session.file.archiveFile(note.date);
   };
 
   const handleAddNote = async () => {
@@ -241,16 +253,12 @@ export function NotesPage() {
           </div>
         </div>
 
-        {/* FAB */}
-        <button
-          onClick={handleAddNote}
-          className="absolute bottom-[111px] right-6 flex items-center justify-center w-[52px] h-[52px] rounded-2xl bg-[#DC2626] shadow-[0px_4px_16px_#DC262640]"
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-        </button>
+        {/* FAB Menu */}
+        <NotesFABMenu
+          onAddNote={handleAddNote}
+          onAskAI={() => setLocation("/")}
+          onCreateFolder={() => {}}
+        />
 
       </div>
     );
@@ -351,50 +359,27 @@ export function NotesPage() {
           const isLast = i === filteredNotes.length - 1;
 
           return (
-            <button
+            <NoteRow
               key={note.id}
-              onClick={() => handleSelectNote(note)}
-              className={`flex flex-col py-4 gap-1 text-left ${
-                !isLast ? "border-b border-b-[#F5F5F4]" : ""
-              }`}
-            >
-              <div className="flex items-center gap-1.5">
-                <div className={`text-[15px] leading-5 text-[#1C1917] font-red-hat font-bold truncate`}>
-                  {note.title || "Untitled Note"}
-                </div>
-                {note.isAIGenerated ? (
-                  <div className="flex items-center rounded-sm py-0.5 px-2 bg-[#FEE2E2] shrink-0">
-                    <span className={`text-[10px] leading-3.5 text-[#DC2626] font-red-hat font-bold`}>AI</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center rounded-sm py-0.5 px-2 bg-[#DBEAFE] shrink-0">
-                    <span className={`text-[10px] leading-3.5 text-[#2563EB] font-red-hat font-semibold`}>
-                      Manual
-                    </span>
-                  </div>
-                )}
-              </div>
-              <div className={`text-[14px] leading-5 text-[#78716C] font-red-hat line-clamp-2`}>
-                {stripHtmlAndTruncate(note.content) || "No content"}
-              </div>
-              <div className={`text-[12px] leading-4 text-[#A8A29E] font-red-hat`}>
-                {fromLabel || formatNoteDate(note)}
-              </div>
-            </button>
+              note={note}
+              fromLabel={fromLabel}
+              formatNoteDate={formatNoteDate}
+              stripHtmlAndTruncate={stripHtmlAndTruncate}
+              onSelect={handleSelectNote}
+              onArchive={handleArchiveNote}
+              onDelete={handleDeleteNote}
+              isLast={isLast}
+            />
           );
         })}
       </div>
 
-      {/* FAB */}
-      <button
-        onClick={handleAddNote}
-        className="absolute bottom-[25px] right-6 flex items-center justify-center w-[52px] h-[52px] rounded-2xl bg-[#DC2626] shadow-[0px_4px_16px_#DC262640] z-10"
-      >
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-      </button>
+      {/* FAB Menu */}
+      <NotesFABMenu
+        onAddNote={handleAddNote}
+        onAskAI={() => setLocation("/")}
+        onCreateFolder={() => {}}
+      />
 
     </div>
   );
