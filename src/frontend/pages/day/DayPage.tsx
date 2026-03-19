@@ -237,7 +237,7 @@ export function DayPage() {
       {/* Header */}
       <div className="shrink-0 border-b border-zinc-200 dark:border-zinc-800">
         {/* Top row with back button and actions */}
-        <div className="flex items-center justify-between px-[10px] pt-4 pb-2">
+        <div className="flex items-center justify-between px-[10px] pt-2.5 pb-2 mr-24">
           <button
             onClick={handleBack}
             className="p-2 -ml-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 transition-colors"
@@ -260,7 +260,7 @@ export function DayPage() {
                 }
               }}
               className={clsx(
-                "p-2 rounded-lg transition-colors",
+                "p-2 rounded-lg transition-colors mr-[3px]",
                 isStarred
                   ? "text-yellow-500"
                   : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300",

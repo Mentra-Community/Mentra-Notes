@@ -215,7 +215,7 @@ export function HomePage() {
             <div className="flex items-center gap-1">
               <button
                 onClick={handleCalendarToggle}
-                className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors mr-7"
               >
                 <Calendar size={20} strokeWidth={1.5} />
               </button>
@@ -282,7 +282,7 @@ export function HomePage() {
   return (
     <div className="flex h-full flex-col bg-zinc-50 dark:bg-black overflow-hidden">
       {/* Header */}
-      <div className="px-[10px] pt-4 pb-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shrink-0">
+      <div className="px-[10px] pt-2.5 pb-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shrink-0">
         <div className="flex items-center justify-between">
           <button
             onClick={() => setIsFilterOpen(true)}
@@ -303,7 +303,7 @@ export function HomePage() {
               <button
                 onClick={handleEmptyTrashClick}
                 disabled={isEmptyingTrash}
-                className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors disabled:opacity-50"
+                className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors disabled:opacity-50 mr-7"
               >
                 {isEmptyingTrash ? (
                   <Loader2 size={20} strokeWidth={1.5} className="animate-spin" />
@@ -315,7 +315,7 @@ export function HomePage() {
 
             <button
               onClick={handleCalendarToggle}
-              className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+              className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors mr-24"
             >
               <Calendar size={20} strokeWidth={1.5} />
             </button>
