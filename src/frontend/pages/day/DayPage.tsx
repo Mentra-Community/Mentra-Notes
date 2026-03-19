@@ -249,7 +249,7 @@ export function DayPage() {
             {formatHeaderDate()}
           </h1>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center">
             <button
               onClick={() => {
                 if (!session?.file) return;
@@ -260,7 +260,7 @@ export function DayPage() {
                 }
               }}
               className={clsx(
-                "p-2 rounded-lg transition-colors mr-[3px]",
+                "p-2 rounded-lg transition-colors ",
                 isStarred
                   ? "text-yellow-500"
                   : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300",
