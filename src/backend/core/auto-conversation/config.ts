@@ -11,10 +11,10 @@ export const AUTO_NOTES_CONFIG = {
   // =========================================================================
 
   /** How often to package transcript buffer into a chunk (ms) */
-  BUFFER_INTERVAL_MS: 12_000,
+  BUFFER_INTERVAL_MS: 5_000,
 
   /** Max time to wait for sentence boundary after interval fires (ms) */
-  SENTENCE_BOUNDARY_MAX_WAIT_MS: 10_000,
+  SENTENCE_BOUNDARY_MAX_WAIT_MS: 3_000,
 
   /** Sentence-ending punctuation pattern */
   SENTENCE_END_REGEX: /[.!?]\s*$/,
@@ -34,7 +34,7 @@ export const AUTO_NOTES_CONFIG = {
   // =========================================================================
 
   /** Meaningful chunks needed before creating a conversation */
-  MIN_CHUNKS_TO_CONFIRM: 3,
+  MIN_CHUNKS_TO_CONFIRM: 2,
 
   /** Filler chunks in PENDING state before discarding buffer */
   PENDING_SILENCE_THRESHOLD: 3,
@@ -46,7 +46,7 @@ export const AUTO_NOTES_CONFIG = {
   SILENCE_PAUSE_CHUNKS: 1,
 
   /** 3 consecutive silent/filler chunks → end the conversation permanently */
-  SILENCE_END_CHUNKS: 3,
+  SILENCE_END_CHUNKS: 4,
 
   /** Max words for the running summary (compressed every 3 chunks) */
   SUMMARY_MAX_WORDS: 300,

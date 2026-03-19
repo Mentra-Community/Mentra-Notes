@@ -19,6 +19,7 @@ import { SearchPage } from "./pages/search/SearchPage";
 import { SettingsPage } from "./pages/settings/SettingsPage";
 import { ConversationDetailPage } from "./pages/conversation/ConversationDetailPage";
 import { ConversationTranscriptPage } from "./pages/conversation/ConversationTranscriptPage";
+import { GeneratingNotePage } from "./pages/conversation/GeneratingNotePage";
 import { NotesPage } from "./pages/notes/NotesPage";
 import { TranscriptPage } from "./pages/transcript/TranscriptPage";
 
@@ -32,6 +33,7 @@ function FrozenRoutes({ location }: { location: string }) {
       <Route path="/note/:id" component={NotePage} />
       <Route path="/conversation/:id" component={ConversationDetailPage} />
       <Route path="/conversation/:id/transcript" component={ConversationTranscriptPage} />
+      <Route path="/conversation/:id/generating" component={GeneratingNotePage} />
       <Route path="/notes" component={NotesPage} />
       <Route path="/search" component={SearchPage} />
       <Route path="/settings" component={SettingsPage} />

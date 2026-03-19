@@ -25,7 +25,6 @@ import { NotePageSkeleton } from "../../components/shared/SkeletonLoader";
 import { EmailDrawer } from "../../components/shared/EmailDrawer";
 import { rewriteR2Urls } from "../../../shared/constants";
 
-
 // =============================================================================
 // Content parser — extracts structured sections from note content
 // =============================================================================
@@ -60,9 +59,15 @@ function parseNoteContent(content: string, summary?: string): ParsedNote {
     .replace(/&#39;/g, "'")
     .trim();
 
-  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
   for (const line of lines) {
-    const bulletText = line.replace(/^[-•*]\s*/, "").replace(/^\d+\.\s*/, "").trim();
+    const bulletText = line
+      .replace(/^[-•*]\s*/, "")
+      .replace(/^\d+\.\s*/, "")
+      .trim();
     if (!bulletText) continue;
     result.summary += (result.summary ? " " : "") + bulletText;
     if (result.summary.length > 200) break;
@@ -143,7 +148,11 @@ export function NotePage() {
       .split("\n\n")
       .map((p) => p.trim())
       .filter((p) => p)
-      .map((p) => (p.startsWith("<h") || p.startsWith("<ul") || p.startsWith("<ol") ? p : `<p>${p}</p>`))
+      .map((p) =>
+        p.startsWith("<h") || p.startsWith("<ul") || p.startsWith("<ol")
+          ? p
+          : `<p>${p}</p>`,
+      )
       .join("");
   }, []);
 
@@ -152,10 +161,20 @@ export function NotePage() {
       let html = "";
       const content = note.content;
       const summary = note.summary;
-      if (content && content.trim() && content.trim() !== "Tap to edit this note...") {
-        html = content.includes("<p>") || content.includes("<h") ? content : parseContentToHtml(content);
+      if (
+        content &&
+        content.trim() &&
+        content.trim() !== "Tap to edit this note..."
+      ) {
+        html =
+          content.includes("<p>") || content.includes("<h")
+            ? content
+            : parseContentToHtml(content);
       } else if (summary && summary.trim()) {
-        html = summary.includes("<p>") || summary.includes("<h") ? summary : `<p>${summary}</p>`;
+        html =
+          summary.includes("<p>") || summary.includes("<h")
+            ? summary
+            : `<p>${summary}</p>`;
       }
       return rewriteR2Urls(html);
     },
@@ -218,7 +237,8 @@ export function NotePage() {
   useEffect(() => {
     if (!note || editTitle === note.title) return;
     const timeout = setTimeout(() => {
-      session?.notes?.updateNote(noteId, { title: editTitle })
+      session?.notes
+        ?.updateNote(noteId, { title: editTitle })
         .then(() => {
           setShowSaved(true);
           if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current);
@@ -242,8 +262,13 @@ export function NotePage() {
   if (!note) {
     return (
       <div className="flex h-full flex-col items-center justify-center bg-[#FAFAF9]">
-        <div className={`text-[16px] text-[#A8A29E] font-red-hat`}>Note not found</div>
-        <button onClick={() => setLocation("/notes")} className={`mt-4 text-[14px] text-[#78716C] underline font-red-hat`}>
+        <div className={`text-[16px] text-[#A8A29E] font-red-hat`}>
+          Note not found
+        </div>
+        <button
+          onClick={() => setLocation("/notes")}
+          className={`mt-4 text-[14px] text-[#78716C] underline font-red-hat`}
+        >
           Go back
         </button>
       </div>
@@ -271,14 +296,30 @@ export function NotePage() {
     const ccList = cc ? cc.split(",").filter(Boolean) : undefined;
     const dateStr = note.date || "";
     const noteDate = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
-    const sessionDate = noteDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    const sessionDate = noteDate.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
     const createdAt = note.createdAt ? new Date(note.createdAt) : new Date();
-    const noteTimestamp = createdAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    const noteTimestamp = createdAt.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
     const startTime = note.transcriptRange?.startTime
-      ? new Date(note.transcriptRange.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+      ? new Date(note.transcriptRange.startTime).toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        })
       : noteTimestamp;
     const endTime = note.transcriptRange?.endTime
-      ? new Date(note.transcriptRange.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+      ? new Date(note.transcriptRange.endTime).toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        })
       : "";
 
     const res = await fetch("/api/email/send", {
@@ -291,13 +332,15 @@ export function NotePage() {
         sessionDate,
         sessionStartTime: startTime,
         sessionEndTime: endTime,
-        notes: [{
-          noteId: note.id,
-          noteTimestamp,
-          noteTitle: editTitle || note.title,
-          noteContent: editor?.getHTML() || note.content,
-          noteType: note.isAIGenerated ? "AI Generated" : "Manual",
-        }],
+        notes: [
+          {
+            noteId: note.id,
+            noteTimestamp,
+            noteTitle: editTitle || note.title,
+            noteContent: editor?.getHTML() || note.content,
+            noteType: note.isAIGenerated ? "AI Generated" : "Manual",
+          },
+        ],
       }),
     });
     const data = await res.json();
@@ -310,9 +353,19 @@ export function NotePage() {
       <div className="flex items-center justify-between pt-3 px-6 shrink-0">
         <button onClick={handleBack} className="flex items-center gap-3.5">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <polyline points="15,18 9,12 15,6" stroke="#1C1917" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <polyline
+              points="15,18 9,12 15,6"
+              stroke="#1C1917"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
-          <span className={`text-[16px] leading-5 text-[#1C1917] font-red-hat font-semibold`}>Note</span>
+          <span
+            className={`text-[16px] leading-5 text-[#1C1917] font-red-hat font-semibold`}
+          >
+            Note
+          </span>
         </button>
         <div className="flex items-center gap-4">
           {/* Save status */}
@@ -322,7 +375,12 @@ export function NotePage() {
           {/* Favorite star */}
           <button className="p-1">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2l2.09 6.26L20.18 9l-4.91 3.74L17.18 19 12 15.27 6.82 19l1.91-6.26L3.82 9l6.09-.74z" stroke="#1C1917" strokeWidth="1.75" fill="none" />
+              <path
+                d="M12 2l2.09 6.26L20.18 9l-4.91 3.74L17.18 19 12 15.27 6.82 19l1.91-6.26L3.82 9l6.09-.74z"
+                stroke="#1C1917"
+                strokeWidth="1.75"
+                fill="none"
+              />
             </svg>
           </button>
           {/* More menu */}
@@ -336,13 +394,30 @@ export function NotePage() {
             </button>
             {showMenu && (
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-                <div className={`absolute right-0 top-full mt-1 z-50 bg-white border border-[#E7E5E4] rounded-xl shadow-lg py-1 min-w-40 font-red-hat`}>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowMenu(false)}
+                />
+                <div
+                  className={`absolute right-0 top-full mt-1 z-50 bg-white border border-[#E7E5E4] rounded-xl shadow-lg py-1 min-w-40 font-red-hat`}
+                >
                   <button
-                    onClick={() => { setShowMenu(false); setShowEmailDrawer(true); }}
+                    onClick={() => {
+                      setShowMenu(false);
+                      setShowEmailDrawer(true);
+                    }}
                     className="w-full px-4 py-2.5 text-left text-[14px] text-[#1C1917] flex items-center gap-3"
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#78716C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#78716C"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
                       <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
                       <polyline points="22,6 12,13 2,6" />
                     </svg>
@@ -350,10 +425,22 @@ export function NotePage() {
                   </button>
                   <div className="my-1 border-t border-[#E7E5E4]" />
                   <button
-                    onClick={() => { setShowMenu(false); setShowDeleteConfirm(true); }}
+                    onClick={() => {
+                      setShowMenu(false);
+                      setShowDeleteConfirm(true);
+                    }}
                     className="w-full px-4 py-2.5 text-left text-[14px] text-[#DC2626] flex items-center gap-3"
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#DC2626"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
                       <path d="M3 6h18" />
                       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
                       <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
@@ -375,20 +462,43 @@ export function NotePage() {
           <div className="flex items-center gap-2">
             {note.isAIGenerated ? (
               <div className="flex items-center rounded-sm py-0.5 px-2 bg-[#FEE2E2]">
-                <span className={`text-[10px] leading-3.5 text-[#DC2626] font-red-hat font-bold`}>AI</span>
+                <span
+                  className={`text-[10px] leading-3.5 text-[#DC2626] font-red-hat font-bold`}
+                >
+                  AI
+                </span>
               </div>
             ) : (
               <div className="flex items-center rounded-sm py-0.5 px-2 bg-[#DBEAFE]">
-                <span className={`text-[10px] leading-3.5 text-[#2563EB] font-red-hat font-semibold`}>Manual</span>
+                <span
+                  className={`text-[10px] leading-3.5 text-[#2563EB] font-red-hat font-semibold`}
+                >
+                  Manual
+                </span>
               </div>
             )}
             <div className="flex items-center rounded-sm py-0.5 px-2 gap-1 bg-[#F5F5F4]">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" stroke="#78716C" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                <path
+                  d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+                  stroke="#78716C"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
               </svg>
-              <span className={`text-[10px] leading-3.5 text-[#78716C] font-red-hat font-semibold`}>Work Notes</span>
+              <span
+                className={`text-[10px] leading-3.5 text-[#78716C] font-red-hat font-semibold`}
+              >
+                Work Notes
+              </span>
             </div>
-            <span className={`text-[12px] leading-4 text-[#A8A29E] font-red-hat`}>{dateLabel}</span>
+            <span
+              className={`text-[12px] leading-4 text-[#A8A29E] font-red-hat`}
+            >
+              {dateLabel}
+            </span>
           </div>
 
           {/* Title (editable, auto-wrapping) */}
@@ -411,15 +521,26 @@ export function NotePage() {
           />
 
           {/* Source conversation */}
-          {sourceLabel && (
-            <div className="flex items-center gap-2">
+          {sourceLabel && sourceConversation && (
+            <button className="flex items-center gap-2 active:opacity-70 transition-opacity">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="#A8A29E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path
+                  d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+                  stroke="#A8A29E"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
-              <span className={`text-[13px] leading-[18px] text-[#78716C] font-red-hat font-medium`}>
+              <span
+                onClick={() =>
+                  setLocation(`/conversation/${sourceConversation.id}`)
+                }
+                className={`text-[13px] leading-[18px] text-[#78716C] font-red-hat font-medium underline underline-offset-2 decoration-[#D6D3D1]`}
+              >
                 {sourceLabel}
               </span>
-            </div>
+            </button>
           )}
         </div>
 
@@ -430,15 +551,14 @@ export function NotePage() {
         {note.isAIGenerated && parsed?.summary && (
           <div className="flex flex-col gap-2.5 px-6">
             <div className="flex items-center gap-2">
-              <span className={`text-[11px] tracking-[0.08em] uppercase leading-3.5 text-[#A8A29E] font-red-hat font-bold`}>
+              <span
+                className={`text-[11px] tracking-[0.08em] uppercase leading-3.5 text-[#A8A29E] font-red-hat font-bold`}
+              >
                 Summary
               </span>
-              
             </div>
           </div>
         )}
-
-
 
         {/* Inline TipTap editor — always visible, always editable */}
         <div className="px-6 pt-0 pb-32">
@@ -476,7 +596,16 @@ export function NotePage() {
                 editor.isActive("bold") ? "bg-[#F5F5F4]" : ""
               }`}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={editor.isActive("bold") ? "#1C1917" : "#71717A"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke={editor.isActive("bold") ? "#1C1917" : "#71717A"}
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
                 <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
               </svg>
@@ -488,7 +617,16 @@ export function NotePage() {
                 editor.isActive("italic") ? "bg-[#F5F5F4]" : ""
               }`}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={editor.isActive("italic") ? "#1C1917" : "#71717A"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke={editor.isActive("italic") ? "#1C1917" : "#71717A"}
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <line x1="19" y1="4" x2="10" y2="4" />
                 <line x1="14" y1="20" x2="5" y2="20" />
                 <line x1="15" y1="4" x2="9" y2="20" />
@@ -496,12 +634,27 @@ export function NotePage() {
             </button>
             {/* Heading */}
             <button
-              onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+              onClick={() =>
+                editor.chain().focus().toggleHeading({ level: 2 }).run()
+              }
               className={`flex items-center justify-center rounded-[10px] shrink-0 size-10 ${
                 editor.isActive("heading", { level: 2 }) ? "bg-[#F5F5F4]" : ""
               }`}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={editor.isActive("heading", { level: 2 }) ? "#1C1917" : "#71717A"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke={
+                  editor.isActive("heading", { level: 2 })
+                    ? "#1C1917"
+                    : "#71717A"
+                }
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path d="M4 12h8" />
                 <path d="M4 18V6" />
                 <path d="M12 18V6" />
@@ -515,7 +668,16 @@ export function NotePage() {
                 editor.isActive("bulletList") ? "bg-[#F5F5F4]" : ""
               }`}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={editor.isActive("bulletList") ? "#1C1917" : "#71717A"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke={editor.isActive("bulletList") ? "#1C1917" : "#71717A"}
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <line x1="8" y1="6" x2="21" y2="6" />
                 <line x1="8" y1="12" x2="21" y2="12" />
                 <line x1="8" y1="18" x2="21" y2="18" />
@@ -526,7 +688,16 @@ export function NotePage() {
             </button>
             {/* Link (placeholder) */}
             <button className="flex items-center justify-center rounded-[10px] shrink-0 size-10">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#71717A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#71717A"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
               </svg>
@@ -542,15 +713,22 @@ export function NotePage() {
           <Drawer.Content className="bg-[#FAFAF9] flex flex-col rounded-t-2xl mt-24 fixed bottom-0 left-0 right-0 z-50 max-w-lg mx-auto outline-none border-t border-[#E7E5E4]">
             <div className="mx-auto w-12 h-1.5 shrink-0 rounded-full bg-[#D6D3D1] mt-4 mb-2" />
             <div className="px-6 pb-8 pt-4">
-              <Drawer.Title className={`text-lg font-semibold text-[#1C1917] text-center font-red-hat`}>
+              <Drawer.Title
+                className={`text-lg font-semibold text-[#1C1917] text-center font-red-hat`}
+              >
                 Delete Note?
               </Drawer.Title>
-              <Drawer.Description className={`text-sm text-[#A8A29E] text-center mt-3 font-red-hat`}>
-                This action cannot be undone. The note will be permanently deleted.
+              <Drawer.Description
+                className={`text-sm text-[#A8A29E] text-center mt-3 font-red-hat`}
+              >
+                This action cannot be undone. The note will be permanently
+                deleted.
               </Drawer.Description>
               <div className="flex gap-3 mt-6">
                 <Drawer.Close asChild>
-                  <button className={`flex-1 py-3 rounded-xl font-medium bg-[#F5F5F4] text-[#78716C] font-red-hat`}>
+                  <button
+                    className={`flex-1 py-3 rounded-xl font-medium bg-[#F5F5F4] text-[#78716C] font-red-hat`}
+                  >
                     Cancel
                   </button>
                 </Drawer.Close>

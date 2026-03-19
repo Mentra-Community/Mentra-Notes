@@ -75,7 +75,7 @@ export function ConversationDetailPage() {
     return conversations.find((c) => c.id === id) ?? null;
   }, [session?.conversation?.conversations, id]);
 
-  const isActive = conversation?.status === "active";
+  const isActive = conversation?.status === "active" || conversation?.status === "paused";
 
   // Live segments filtered to this conversation's time range
   const liveSegments = useMemo(() => {
@@ -118,27 +118,16 @@ export function ConversationDetailPage() {
   // Speaker map for ended conversation segments
   const endedSpeakerMap = useMemo(() => buildSpeakerMap(endedSegments), [endedSegments]);
 
+  const linkedNote = conversation.noteId
+    ? (session?.notes?.notes ?? []).find((n) => n.id === conversation.noteId)
+    : null;
+
   const handleBack = () => {
     setLocation("/");
   };
 
-  const handleGenerateNote = async () => {
-    if (!session?.notes) return;
-    const firstChunk = chunks[0];
-    const lastChunk = chunks[chunks.length - 1];
-    const note = await session.notes.generateNote(
-      conversation.title || undefined,
-      firstChunk ? new Date(firstChunk.startTime) : undefined,
-      lastChunk ? new Date(lastChunk.endTime) : undefined,
-    );
-    // Link the note to this conversation
-    if (note?.id && session?.conversation) {
-      await session.conversation.linkNoteToConversation(conversation.id, note.id);
-    }
-    // Navigate to the note
-    if (note?.id) {
-      setLocation(`/note/${note.id}`);
-    }
+  const handleGenerateNote = () => {
+    setLocation(`/conversation/${conversation.id}/generating`);
   };
 
   return (
@@ -226,16 +215,35 @@ export function ConversationDetailPage() {
             conversation.noteId ? (
               <button
                 onClick={() => setLocation(`/note/${conversation.noteId}`)}
-                className="flex items-center justify-center w-full h-14 rounded-2xl bg-[#1C1917] shrink-0 active:scale-[0.98] transition-transform"
+                className="flex items-center justify-between w-full rounded-xl py-3.5 px-4 bg-[#F5F5F4] active:scale-[0.98] transition-transform mt-4"
               >
-                <span className={`text-[16px] leading-5 text-[#FAFAF9] font-red-hat font-semibold`}>
-                  Go to Note
-                </span>
+                <div className="flex items-center gap-2.5">
+                  <div className="flex items-center justify-center shrink-0 rounded-lg bg-[#FEE2E2] size-8">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[#1C1917] font-red-hat font-semibold text-sm leading-[18px] truncate max-w-45">
+                        {linkedNote?.title || "View Note"}
+                      </span>
+                      
+                    </div>
+                    <span className="text-[#A8A29E] font-red-hat text-xs leading-4 text-left">
+                      AI Generated · {linkedNote?.date || conversation.date}
+                    </span>
+                  </div>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
               </button>
             ) : (
               <button
                 onClick={handleGenerateNote}
-                className="flex items-center justify-center w-full h-14 rounded-2xl bg-[#1C1917] shrink-0 active:scale-[0.98] transition-transform"
+                className="flex items-center justify-center w-full h-14 rounded-2xl bg-[#1C1917] shrink-0 active:scale-[0.98] transition-transform mt-4"
               >
                 <span className={`text-[16px] leading-5 text-[#FAFAF9] font-red-hat font-semibold`}>
                   Generate Note

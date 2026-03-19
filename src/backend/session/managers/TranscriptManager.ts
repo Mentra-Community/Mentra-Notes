@@ -67,6 +67,15 @@ export class TranscriptManager extends SyncedManager {
   private _forceFinalizedWordCount = 0;
   private _pendingForceFinalize = false; // true = threshold hit, waiting for next word to complete
   private _pendingForceFinalizeSnapshot = 0; // word count when threshold was hit
+  private _onForceFinalize: ((text: string) => void) | null = null;
+
+  /**
+   * Register a callback for when interim text is force-finalized.
+   * Used by NotesSession to feed force-finalized text into ChunkBuffer.
+   */
+  onForceFinalize(cb: (text: string) => void): void {
+    this._onForceFinalize = cb;
+  }
 
   // ===========================================================================
   // Private Helpers
@@ -323,6 +332,11 @@ export class TranscriptManager extends SyncedManager {
     };
 
     this.segments.mutate((s) => s.push(segment));
+
+    // Notify ChunkBuffer when force-finalizing so it gets the text
+    if (isForceFinalize && this._onForceFinalize) {
+      this._onForceFinalize(segment.text);
+    }
 
     // Notify FileManager and update availableDates
     const today = this.getTimeManager().today();

@@ -318,16 +318,28 @@ Rules:
                   .map((c) => (c as any).text)
                   .join("");
 
+          // Parse title — try multiple patterns since LLM format varies
           const titleMatch = responseText.match(
-            /TITLE:\s*(.+?)(?:\n|CONTENT:)/s,
+            /TITLE:\s*(.+?)(?:\r?\n|CONTENT:)/s,
+          ) || responseText.match(
+            /^#\s*(.+?)$/m,
           );
           const contentMatch = responseText.match(/CONTENT:\s*([\s\S]+)$/);
 
-          if (titleMatch && !title) {
-            generatedTitle = titleMatch[1].trim();
+          if (titleMatch?.[1]?.trim()) {
+            const parsed = titleMatch[1].trim().replace(/^["']|["']$/g, "");
+            if (!title) {
+              generatedTitle = parsed;
+            }
           }
           if (contentMatch) {
             summary = contentMatch[1].trim();
+          } else if (!contentMatch && responseText.includes("<")) {
+            // LLM skipped CONTENT: prefix, try to extract HTML directly
+            const htmlStart = responseText.indexOf("<");
+            if (htmlStart !== -1) {
+              summary = responseText.substring(htmlStart).trim();
+            }
           }
 
         } catch (error) {
@@ -347,7 +359,7 @@ Rules:
 
       const note: NoteData = {
         id: `note_${Date.now()}`,
-        title: generatedTitle || `Note - ${now.toLocaleTimeString()}`,
+        title: generatedTitle || title || `Note - ${now.toLocaleTimeString()}`,
         content: summary || `<p>${transcriptText.substring(0, 500)}...</p>`,
         summary: "",
         date: transcriptDate,

@@ -79,7 +79,18 @@ export class TriageClassifier {
     }
 
     // -----------------------------------------------------------------------
-    // Stage 2b: LLM classification
+    // Stage 2b: Fast-track chunks with enough words as meaningful (skip LLM)
+    // -----------------------------------------------------------------------
+    if (chunk.wordCount >= 10) {
+      console.log(
+        `[Triage] Chunk #${chunk.chunkIndex}: meaningful (fast-track, ${chunk.wordCount} words)`,
+      );
+      await updateChunkClassification(chunk._id!.toString(), "meaningful");
+      return "meaningful";
+    }
+
+    // -----------------------------------------------------------------------
+    // Stage 2c: LLM classification (only for short/ambiguous chunks)
     // -----------------------------------------------------------------------
     if (!this.provider) {
       // No LLM → conservative: treat as meaningful

@@ -37,7 +37,7 @@ export const ConversationRow = memo(function ConversationRow({
   onDelete,
   isLast = false,
 }: ConversationRowProps) {
-  const isActive = conversation.status === "active";
+  const isActive = conversation.status === "active" || conversation.status === "paused";
   const startTime = new Date(conversation.startTime);
   const duration = getDurationMinutes(conversation);
   const x = useMotionValue(0);
@@ -168,11 +168,7 @@ export const ConversationRow = memo(function ConversationRow({
           <div className={`text-[16px] leading-5 font-red-hat font-semibold truncate ${
             conversation.title ? "text-[#1C1917]" : "text-[#A8A29E] italic"
           }`}>
-            {conversation.title
-              ? conversation.title
-              : conversation.status === "ended" && !conversation.generatingSummary
-                ? "Untitled Conversation"
-                : "Generating title..."}
+            {conversation.title || "New Conversation"}
           </div>
           <div className="flex items-center gap-2">
             {isActive ? (

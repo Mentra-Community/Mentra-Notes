@@ -41,6 +41,8 @@ export function NotesPage() {
 
   const notes = session?.notes?.notes ?? [];
   const conversations = session?.conversation?.conversations ?? [];
+  const transcriptionPaused = session?.settings?.transcriptionPaused ?? false;
+  const isMicActive = !transcriptionPaused;
 
   // Build a map of conversation titles by date for "From: ..." labels
   const conversationTitleMap = useMemo(() => {
@@ -112,8 +114,29 @@ export function NotesPage() {
       <div className="flex h-full flex-col bg-[#FAFAF9] relative overflow-hidden">
         {/* Header */}
         <div className="flex flex-col pt-3 gap-2 px-6 shrink-0">
-          <div className={`text-[11px] tracking-widest uppercase leading-3.5 text-[#DC2626] font-red-hat font-bold`}>
-            MENTRA NOTES
+          <div className="flex items-center gap-2">
+            <div className={`text-[11px] tracking-widest uppercase leading-3.5 text-[#DC2626] font-red-hat font-bold`}>
+              MENTRA NOTES
+            </div>
+            <div className={`flex items-center gap-1 h-full px-1 rounded ${isMicActive ? 'bg-[#FEF2F2]' : 'bg-[#F5F5F4]'}`}>
+              <div className={`shrink-0 rounded-full size-1.75 ${isMicActive ? 'bg-[#DC2626] animate-pulse' : 'bg-[#A8A29E]'}`} />
+              {isMicActive ? (
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                </svg>
+              ) : (
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="1" y1="1" x2="23" y2="23" />
+                  <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
+                  <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.13 1.49-.35 2.17" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                </svg>
+              )}
+            </div>
           </div>
           <div className="flex items-end justify-between">
             <div className="flex flex-col gap-0.5">
@@ -238,8 +261,29 @@ export function NotesPage() {
     <div className="flex h-full flex-col bg-[#FAFAF9] relative overflow-hidden">
       {/* Header */}
       <div className="flex flex-col pt-3 gap-2 px-6 shrink-0">
-        <div className={`text-[11px] tracking-widest uppercase leading-3.5 text-[#DC2626] font-red-hat font-bold`}>
-          Mentra Notes
+        <div className="flex items-center gap-2">
+          <div className={`text-[11px] tracking-widest uppercase leading-3.5 text-[#DC2626] font-red-hat font-bold`}>
+            Mentra Notes
+          </div>
+          <div className={`flex items-center gap-1 h-full px-1 rounded ${isMicActive ? 'bg-[#FEF2F2]' : 'bg-[#F5F5F4]'}`}>
+            <div className={`shrink-0 rounded-full size-1.75 ${isMicActive ? 'bg-[#DC2626] animate-pulse' : 'bg-[#A8A29E]'}`} />
+            {isMicActive ? (
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" y1="19" x2="12" y2="23" />
+                <line x1="8" y1="23" x2="16" y2="23" />
+              </svg>
+            ) : (
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="1" y1="1" x2="23" y2="23" />
+                <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
+                <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.13 1.49-.35 2.17" />
+                <line x1="12" y1="19" x2="12" y2="23" />
+                <line x1="8" y1="23" x2="16" y2="23" />
+              </svg>
+            )}
+          </div>
         </div>
         <div className="flex items-end justify-between">
           <div className="flex flex-col gap-0.5">

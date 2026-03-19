@@ -61,6 +61,12 @@ export class NotesSession extends SyncedSession {
     if (!this._pipelineWired) {
       this._pipelineWired = true;
       this.conversation.wireChunkBuffer(this.chunkBuffer);
+
+      // When TranscriptManager force-finalizes interim text, feed it into ChunkBuffer
+      this.transcript.onForceFinalize((text) => {
+        this.chunkBuffer.addText(text);
+      });
+
       console.log(`[NotesSession] Auto-notes pipeline wired for ${this.userId}`);
     }
   }

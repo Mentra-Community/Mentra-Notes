@@ -205,12 +205,17 @@ export class ConversationManager extends SyncedManager {
         this.generateProvisionalTitle(conv).catch(() => {});
       }
     } else if (event === "started") {
+      // Set an initial title from the first few words of the summary so the UI is never blank
+      const initialTitle = conv.title || (conv.runningSummary?.trim()
+        ? conv.runningSummary.trim().split(/\s+/).slice(0, 5).join(" ") + "..."
+        : "New Conversation");
+
       // New conversation — build frontend object inline (no DB query needed, conv was just created)
       const frontendConv: Conversation = {
         id: convId,
         userId: conv.userId,
         date: conv.date,
-        title: conv.title || "",
+        title: initialTitle,
         status: conv.status,
         startTime: conv.startTime,
         endTime: conv.endTime,
@@ -224,6 +229,11 @@ export class ConversationManager extends SyncedManager {
       this.conversations.mutate((list) => {
         list.unshift(frontendConv);
       });
+
+      // Persist the initial title so it's never blank in the DB
+      if (!conv.title && initialTitle) {
+        updateConversation(convId, { title: initialTitle }).catch(() => {});
+      }
     } else {
       // For paused/resumed/ended — do the full conversion (status change, need chunks)
       const frontendConv = await this.toFrontendConversation(conv);
@@ -425,13 +435,29 @@ ${transcript}
     const now = new Date();
     await updateConversation(activeId, { status: "ended", endTime: now });
 
-    // Update frontend state immediately
+    // Build a temporary conv object to extract segments before the tracker is cleared
+    const tempConv = {
+      startTime: undefined as Date | undefined,
+      endTime: now,
+      status: "ended" as const,
+    };
+    // Find the start time from the existing frontend conversation
+    const existingConv = (this.conversations as unknown as Conversation[]).find((c) => c.id === activeId);
+    if (existingConv) {
+      tempConv.startTime = existingConv.startTime;
+    }
+
+    // Get transcript segments for this conversation's time range
+    const segments = this.getSegmentsForConversation(tempConv as any);
+
+    // Update frontend state immediately — include segments so they don't disappear
     this.conversations.mutate((list) => {
       const idx = list.findIndex((c) => c.id === activeId);
       if (idx >= 0) {
         list[idx].status = "ended";
         list[idx].endTime = now;
         list[idx].generatingSummary = true;
+        list[idx].segments = segments;
       }
     });
 
