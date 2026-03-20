@@ -24,7 +24,7 @@ export function Shell({ children }: ShellProps) {
   const activeTab: Tab =
     location === "/" ? "conversations" :
     location.startsWith("/search") ? "search" :
-    location.startsWith("/notes") || location.startsWith("/note/") ? "notes" :
+    location.startsWith("/notes") || location.startsWith("/note/") || location.startsWith("/collections") || location.startsWith("/folder/") ? "notes" :
     location.startsWith("/settings") ? "settings" :
     "conversations";
 

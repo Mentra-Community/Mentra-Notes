@@ -7,7 +7,7 @@
  * - Live preview card with conversation title and summary preview
  */
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useLocation, useParams } from "wouter";
 import { useMentraAuth } from "@mentra/react";
 import { format } from "date-fns";
@@ -28,7 +28,7 @@ export function GeneratingNotePage() {
   const { session } = useSynced<SessionI>(userId || "");
   const [, setLocation] = useLocation();
   const [activeStep, setActiveStep] = useState(0);
-  const [generationStarted, setGenerationStarted] = useState(false);
+  const generationStartedRef = useRef(false);
   const [progressPercent, setProgressPercent] = useState(0);
 
   const conversation = useMemo(() => {
@@ -49,77 +49,78 @@ export function GeneratingNotePage() {
     }
   }, [conversation?.date]);
 
-  // Build speaker list from segments
-  const speakers = useMemo(() => {
-    if (!conversation?.segments) return [];
-    const seen = new Map<string, boolean>();
-    for (const seg of conversation.segments) {
-      const id = seg.speakerId ?? "default";
-      if (!seen.has(id)) seen.set(id, true);
-    }
-    return Array.from(seen.keys());
-  }, [conversation?.segments]);
 
-  // Animate steps forward — random delay between 500ms and 3s per step
+  // Track whether the API has finished so checkmarks can catch up
+  const [generateDone, setGenerateDone] = useState(false);
+  const generatedNoteId = useRef<string | null>(null);
+
+  // Start generation immediately on mount (in parallel with checkmark animations)
   useEffect(() => {
-    if (activeStep >= 4) return;
-    // Steps 0-2 auto-advance with random timing, step 3 (Generate) waits for API
-    if (activeStep >= 3) return;
-    const delay = Math.random() * 2500 + 500; // 500ms – 3000ms
+    if (!session?.notes || !conversation || generationStartedRef.current) return;
+    generationStartedRef.current = true;
+
+    const firstChunk = chunks[0];
+    const lastChunk = chunks[chunks.length - 1];
+
+    (async () => {
+      try {
+        const note = await session.notes.generateNote(
+          conversation.title || undefined,
+          firstChunk ? new Date(firstChunk.startTime) : undefined,
+          lastChunk ? new Date(lastChunk.endTime) : undefined,
+        );
+        if (note?.id && session?.conversation) {
+          await session.conversation.linkNoteToConversation(conversation.id, note.id);
+        }
+        generatedNoteId.current = note?.id || null;
+        setGenerateDone(true);
+      } catch {
+        setLocation(`/conversation/${id}`);
+      }
+    })();
+  }, [session, conversation, chunks, id, setLocation]);
+
+  // Animate steps forward — random delay between 500ms and 2s per step
+  // Steps 0-2 animate on their own schedule; step 3 waits for API to finish
+  useEffect(() => {
+    if (activeStep >= 5) return;
+    // Step 3 (Generate) — only advance once API is done
+    if (activeStep === 3) {
+      if (!generateDone) return;
+      const timer = setTimeout(() => setActiveStep(4), 400);
+      return () => clearTimeout(timer);
+    }
+    // Step 4 (Safety Pass) — quick finish then navigate
+    if (activeStep === 4) {
+      const timer = setTimeout(() => {
+        setProgressPercent(100);
+        setActiveStep(5);
+        if (generatedNoteId.current) {
+          setTimeout(() => setLocation(`/note/${generatedNoteId.current}`), 600);
+        }
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+    // Steps 0-2 — cosmetic animation
+    const delay = Math.random() * 1500 + 500; // 500ms – 2000ms
     const timer = setTimeout(() => setActiveStep((s) => s + 1), delay);
     return () => clearTimeout(timer);
-  }, [activeStep]);
+  }, [activeStep, generateDone, setLocation]);
 
-  // Animate progress bar
+  // Animate progress bar — starts immediately
   useEffect(() => {
-    if (activeStep < 3) return;
     const interval = setInterval(() => {
       setProgressPercent((p) => {
-        if (p >= 90) {
+        const cap = generateDone ? 100 : 90;
+        if (p >= cap) {
           clearInterval(interval);
-          return 90;
+          return cap;
         }
         return p + Math.random() * 8 + 2;
       });
     }, 300);
     return () => clearInterval(interval);
-  }, [activeStep]);
-
-  // Start generation when we reach the Generate step
-  const doGenerate = useCallback(async () => {
-    if (!session?.notes || !conversation || generationStarted) return;
-    setGenerationStarted(true);
-
-    const firstChunk = chunks[0];
-    const lastChunk = chunks[chunks.length - 1];
-
-    try {
-      const note = await session.notes.generateNote(
-        conversation.title || undefined,
-        firstChunk ? new Date(firstChunk.startTime) : undefined,
-        lastChunk ? new Date(lastChunk.endTime) : undefined,
-      );
-      if (note?.id && session?.conversation) {
-        await session.conversation.linkNoteToConversation(conversation.id, note.id);
-      }
-      // Complete progress
-      setProgressPercent(100);
-      setActiveStep(5); // All done
-      // Navigate to note after brief pause
-      if (note?.id) {
-        setTimeout(() => setLocation(`/note/${note.id}`), 600);
-      }
-    } catch {
-      // On error, go back
-      setLocation(`/conversation/${id}`);
-    }
-  }, [session, conversation, chunks, generationStarted, id, setLocation]);
-
-  useEffect(() => {
-    if (activeStep >= 3 && !generationStarted) {
-      doGenerate();
-    }
-  }, [activeStep, generationStarted, doGenerate]);
+  }, [generateDone]);
 
   if (!session || !conversation) {
     return (
@@ -218,18 +219,6 @@ export function GeneratingNotePage() {
           <div className="text-[#1C1917] font-red-hat font-bold text-[15px] leading-[18px]">
             {conversation.title || "Untitled Conversation"}
           </div>
-          {speakers.length > 0 && (
-            <div className="flex items-center gap-1 flex-wrap">
-              {speakers.slice(0, 4).map((speaker, i) => (
-                <div key={speaker} className="flex items-center gap-1">
-                  <div className={`size-1.5 rounded-sm shrink-0 ${i === 0 ? "bg-[#1C1917]" : "bg-[#A8A29E]"}`} />
-                  <span className="text-[#78716C] font-red-hat text-[11px] leading-3.5">
-                    {speaker === "default" ? "Speaker" : speaker}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Summary preview */}

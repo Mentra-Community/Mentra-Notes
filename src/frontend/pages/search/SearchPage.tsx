@@ -352,10 +352,82 @@ export function SearchPage() {
         {/* Empty / No results */}
         {!isSearching && hasSearched && filteredResults.length === 0 && (
           <div className="flex flex-col items-center justify-center flex-1 min-h-[300px] gap-3">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#D6D3D1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
+                          <svg width="140" height="130" viewBox="0 0 140 130" fill="none">
+                <circle cx="30" cy="90" r="3" fill="#D94F3B66" />
+                <circle cx="38" cy="90" r="3" fill="#D94F3B66" />
+                <circle cx="46" cy="90" r="3" fill="#D94F3B66" />
+                <circle cx="54" cy="90" r="3" fill="#D94F3B66" />
+                <circle cx="62" cy="90" r="3" fill="#D94F3B66" />
+                <circle cx="70" cy="90" r="3" fill="#D94F3B66" />
+                <circle cx="78" cy="90" r="3" fill="#D94F3B66" />
+                <circle cx="86" cy="90" r="3" fill="#D94F3B66" />
+                <circle cx="94" cy="90" r="3" fill="#D94F3B66" />
+                <circle cx="102" cy="90" r="3" fill="#D94F3B66" />
+                <circle cx="110" cy="90" r="3" fill="#D94F3B66" />
+                <circle cx="30" cy="58" r="3" fill="#D94F3B59" />
+                <circle cx="38" cy="58" r="3" fill="#D94F3B59" />
+                <circle cx="46" cy="58" r="3" fill="#D94F3B59" />
+                <circle cx="54" cy="58" r="3" fill="#D94F3B59" />
+                <circle cx="62" cy="58" r="3" fill="#D94F3B59" />
+                <circle cx="70" cy="58" r="3" fill="#D94F3B59" />
+                <circle cx="70" cy="66" r="2.5" fill="#D94F3B59" />
+                <circle cx="70" cy="74" r="2" fill="#D94F3B59" />
+                <circle cx="70" cy="82" r="2.5" fill="#D94F3B59" />
+
+                <circle cx="78" cy="58" r="3" fill="#D94F3B59" />
+                <circle cx="86" cy="58" r="3" fill="#D94F3B59" />
+                <circle cx="94" cy="58" r="3" fill="#D94F3B59" />
+                <circle cx="102" cy="58" r="3" fill="#D94F3B59" />
+                <circle cx="110" cy="58" r="3" fill="#D94F3B59" />
+                <circle cx="30" cy="66" r="3" fill="#D94F3B59" />
+                <circle cx="30" cy="74" r="3" fill="#D94F3B59" />
+                <circle cx="30" cy="82" r="3" fill="#D94F3B59" />
+                <circle cx="110" cy="66" r="3" fill="#D94F3B59" />
+                <circle cx="110" cy="74" r="3" fill="#D94F3B59" />
+                <circle cx="110" cy="82" r="3" fill="#D94F3B59" />
+                <circle cx="25" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="33" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="41" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="49" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="57" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="65" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="20" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="28" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="36" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="44" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="52" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="60" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="15" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="23" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="31" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="39" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="47" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="55" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="75" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="83" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="91" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="99" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="107" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="115" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="80" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="88" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="96" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="104" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="112" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="120" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="85" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="93" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="101" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="109" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="117" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="125" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="46" cy="68" r="2" fill="#D94F3B0F" />
+                <circle cx="62" cy="72" r="1.5" fill="#D94F3B0D" />
+                <circle cx="78" cy="66" r="1.5" fill="#D94F3B0D" />
+                <circle cx="55" cy="78" r="1.5" fill="#D94F3B0A" />
+                <circle cx="85" cy="76" r="1.5" fill="#D94F3B0A" />
+                <circle cx="70" cy="82" r="2" fill="#D94F3B0A" />
+              </svg>
             <span className={`text-[14px] text-[#A8A29E] font-red-hat`}>No results found</span>
             <span className={`text-[12px] text-[#D6D3D1] font-red-hat`}>Try a different search term</span>
           </div>

@@ -157,21 +157,44 @@ export class NotesManager extends SyncedManager {
       const dbNotes = await getNotes(userId);
 
       if (dbNotes.length > 0) {
-        const loadedNotes: NoteData[] = dbNotes.map((n) => ({
-          id: n._id?.toString() || `note_${Date.now()}`,
-          title: n.title,
-          content: n.content || n.summary || "",
-          summary: n.summary,
-          date: n.date || this.getTimeManager().toDateString(n.createdAt), // Fallback for old notes without date field
-          isAIGenerated: n.isAIGenerated ?? false,
-          isFavourite: n.isFavourite ?? n.isStarred ?? false,
-          isArchived: n.isArchived ?? false,
-          isTrashed: n.isTrashed ?? false,
-          folderId: n.folderId || null,
-          createdAt: n.createdAt,
-          updatedAt: n.updatedAt,
-          transcriptRange: n.transcriptRange,
-        }));
+        const loadedNotes: NoteData[] = dbNotes.map((n) => {
+          let title = n.title;
+
+          // Recover title for notes corrupted by the old persistNoteUpdate bug
+          if (!title && (n.content || n.summary)) {
+            const html = n.content || n.summary || "";
+            // Try extracting from first heading
+            const headingMatch = html.match(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/i);
+            if (headingMatch?.[1]) {
+              title = headingMatch[1].replace(/<[^>]+>/g, "").trim();
+            } else {
+              // Fall back to first few words of plain text
+              const plainText = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+              title = plainText.split(" ").slice(0, 6).join(" ");
+              if (plainText.split(" ").length > 6) title += "...";
+            }
+            // Persist the recovered title back to DB
+            if (title && n._id) {
+              updateNote(userId, n._id.toString(), { title }).catch(() => {});
+            }
+          }
+
+          return {
+            id: n._id?.toString() || `note_${Date.now()}`,
+            title: title || "",
+            content: n.content || n.summary || "",
+            summary: n.summary,
+            date: n.date || this.getTimeManager().toDateString(n.createdAt),
+            isAIGenerated: n.isAIGenerated ?? false,
+            isFavourite: n.isFavourite ?? n.isStarred ?? false,
+            isArchived: n.isArchived ?? false,
+            isTrashed: n.isTrashed ?? false,
+            folderId: n.folderId || null,
+            createdAt: n.createdAt,
+            updatedAt: n.updatedAt,
+            transcriptRange: n.transcriptRange,
+          };
+        });
 
         this.notes.set(loadedNotes);
         console.log(
@@ -231,15 +254,16 @@ export class NotesManager extends SyncedManager {
     if (!userId) return;
 
     try {
-      await updateNote(userId, noteId, {
-        title: updates.title,
-        summary: updates.summary,
-        content: updates.content,
-        folderId: updates.folderId,
-        isFavourite: updates.isFavourite,
-        isArchived: updates.isArchived,
-        isTrashed: updates.isTrashed,
-      });
+      const dbUpdates: Record<string, unknown> = {};
+      if (updates.title !== undefined) dbUpdates.title = updates.title;
+      if (updates.summary !== undefined) dbUpdates.summary = updates.summary;
+      if (updates.content !== undefined) dbUpdates.content = updates.content;
+      if (updates.folderId !== undefined) dbUpdates.folderId = updates.folderId;
+      if (updates.isFavourite !== undefined) dbUpdates.isFavourite = updates.isFavourite;
+      if (updates.isArchived !== undefined) dbUpdates.isArchived = updates.isArchived;
+      if (updates.isTrashed !== undefined) dbUpdates.isTrashed = updates.isTrashed;
+
+      await updateNote(userId, noteId, dbUpdates);
     } catch (error) {
       console.error("[NotesManager] Failed to update note in DB:", error);
     }
@@ -620,6 +644,14 @@ Rules:
 
     if (userId) {
       await deleteTrashedNotes(userId);
+    }
+
+    // Clear noteId links from conversations that referenced these notes
+    const conversationManager = (this._session as any)?.conversation;
+    if (conversationManager?.clearNoteLink) {
+      for (const note of trashed) {
+        conversationManager.clearNoteLink(note.id);
+      }
     }
 
     this.notes.set((this.notes as unknown as NoteData[]).filter((n) => !n.isTrashed));

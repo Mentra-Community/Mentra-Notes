@@ -20,6 +20,8 @@ interface NoteRowProps {
   onSelect: (note: Note) => void;
   onArchive?: (note: Note) => void;
   onDelete?: (note: Note) => void;
+  archiveLabel?: string;
+  deleteLabel?: string;
   isLast?: boolean;
 }
 
@@ -31,6 +33,8 @@ export const NoteRow = memo(function NoteRow({
   onSelect,
   onArchive,
   onDelete,
+  archiveLabel = "Archive",
+  deleteLabel = "Trash",
   isLast = false,
 }: NoteRowProps) {
   const { x, handlers, handleClick } = useSwipeToReveal({
@@ -56,7 +60,7 @@ export const NoteRow = memo(function NoteRow({
               <rect x="1" y="3" width="22" height="5" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M10 12h4" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            <span className="text-[10px] leading-3 text-white font-red-hat font-semibold">Archive</span>
+            <span className="text-[10px] leading-3 text-white font-red-hat font-semibold">{archiveLabel}</span>
           </div>
         </motion.button>
         <motion.button
@@ -70,7 +74,7 @@ export const NoteRow = memo(function NoteRow({
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            <span className="text-[10px] leading-3 text-white font-red-hat font-semibold">Delete</span>
+            <span className="text-[10px] leading-3 text-white font-red-hat font-semibold">{deleteLabel}</span>
           </div>
         </motion.button>
       </div>

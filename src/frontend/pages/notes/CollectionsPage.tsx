@@ -46,10 +46,9 @@ export function CollectionsPage() {
   }, [notes]);
 
   // Counts for system collections
-  const favoritesCount = 0; // placeholder
-  const archivesCount = 0; // placeholder
-  const trashCount = 0; // placeholder
-  const actionItemsCount = 0; // placeholder
+  const favoritesCount = useMemo(() => notes.filter((n) => n.isFavourite && !n.isTrashed && !n.isArchived).length, [notes]);
+  const archivesCount = useMemo(() => notes.filter((n) => n.isArchived).length, [notes]);
+  const trashCount = useMemo(() => notes.filter((n) => n.isTrashed).length, [notes]);
 
   const handleAddNote = async () => {
     if (!session?.notes?.createManualNote) return;
@@ -71,7 +70,7 @@ export function CollectionsPage() {
 
   const systemCollections = [
     {
-      id: "favorites",
+      id: "favourites",
       label: "Favorites",
       count: favoritesCount,
       icon: (
@@ -81,7 +80,7 @@ export function CollectionsPage() {
       ),
     },
     {
-      id: "archives",
+      id: "archived",
       label: "Archives",
       count: archivesCount,
       icon: (
@@ -103,7 +102,6 @@ export function CollectionsPage() {
         </svg>
       ),
     },
-    
   ];
 
   // Build folder grid with "New Folder" button at the end
@@ -203,7 +201,7 @@ export function CollectionsPage() {
               return (
                 <button
                   key={collection.id}
-                  onClick={() => {/* placeholder */}}
+                  onClick={() => setLocation(`/notes?filter=${collection.id}`)}
                   className={`flex items-center py-3.5 text-left ${
                     !isLast ? "border-b border-b-[#E7E5E4]" : ""
                   }`}

@@ -7,7 +7,7 @@
  */
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useMentraAuth } from "@mentra/react";
 import { AnimatePresence, motion } from "motion/react";
 import { format, isToday, isYesterday } from "date-fns";
@@ -46,10 +46,16 @@ export function NotesPage() {
   const { userId } = useMentraAuth();
   const { session } = useSynced<SessionI>(userId || "");
   const [, setLocation] = useLocation();
+  const search = useSearch();
+  const initialShowFilter = (() => {
+    const f = new URLSearchParams(search).get("filter");
+    if (f === "favourites" || f === "archived" || f === "trash") return f;
+    return "all" as const;
+  })();
   const [activeFilter, setActiveFilter] = useState<NoteFilter>("all");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [sortBy, setSortBy] = useState<NoteSortBy>("recent");
-  const [showFilter, setShowFilter] = useState<NoteShowFilter>("all");
+  const [showFilter, setShowFilter] = useState<NoteShowFilter>(initialShowFilter);
   const [filterLoading, setFilterLoading] = useState(false);
   const filterLoadingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingFilterRef = useRef<{ sortBy: NoteSortBy; showFilter: NoteShowFilter } | null>(null);
@@ -399,46 +405,89 @@ export function NotesPage() {
       </div>
 
       {/* Content */}
-      <div className="flex flex-col flex-1 overflow-y-auto pt-4 px-6 pb-32">
+      <div className="flex flex-col flex-1 pt-4 px-6 pb-32">
         {filterLoading ? (
           <div className="flex flex-col items-center justify-center flex-1">
             <LoadingState size={100} cycleMessages />
           </div>
         ) : filteredNotes.length === 0 ? (
           <div className="flex flex-col items-center justify-center flex-1 gap-5">
-            <svg width="140" height="130" viewBox="0 0 140 130" fill="none">
-              <circle cx="30" cy="90" r="3" fill="#D94F3B66" />
-              <circle cx="38" cy="90" r="3" fill="#D94F3B66" />
-              <circle cx="46" cy="90" r="3" fill="#D94F3B66" />
-              <circle cx="54" cy="90" r="3" fill="#D94F3B66" />
-              <circle cx="62" cy="90" r="3" fill="#D94F3B66" />
-              <circle cx="70" cy="90" r="3" fill="#D94F3B66" />
-              <circle cx="78" cy="90" r="3" fill="#D94F3B66" />
-              <circle cx="86" cy="90" r="3" fill="#D94F3B66" />
-              <circle cx="94" cy="90" r="3" fill="#D94F3B66" />
-              <circle cx="102" cy="90" r="3" fill="#D94F3B66" />
-              <circle cx="110" cy="90" r="3" fill="#D94F3B66" />
-              <circle cx="30" cy="58" r="3" fill="#D94F3B59" />
-              <circle cx="38" cy="58" r="3" fill="#D94F3B59" />
-              <circle cx="46" cy="58" r="3" fill="#D94F3B59" />
-              <circle cx="54" cy="58" r="3" fill="#D94F3B59" />
-              <circle cx="62" cy="58" r="3" fill="#D94F3B59" />
-              <circle cx="70" cy="58" r="3" fill="#D94F3B59" />
-              <circle cx="78" cy="58" r="3" fill="#D94F3B59" />
-              <circle cx="86" cy="58" r="3" fill="#D94F3B59" />
-              <circle cx="94" cy="58" r="3" fill="#D94F3B59" />
-              <circle cx="102" cy="58" r="3" fill="#D94F3B59" />
-              <circle cx="110" cy="58" r="3" fill="#D94F3B59" />
-              <circle cx="30" cy="66" r="3" fill="#D94F3B59" />
-              <circle cx="30" cy="74" r="3" fill="#D94F3B59" />
-              <circle cx="30" cy="82" r="3" fill="#D94F3B59" />
-              <circle cx="110" cy="66" r="3" fill="#D94F3B59" />
-              <circle cx="110" cy="74" r="3" fill="#D94F3B59" />
-              <circle cx="110" cy="82" r="3" fill="#D94F3B59" />
-              <circle cx="70" cy="66" r="2.5" fill="#D94F3B59" />
-              <circle cx="70" cy="74" r="2" fill="#D94F3B59" />
-              <circle cx="70" cy="82" r="2.5" fill="#D94F3B59" />
-            </svg>
+              <svg width="140" height="130" viewBox="0 0 140 130" fill="none">
+                <circle cx="30" cy="90" r="3" fill="#D94F3B66" />
+                <circle cx="38" cy="90" r="3" fill="#D94F3B66" />
+                <circle cx="46" cy="90" r="3" fill="#D94F3B66" />
+                <circle cx="54" cy="90" r="3" fill="#D94F3B66" />
+                <circle cx="62" cy="90" r="3" fill="#D94F3B66" />
+                <circle cx="70" cy="90" r="3" fill="#D94F3B66" />
+                <circle cx="78" cy="90" r="3" fill="#D94F3B66" />
+                <circle cx="86" cy="90" r="3" fill="#D94F3B66" />
+                <circle cx="94" cy="90" r="3" fill="#D94F3B66" />
+                <circle cx="102" cy="90" r="3" fill="#D94F3B66" />
+                <circle cx="110" cy="90" r="3" fill="#D94F3B66" />
+                <circle cx="30" cy="58" r="3" fill="#D94F3B59" />
+                <circle cx="38" cy="58" r="3" fill="#D94F3B59" />
+                <circle cx="46" cy="58" r="3" fill="#D94F3B59" />
+                <circle cx="54" cy="58" r="3" fill="#D94F3B59" />
+                <circle cx="62" cy="58" r="3" fill="#D94F3B59" />
+                <circle cx="70" cy="58" r="3" fill="#D94F3B59" />
+                <circle cx="70" cy="66" r="2.5" fill="#D94F3B59" />
+                <circle cx="70" cy="74" r="2" fill="#D94F3B59" />
+                <circle cx="70" cy="82" r="2.5" fill="#D94F3B59" />
+
+                <circle cx="78" cy="58" r="3" fill="#D94F3B59" />
+                <circle cx="86" cy="58" r="3" fill="#D94F3B59" />
+                <circle cx="94" cy="58" r="3" fill="#D94F3B59" />
+                <circle cx="102" cy="58" r="3" fill="#D94F3B59" />
+                <circle cx="110" cy="58" r="3" fill="#D94F3B59" />
+                <circle cx="30" cy="66" r="3" fill="#D94F3B59" />
+                <circle cx="30" cy="74" r="3" fill="#D94F3B59" />
+                <circle cx="30" cy="82" r="3" fill="#D94F3B59" />
+                <circle cx="110" cy="66" r="3" fill="#D94F3B59" />
+                <circle cx="110" cy="74" r="3" fill="#D94F3B59" />
+                <circle cx="110" cy="82" r="3" fill="#D94F3B59" />
+                <circle cx="25" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="33" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="41" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="49" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="57" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="65" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="20" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="28" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="36" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="44" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="52" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="60" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="15" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="23" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="31" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="39" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="47" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="55" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="75" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="83" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="91" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="99" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="107" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="115" cy="51" r="2.5" fill="#D94F3B38" />
+                <circle cx="80" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="88" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="96" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="104" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="112" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="120" cy="44" r="2.5" fill="#D94F3B29" />
+                <circle cx="85" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="93" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="101" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="109" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="117" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="125" cy="37" r="2" fill="#D94F3B1A" />
+                <circle cx="46" cy="68" r="2" fill="#D94F3B0F" />
+                <circle cx="62" cy="72" r="1.5" fill="#D94F3B0D" />
+                <circle cx="78" cy="66" r="1.5" fill="#D94F3B0D" />
+                <circle cx="55" cy="78" r="1.5" fill="#D94F3B0A" />
+                <circle cx="85" cy="76" r="1.5" fill="#D94F3B0A" />
+                <circle cx="70" cy="82" r="2" fill="#D94F3B0A" />
+              </svg>
             <div className="tracking-[0.01em] text-[#D94F3B8C] font-red-hat font-medium text-[18px] leading-[22px]">
               Nothing found
             </div>
@@ -489,8 +538,10 @@ export function NotesPage() {
                       formatNoteDate={formatNoteDate}
                       stripHtmlAndTruncate={stripHtmlAndTruncate}
                       onSelect={handleSelectNote}
-                      onArchive={isTrashed ? undefined : handleArchiveNote}
+                      onArchive={handleArchiveNote}
                       onDelete={isTrashed ? handlePermanentlyDeleteNote : handleTrashNote}
+                      archiveLabel={note.isArchived ? "Unarchive" : "Archive"}
+                      deleteLabel={isTrashed ? "Delete" : "Trash"}
                       isLast={isLast}
                     />
                   </motion.div>

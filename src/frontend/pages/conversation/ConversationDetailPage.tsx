@@ -289,7 +289,7 @@ export function ConversationDetailPage() {
 
           {/* Generate Note / Go to Note button — only when conversation has ended */}
           {!isActive && (
-            conversation.noteId ? (
+            conversation.noteId && linkedNote ? (
               <button
                 onClick={() => setLocation(`/note/${conversation.noteId}`)}
                 className="flex items-center justify-between w-full rounded-xl py-3.5 px-4 bg-[#F5F5F4] active:scale-[0.98] transition-transform mt-4"
