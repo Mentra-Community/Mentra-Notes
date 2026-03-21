@@ -40,49 +40,60 @@ interface SendNotesEmailRequest {
 }
 
 function buildNoteCardHtml(note: NoteItem, baseUrl: string): string {
-  const badgeBg = note.noteType === "AI Generated" ? "#E8F5E9" : "#E3F2FD";
-  const badgeColor = note.noteType === "AI Generated" ? "#2E7D32" : "#1565C0";
+  // Badge colors matching the app's warm stone design
+  let badgeBg: string, badgeColor: string;
+  if (note.noteType === "AI Generated") {
+    badgeBg = "#FEE2E2"; badgeColor = "#DC2626";
+  } else if (note.noteType === "Conversation") {
+    badgeBg = "#F5F5F4"; badgeColor = "#78716C";
+  } else {
+    badgeBg = "#F5F5F4"; badgeColor = "#78716C";
+  }
+
   const token = generateDownloadToken(note.noteId);
   const downloadBase = `${baseUrl}/api/notes/${note.noteId}/download`;
 
+  // Only show download buttons for actual notes (not conversation summaries)
+  const showDownloads = note.noteType !== "Conversation" && note.noteType !== "Transcript";
+
   return `<tr>
   <td style="padding:0 40px 16px;">
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F7F7F5;border:1px solid #EBEBEB;border-radius:12px;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="table-layout:fixed;background-color:#F5F5F4;border:1px solid #E7E5E4;border-radius:12px;">
       <tr>
-        <td style="padding:28px;">
-          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px;">
+        <td style="padding:28px;word-wrap:break-word;overflow-wrap:break-word;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="table-layout:fixed;margin-bottom:20px;">
             <tr>
               <td>
                 <table cellpadding="0" cellspacing="0" border="0">
                   <tr>
                     <td style="background-color:${badgeBg};border-radius:4px;padding:3px 8px;">
-                      <span style="color:${badgeColor};font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.04em;line-height:14px;text-transform:uppercase;">${note.noteType}</span>
+                      <span style="color:${badgeColor};font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.04em;line-height:14px;text-transform:uppercase;">${note.noteType}</span>
                     </td>
                   </tr>
                 </table>
               </td>
               <td align="right">
-                <span style="color:#999999;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:16px;">${note.noteTimestamp}</span>
+                <span style="color:#A8A29E;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:16px;">${note.noteTimestamp}</span>
               </td>
             </tr>
           </table>
-          <p style="margin:0 0 20px 0;color:#1A1A1A;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;letter-spacing:-0.02em;line-height:28px;">${note.noteTitle}</p>
-          <div style="color:#3A3A3A;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;line-height:22px;">${note.noteContent}</div>
+          <p style="margin:0 0 20px 0;color:#1C1917;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.02em;line-height:28px;word-wrap:break-word;">${note.noteTitle}</p>
+          <div style="color:#78716C;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;line-height:22px;max-width:484px;width:100%;word-wrap:break-word;overflow-wrap:break-word;overflow:hidden;">${note.noteContent}</div>${showDownloads ? `
           <table cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
             <tr>
-              <td align="center" style="background-color:#1A1A1A;border-radius:6px;padding:6px 12px;">
-                <a href="${downloadBase}/pdf?token=${token}" style="color:#FFFFFF;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;font-weight:500;line-height:16px;text-decoration:none;">PDF</a>
+              <td align="center" style="background-color:#1C1917;border-radius:8px;padding:7px 14px;">
+                <a href="${downloadBase}/pdf?token=${token}" style="color:#FAFAF9;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;font-weight:600;line-height:16px;text-decoration:none;">PDF</a>
               </td>
               <td width="6"></td>
-              <td align="center" style="background-color:#1A1A1A;border-radius:6px;padding:6px 12px;">
-                <a href="${downloadBase}/txt?token=${token}" style="color:#FFFFFF;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;font-weight:500;line-height:16px;text-decoration:none;">TXT</a>
+              <td align="center" style="background-color:#1C1917;border-radius:8px;padding:7px 14px;">
+                <a href="${downloadBase}/txt?token=${token}" style="color:#FAFAF9;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;font-weight:600;line-height:16px;text-decoration:none;">TXT</a>
               </td>
               <td width="6"></td>
-              <td align="center" style="background-color:#1A1A1A;border-radius:6px;padding:6px 12px;">
-                <a href="${downloadBase}/docx?token=${token}" style="color:#FFFFFF;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;font-weight:500;line-height:16px;text-decoration:none;">Word</a>
+              <td align="center" style="background-color:#1C1917;border-radius:8px;padding:7px 14px;">
+                <a href="${downloadBase}/docx?token=${token}" style="color:#FAFAF9;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;font-weight:600;line-height:16px;text-decoration:none;">Word</a>
               </td>
             </tr>
-          </table>
+          </table>` : ""}
         </td>
       </tr>
     </table>
@@ -169,14 +180,14 @@ function buildTranscriptRowsHtml(segments: TranscriptEmailSegment[]): string {
       const isLast = i === segments.length - 1;
       const borderStyle = isLast
         ? ""
-        : "border-bottom:1px solid #E8E8E6;";
+        : "border-bottom:1px solid #E7E5E4;";
       return `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="${borderStyle}">
   <tr>
-    <td style="padding:12px 0;vertical-align:top;width:42px;">
-      <span style="color:#999999;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:13px;font-weight:500;line-height:16px;">${escapeHtml(seg.timestamp)}</span>
+    <td style="padding:12px 0;vertical-align:top;width:50px;">
+      <span style="color:#A8A29E;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:13px;font-weight:500;line-height:16px;">${escapeHtml(seg.timestamp)}</span>
     </td>
     <td style="padding:12px 0;vertical-align:top;">
-      <span style="color:#3A3A3A;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;line-height:21px;">${escapeHtml(seg.text)}</span>
+      <span style="color:#1C1917;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;line-height:21px;">${escapeHtml(seg.text)}</span>
     </td>
   </tr>
 </table>`;

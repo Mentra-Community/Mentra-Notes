@@ -658,4 +658,37 @@ Rules:
     console.log(`[NotesManager] Trash emptied: ${trashed.length} notes permanently deleted`);
     return trashed.length;
   }
+
+  // ── Batch operations for multi-select ──
+
+  @rpc
+  async batchFavouriteNotes(noteIds: string[]): Promise<void> {
+    for (const id of noteIds) await this.favouriteNote(id);
+  }
+
+  @rpc
+  async batchTrashNotes(noteIds: string[]): Promise<void> {
+    for (const id of noteIds) await this.trashNote(id);
+  }
+
+  @rpc
+  async batchMoveNotes(noteIds: string[], folderId: string): Promise<void> {
+    for (const id of noteIds) await this.updateNote(id, { folderId });
+  }
+
+  @rpc
+  async exportNotesAsText(noteIds: string[]): Promise<string> {
+    const parts: string[] = [];
+    for (const id of noteIds) {
+      const note = this.notes.find((n) => n.id === id);
+      if (!note) continue;
+      const content = (note.content || "")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      parts.push(`# ${note.title || "Untitled Note"}\n${content}`);
+    }
+    return parts.join("\n\n---\n\n");
+  }
 }

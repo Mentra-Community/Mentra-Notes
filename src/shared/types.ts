@@ -145,6 +145,7 @@ export interface TranscriptManagerI {
     hourSummaries: HourSummary[];
   }>; // Load historical transcript
   loadTodayTranscript(): Promise<void>; // Switch back to today
+  removeDates(dates: string[]): Promise<void>; // Remove dates from availableDates
 }
 
 export interface SummaryManagerI {
@@ -177,6 +178,11 @@ export interface NotesManagerI {
   untrashNote(noteId: string): Promise<void>;
   permanentlyDeleteNote(noteId: string): Promise<void>;
   emptyNoteTrash(): Promise<number>;
+  // Batch operations
+  batchFavouriteNotes(noteIds: string[]): Promise<void>;
+  batchTrashNotes(noteIds: string[]): Promise<void>;
+  batchMoveNotes(noteIds: string[], folderId: string): Promise<void>;
+  exportNotesAsText(noteIds: string[]): Promise<string>;
 }
 
 export interface ChatManagerI {
@@ -279,6 +285,10 @@ export interface ConversationManagerI {
   trashConversation(conversationId: string): Promise<void>;
   untrashConversation(conversationId: string): Promise<void>;
   emptyTrash(): Promise<number>;
+  // Batch operations
+  batchFavouriteConversations(ids: string[]): Promise<void>;
+  batchTrashConversations(ids: string[]): Promise<void>;
+  exportConversationsAsText(ids: string[]): Promise<string>;
 }
 
 export interface FileManagerI {

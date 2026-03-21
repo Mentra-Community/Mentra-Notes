@@ -145,6 +145,14 @@ export function TranscriptPage() {
     historicalSegmentCountRef.current = null;
   }, [dateString]);
 
+  // Check if transcript was deleted for this date
+  const transcriptDeleted = useMemo(() => {
+    if (!dateString || isToday) return false;
+    const files = session?.file?.files ?? [];
+    const file = files.find((f) => f.date === dateString);
+    return file ? (file.isTrashed || !file.hasTranscript) : false;
+  }, [dateString, isToday, session?.file?.files]);
+
   // Timezone-aware segment date helper
   const timezone = session?.settings?.timezone ?? undefined;
   const getSegmentDate = useCallback((timestamp: Date | string): string => {
@@ -268,53 +276,7 @@ export function TranscriptPage() {
           </div>
 
           {/* Right: actions */}
-          <DropdownMenu
-            align="right"
-            trigger={
-              <div className="flex items-center justify-center rounded-full bg-[#F5F5F4] size-[34px]">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <circle cx="8" cy="5" r="1.2" fill="#78716C" />
-                  <circle cx="8" cy="8" r="1.2" fill="#78716C" />
-                  <circle cx="8" cy="11" r="1.2" fill="#78716C" />
-                </svg>
-              </div>
-            }
-            options={[
-              {
-                id: "compact",
-                label: isCompactMode ? "Show full view" : "Compact view",
-                icon: Upload,
-                onClick: toggleCompactMode,
-              },
-              {
-                id: "email-transcript",
-                label: "Email Transcript",
-                icon: Mail,
-                onClick: () => {
-                  if (daySegments.filter((s) => s.isFinal && s.type !== "photo").length === 0) {
-                    alert("No transcript to email");
-                    return;
-                  }
-                  setShowEmailDrawer(true);
-                },
-              },
-              {
-                id: "copy-transcript",
-                label: "Copy to Clipboard",
-                icon: ClipboardCopy,
-                onClick: async () => {
-                  const text = daySegments
-                    .filter((s) => s.isFinal && s.type !== "photo")
-                    .map((s) => {
-                      const time = new Date(s.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-                      return `[${time}] ${s.text}`;
-                    });
-                  if (text.length === 0) { alert("No transcript to copy"); return; }
-                  await navigator.clipboard.writeText(text.join("\n"));
-                },
-              },
-            ]}
-          />
+          
         </div>
       </div>
 
@@ -344,18 +306,34 @@ export function TranscriptPage() {
 
       {/* Transcript content */}
       <div className="flex-1 min-h-0 overflow-hidden px-6">
-        <TranscriptTab
-          segments={daySegments}
-          hourSummaries={hourSummaries}
-          interimText={isToday ? interimText : ""}
-          currentHour={isToday ? currentHour : undefined}
-          dateString={dateString}
-          timezone={timezone}
-          onGenerateSummary={session?.summary?.generateHourSummary}
-          isCompactMode={isCompactMode}
-          isSyncingPhoto={isToday ? isSyncingPhoto : false}
-          isLoading={isDataLoading}
-        />
+        {transcriptDeleted ? (
+          <div className="flex flex-col items-center justify-center h-full gap-3 py-16">
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-[#FEF2F2]">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="15" y1="9" x2="9" y2="15" />
+                <line x1="9" y1="9" x2="15" y2="15" />
+              </svg>
+            </div>
+            <span className="text-[15px] leading-5 text-[#1C1917] font-red-hat font-semibold">Transcript deleted</span>
+            <span className="text-[13px] leading-4 text-[#A8A29E] font-red-hat text-center max-w-[240px]">
+              The transcript data for this day has been permanently deleted.
+            </span>
+          </div>
+        ) : (
+          <TranscriptTab
+            segments={daySegments}
+            hourSummaries={hourSummaries}
+            interimText={isToday ? interimText : ""}
+            currentHour={isToday ? currentHour : undefined}
+            dateString={dateString}
+            timezone={timezone}
+            onGenerateSummary={session?.summary?.generateHourSummary}
+            isCompactMode={isCompactMode}
+            isSyncingPhoto={isToday ? isSyncingPhoto : false}
+            isLoading={isDataLoading}
+          />
+        )}
       </div>
 
       {/* Bottom bar — shown when recording (active or paused) */}

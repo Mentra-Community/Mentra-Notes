@@ -1,6 +1,9 @@
 /**
  * TranscriptList - List of transcript dates for the Transcripts tab.
  * Loads 20 at a time, with more loaded on scroll.
+ *
+ * Supports multi-select mode: shows checkbox per row,
+ * tap toggles selection. Live transcript dates cannot be selected.
  */
 
 import { useState, useRef, useCallback } from "react";
@@ -16,6 +19,15 @@ interface TranscriptListProps {
   isRecording: boolean;
   transcriptionPaused: boolean;
   onSelect: (dateStr: string) => void;
+  /** Multi-select props */
+  isSelecting?: boolean;
+  selectedDates?: Set<string>;
+  onToggleSelect?: (dateStr: string) => void;
+  longPressProps?: (id: string, disabled?: boolean) => {
+    onTouchStart: (e: React.TouchEvent) => void;
+    onTouchEnd: () => void;
+    onTouchMove: () => void;
+  };
 }
 
 export function TranscriptList({
@@ -24,6 +36,10 @@ export function TranscriptList({
   isRecording,
   transcriptionPaused,
   onSelect,
+  isSelecting = false,
+  selectedDates,
+  onToggleSelect,
+  longPressProps,
 }: TranscriptListProps) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const observer = useRef<IntersectionObserver | null>(null);
@@ -33,7 +49,7 @@ export function TranscriptList({
   const hasMore = visibleCount < sorted.length;
 
   const lastItemRef = useCallback(
-    (node: HTMLButtonElement | null) => {
+    (node: HTMLButtonElement | HTMLDivElement | null) => {
       if (observer.current) observer.current.disconnect();
       if (!node || !hasMore) return;
       observer.current = new IntersectionObserver((entries) => {
@@ -73,15 +89,77 @@ export function TranscriptList({
         const hourCount = file?.transcriptHourCount ?? 0;
         const isLive = today && isRecording && !transcriptionPaused;
         const isLast = i === visible.length - 1;
+        const isSelected = selectedDates?.has(dateStr) ?? false;
+        const canSelect = !isLive; // Can't select live transcript
 
+        const lpHandlers = longPressProps?.(dateStr, !canSelect);
+
+        if (isSelecting) {
+          return (
+            <div
+              key={dateStr}
+              ref={isLast ? lastItemRef : undefined}
+              onClick={() => { if (canSelect) onToggleSelect?.(dateStr); }}
+              className={`flex items-center py-4 gap-3 w-full text-left select-none ${
+                isSelected ? "bg-[#FEE2E24D]  " : ""
+              } ${!canSelect ? "opacity-40" : ""} ${
+                i < visible.length - 1 ? "border-b border-[#F5F5F4]" : ""
+              }`}
+            >
+              {/* Checkbox */}
+              {canSelect && (
+                <div
+                  className="shrink-0 overflow-hidden"
+                  style={{ width: 22 }}
+                >
+                  {isSelected ? (
+                    <div className="flex items-center justify-center w-[22px] h-[22px] rounded-md bg-[#DC2626]">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                        <polyline points="6,12 10,16 18,8" stroke="#FAFAF9" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="w-[22px] h-[22px] rounded-md border-2 border-[#D6D3D1]" />
+                  )}
+                </div>
+              )}
+
+              {/* Mic icon */}
+              <div className={`flex items-center justify-center shrink-0 rounded-xl size-10 ${today ? "bg-[#FEE2E2]" : "bg-[#F5F5F4]"}`}>
+                {isLive ? (
+                  <WaveIndicator color="#DC2626" height={16} barWidth={3} gap={2.5} />
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={today ? "#DC2626" : "#78716C"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                    <line x1="12" y1="19" x2="12" y2="23" />
+                    <line x1="8" y1="23" x2="16" y2="23" />
+                  </svg>
+                )}
+              </div>
+              {/* Content */}
+              <div className="flex flex-col grow shrink basis-0 gap-0.5 min-w-0">
+                <span className="text-[15px] leading-5 text-[#1C1917] font-red-hat font-semibold">
+                  {label}
+                </span>
+                <span className="text-[13px] leading-4 text-[#A8A29E] font-red-hat">
+                  {segCount} segments{hourCount > 0 ? ` · ${hourCount} ${hourCount === 1 ? "hour" : "hours"}` : ""}
+                </span>
+              </div>
+            </div>
+          );
+        }
+
+        // Normal mode
         return (
           <button
             key={dateStr}
             ref={isLast ? lastItemRef : undefined}
             onClick={() => onSelect(dateStr)}
-            className={`flex items-center py-4 gap-3 w-full text-left ${
+            className={`flex items-center py-4 gap-3 w-full text-left select-none ${
               i < visible.length - 1 ? "border-b border-[#F5F5F4]" : ""
             }`}
+            {...(lpHandlers || {})}
           >
             {/* Mic icon / Wave indicator */}
             <div className={`flex items-center justify-center shrink-0 rounded-xl size-10 ${today ? "bg-[#FEE2E2]" : "bg-[#F5F5F4]"}`}>

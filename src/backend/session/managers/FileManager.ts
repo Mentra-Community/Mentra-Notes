@@ -735,15 +735,31 @@ export class FileManager extends SyncedManager {
     });
 
     try {
-      // Mutually exclusive: clear favourite and archive when trashing
+      // Delete transcript data permanently (R2 + MongoDB)
+      const currentFile = this.files.find((f) => f.date === date);
+      if (currentFile?.r2Key) {
+        const r2Result = await deleteFromR2({ userId, date });
+        if (!r2Result.success) {
+          console.warn(`[FileManager] Failed to delete R2 for ${date}:`, r2Result.error);
+        } else {
+          console.log(`[FileManager] Deleted R2 transcript for ${date}`);
+        }
+      }
+      await deleteDailyTranscript(userId, date);
+      console.log(`[FileManager] Deleted MongoDB transcript for ${date}`);
+
+      // Mark file as trashed (clear favourite/archive)
       const file = await updateFile(userId, date, {
         isTrashed: true,
         isFavourite: false,
         isArchived: false,
-      });
+        hasTranscript: false,
+        r2Key: undefined,
+        transcriptSegmentCount: 0,
+      } as any);
       if (!file) return null;
 
-      console.log(`[FileManager] Trashed file ${date}, refreshing list (filter: ${this.activeFilter})`);
+      console.log(`[FileManager] Trashed file ${date}, transcript data deleted`);
 
       // Refresh the list based on current filter
       const files = await this.getFilesRpc(this.activeFilter);

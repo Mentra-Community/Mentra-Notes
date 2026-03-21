@@ -12,6 +12,7 @@ import { useMentraAuth } from "@mentra/react";
 import { AnimatePresence, motion } from "motion/react";
 import { format, isToday, isYesterday } from "date-fns";
 import { useSynced } from "../../hooks/useSynced";
+import { useMultiSelect } from "../../hooks/useMultiSelect";
 import type { SessionI, Note } from "../../../shared/types";
 import { NoteRow } from "./NoteRow";
 import { NotesFABMenu } from "./NotesFABMenu";
@@ -22,6 +23,10 @@ import {
 } from "../../components/shared/NotesFilterDrawer";
 import { LoadingState } from "../../components/shared/LoadingState";
 import { BottomDrawer } from "../../components/shared/BottomDrawer";
+import { SelectionHeader } from "../../components/shared/SelectionHeader";
+import { MultiSelectBar, type MultiSelectAction, ExportIcon, MoveIcon, FavoriteIcon, DeleteIcon } from "../../components/shared/MultiSelectBar";
+import { ExportDrawer, type ExportOptions } from "../../components/shared/ExportDrawer";
+import { EmailDrawer } from "../../components/shared/EmailDrawer";
 
 type NoteFilter = "all" | "manual" | "ai";
 
@@ -60,6 +65,11 @@ export function NotesPage() {
   const filterLoadingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingFilterRef = useRef<{ sortBy: NoteSortBy; showFilter: NoteShowFilter } | null>(null);
   const [showEmptyTrashConfirm, setShowEmptyTrashConfirm] = useState(false);
+  const [showExportDrawer, setShowExportDrawer] = useState(false);
+  const [showEmailDrawer, setShowEmailDrawer] = useState(false);
+  const [pendingExportOptions, setPendingExportOptions] = useState<ExportOptions | null>(null);
+
+  const multiSelect = useMultiSelect();
 
   const notes = session?.notes?.notes ?? [];
   const conversations = session?.conversation?.conversations ?? [];
@@ -176,6 +186,139 @@ export function NotesPage() {
       setLocation(`/note/${note.id}`);
     }
   };
+
+  // Exit selection mode on filter change
+  useEffect(() => {
+    multiSelect.cancel();
+  }, [activeFilter, showFilter]);
+
+  // ── Multi-select action handlers ──
+
+  const handleBatchFavourite = useCallback(async () => {
+    if (!session?.notes) return;
+    const selectedNotes = filteredNotes.filter((n) => multiSelect.selectedIds.has(n.id));
+    const allFav = selectedNotes.every((n) => n.isFavourite);
+    for (const note of selectedNotes) {
+      if (allFav) {
+        await session.notes.unfavouriteNote(note.id);
+      } else if (!note.isFavourite) {
+        await session.notes.favouriteNote(note.id);
+      }
+    }
+    multiSelect.cancel();
+  }, [session, multiSelect, filteredNotes]);
+
+  const handleBatchTrash = useCallback(async () => {
+    if (!session?.notes) return;
+    for (const id of multiSelect.selectedIds) {
+      await session.notes.trashNote(id);
+    }
+    multiSelect.cancel();
+  }, [session, multiSelect]);
+
+  /** Build plain text for clipboard export */
+  const buildNotesExportText = useCallback((options: ExportOptions) => {
+    const selectedNotes = filteredNotes.filter((n) => multiSelect.selectedIds.has(n.id));
+    const textParts: string[] = [];
+
+    for (const note of selectedNotes) {
+      if (options.includeContent) {
+        const content = stripHtmlAndTruncate(note.content, 9999);
+        const [year, month, day] = note.date.split("-").map(Number);
+        const dateObj = new Date(year, month - 1, day);
+        const dateLabel = dateObj.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+        const createdAt = note.createdAt ? new Date(note.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "";
+        const typeLabel = note.isAIGenerated ? "AI Generated" : "Manual";
+        const fromConv = note.isAIGenerated ? conversationTitleMap.get(note.date) : null;
+
+        let meta = `Date: ${dateLabel}`;
+        if (createdAt) meta += `\nCreated: ${createdAt}`;
+        meta += `\nType: ${typeLabel}`;
+        if (fromConv) meta += `\nFrom: ${fromConv}`;
+
+        textParts.push(`# ${note.title || "Untitled Note"}\n${meta}\n\n${content}\n`);
+      }
+    }
+    return textParts.join("\n---\n\n");
+  }, [filteredNotes, multiSelect.selectedIds, conversationTitleMap]);
+
+  const handleBatchExport = useCallback(async (options: ExportOptions) => {
+    if (!session?.notes) return;
+
+    if (options.destination === "email") {
+      // Save options and open email drawer
+      setPendingExportOptions(options);
+      setShowEmailDrawer(true);
+      return;
+    }
+
+    // Clipboard
+    const text = buildNotesExportText(options);
+    await navigator.clipboard.writeText(text);
+    multiSelect.cancel();
+  }, [session, multiSelect, buildNotesExportText]);
+
+  const handleEmailSend = useCallback(async (to: string, cc: string) => {
+    const selectedNotes = filteredNotes.filter((n) => multiSelect.selectedIds.has(n.id));
+    if (selectedNotes.length === 0) return;
+
+    const firstNote = selectedNotes[0];
+    const [year, month, day] = firstNote.date.split("-").map(Number);
+    const dateObj = new Date(year, month - 1, day);
+    const sessionDate = dateObj.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    const startTime = firstNote.createdAt
+      ? new Date(firstNote.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+      : "";
+
+    const emailNotes = selectedNotes.map((note) => ({
+      noteId: note.id,
+      noteTimestamp: note.createdAt
+        ? new Date(note.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+        : "",
+      noteTitle: note.title || "Untitled Note",
+      noteContent: note.content || "",
+      noteType: note.isAIGenerated ? "AI Generated" : "Manual",
+    }));
+
+    const ccList = cc ? cc.split(",").filter(Boolean) : undefined;
+
+    const res = await fetch("/api/email/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        to,
+        cc: ccList,
+        sessionDate,
+        sessionStartTime: startTime,
+        sessionEndTime: "",
+        notes: emailNotes,
+      }),
+    });
+
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Failed to send email");
+    multiSelect.cancel();
+  }, [filteredNotes, multiSelect]);
+
+  const noteSelectActions = useMemo((): MultiSelectAction[] => {
+    const actions: MultiSelectAction[] = [
+      { icon: <ExportIcon />, label: "Export", onClick: () => setShowExportDrawer(true) },
+      { icon: <FavoriteIcon />, label: "Favorite", onClick: handleBatchFavourite },
+    ];
+    if (showFilter !== "trash") {
+      actions.push({ icon: <DeleteIcon />, label: "Trash", onClick: handleBatchTrash, variant: "danger" });
+    }
+    return actions;
+  }, [handleBatchFavourite, handleBatchTrash, showFilter]);
+
+  const exportItemLabel = useMemo(() => {
+    if (multiSelect.count === 1) {
+      const note = filteredNotes.find((n) => multiSelect.selectedIds.has(n.id));
+      return note?.title || "Untitled Note";
+    }
+    return `${multiSelect.count} notes selected`;
+  }, [multiSelect.count, multiSelect.selectedIds, filteredNotes]);
 
   const formatNoteDate = (note: Note): string => {
     const [year, month, day] = note.date.split("-").map(Number);
@@ -303,106 +446,118 @@ export function NotesPage() {
   // --- Populated state ---
   return (
     <div className="flex h-full flex-col bg-[#FAFAF9] relative overflow-hidden">
-      {/* Header */}
-      <div className="flex flex-col pt-3 gap-2 px-6 shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="text-[11px] tracking-widest uppercase leading-3.5 text-[#DC2626] font-red-hat font-bold">
-            Mentra Notes
-          </div>
-          <div className={`flex items-center gap-1 h-full px-1 rounded ${isMicActive ? 'bg-[#FEF2F2]' : 'bg-[#F5F5F4]'}`}>
-            <div className={`shrink-0 rounded-full size-1.75 ${isMicActive ? 'bg-[#DC2626] animate-pulse' : 'bg-[#A8A29E]'}`} />
-            {isMicActive ? (
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                <line x1="12" y1="19" x2="12" y2="23" />
-                <line x1="8" y1="23" x2="16" y2="23" />
-              </svg>
-            ) : (
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="1" y1="1" x2="23" y2="23" />
-                <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
-                <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.13 1.49-.35 2.17" />
-                <line x1="12" y1="19" x2="12" y2="23" />
-                <line x1="8" y1="23" x2="16" y2="23" />
-              </svg>
-            )}
-          </div>
+      {/* Header — swaps between normal and selection mode */}
+      {multiSelect.isSelecting ? (
+        <div className="shrink-0 pt-3">
+          <SelectionHeader
+            count={multiSelect.count}
+            onCancel={multiSelect.cancel}
+            onSelectAll={() => multiSelect.selectAll(filteredNotes.map((n) => n.id))}
+          />
         </div>
-        <div className="flex items-end justify-between">
-          <div className="flex flex-col gap-0.5">
-            <div className="text-[30px] tracking-[-0.03em] leading-[34px] text-[#1C1917] font-red-hat font-extrabold">
-              Notes
+      ) : (
+        <div className="flex flex-col pt-3 gap-2 px-6 shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="text-[11px] tracking-widest uppercase leading-3.5 text-[#DC2626] font-red-hat font-bold">
+              Mentra Notes
             </div>
-            <div className="text-[14px] leading-[18px] text-[#A8A29E] font-red-hat">
-              {filteredNotes.length} {filteredNotes.length === 1 ? "note" : "notes"}
+            <div className={`flex items-center gap-1 h-full px-1 rounded ${isMicActive ? 'bg-[#FEF2F2]' : 'bg-[#F5F5F4]'}`}>
+              <div className={`shrink-0 rounded-full size-1.75 ${isMicActive ? 'bg-[#DC2626] animate-pulse' : 'bg-[#A8A29E]'}`} />
+              {isMicActive ? (
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                </svg>
+              ) : (
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="1" y1="1" x2="23" y2="23" />
+                  <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
+                  <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.13 1.49-.35 2.17" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                </svg>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            {/* Filter button */}
-            <button
-              onClick={() => setIsFilterOpen(true)}
-              className="flex items-center justify-center w-[34px] h-[34px] rounded-[10px] bg-[#F5F5F4] shrink-0"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" stroke="#78716C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-            {/* List/Grid toggle */}
-            <div className="flex items-center rounded-[10px] py-[3px] px-[3px] bg-[#F5F5F4]">
-              <div className="flex items-center justify-center w-[34px] h-[30px] rounded-lg bg-[#1C1917] shrink-0">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <line x1="4" y1="6" x2="20" y2="6" stroke="#FAFAF9" strokeWidth="2" strokeLinecap="round" />
-                  <line x1="4" y1="12" x2="20" y2="12" stroke="#FAFAF9" strokeWidth="2" strokeLinecap="round" />
-                  <line x1="4" y1="18" x2="20" y2="18" stroke="#FAFAF9" strokeWidth="2" strokeLinecap="round" />
-                </svg>
+          <div className="flex items-end justify-between">
+            <div className="flex flex-col gap-0.5">
+              <div className="text-[30px] tracking-[-0.03em] leading-[34px] text-[#1C1917] font-red-hat font-extrabold">
+                Notes
               </div>
-              <button onClick={() => setLocation("/collections")} className="flex items-center justify-center w-[34px] h-[30px] rounded-lg shrink-0">
+              <div className="text-[14px] leading-[18px] text-[#A8A29E] font-red-hat">
+                {filteredNotes.length} {filteredNotes.length === 1 ? "note" : "notes"}
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {/* Filter button */}
+              <button
+                onClick={() => setIsFilterOpen(true)}
+                className="flex items-center justify-center w-[34px] h-[34px] rounded-[10px] bg-[#F5F5F4] shrink-0"
+              >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <rect x="3" y="3" width="7" height="7" rx="1" stroke="#78716C" strokeWidth="2" />
-                  <rect x="14" y="3" width="7" height="7" rx="1" stroke="#78716C" strokeWidth="2" />
-                  <rect x="3" y="14" width="7" height="7" rx="1" stroke="#78716C" strokeWidth="2" />
-                  <rect x="14" y="14" width="7" height="7" rx="1" stroke="#78716C" strokeWidth="2" />
+                  <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" stroke="#78716C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
+              {/* List/Grid toggle */}
+              <div className="flex items-center rounded-[10px] py-[3px] px-[3px] bg-[#F5F5F4]">
+                <div className="flex items-center justify-center w-[34px] h-[30px] rounded-lg bg-[#1C1917] shrink-0">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <line x1="4" y1="6" x2="20" y2="6" stroke="#FAFAF9" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="4" y1="12" x2="20" y2="12" stroke="#FAFAF9" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="4" y1="18" x2="20" y2="18" stroke="#FAFAF9" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                </div>
+                <button onClick={() => setLocation("/collections")} className="flex items-center justify-center w-[34px] h-[30px] rounded-lg shrink-0">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <rect x="3" y="3" width="7" height="7" rx="1" stroke="#78716C" strokeWidth="2" />
+                    <rect x="14" y="3" width="7" height="7" rx="1" stroke="#78716C" strokeWidth="2" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" stroke="#78716C" strokeWidth="2" />
+                    <rect x="14" y="14" width="7" height="7" rx="1" stroke="#78716C" strokeWidth="2" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Filter pills */}
-      <div className="flex items-center pt-4 gap-2 px-6 shrink-0 overflow-x-auto">
-        {filters.map((f) => {
-          const isActive = showFilter === "all" && activeFilter === f.key;
-          return (
+      {/* Filter pills — hidden during selection */}
+      {!multiSelect.isSelecting && (
+        <div className="flex items-center pt-4 gap-2 px-6 shrink-0 overflow-x-auto">
+          {filters.map((f) => {
+            const isActive = showFilter === "all" && activeFilter === f.key;
+            return (
+              <button
+                key={f.key}
+                onClick={() => {
+                  setShowFilter("all");
+                  setActiveFilter(f.key);
+                }}
+                className={`flex items-center rounded-[20px] py-[7px] px-4 shrink-0 ${
+                  isActive ? "bg-[#1C1917]" : "bg-[#F5F5F4]"
+                }`}
+              >
+                <span className={`text-[13px] leading-4 font-red-hat ${isActive ? "text-[#FAFAF9] font-semibold" : "text-[#78716C] font-medium"}`}>
+                  {f.label}
+                </span>
+              </button>
+            );
+          })}
+          {/* Show filter tag from drawer (archived/trash) */}
+          {(showFilter === "archived" || showFilter === "trash") && (
             <button
-              key={f.key}
-              onClick={() => {
-                setShowFilter("all");
-                setActiveFilter(f.key);
-              }}
-              className={`flex items-center rounded-[20px] py-[7px] px-4 shrink-0 ${
-                isActive ? "bg-[#1C1917]" : "bg-[#F5F5F4]"
-              }`}
+              onClick={() => setShowFilter("all")}
+              className="flex items-center rounded-[20px] py-[7px] px-4 shrink-0 bg-[#1C1917]"
             >
-              <span className={`text-[13px] leading-4 font-red-hat ${isActive ? "text-[#FAFAF9] font-semibold" : "text-[#78716C] font-medium"}`}>
-                {f.label}
+              <span className="text-[13px] leading-4 text-[#FAFAF9] font-red-hat font-semibold">
+                {showFilter === "archived" ? "Archived" : "Trash"}
               </span>
             </button>
-          );
-        })}
-        {/* Show filter tag from drawer (archived/trash) */}
-        {(showFilter === "archived" || showFilter === "trash") && (
-          <button
-            onClick={() => setShowFilter("all")}
-            className="flex items-center rounded-[20px] py-[7px] px-4 shrink-0 bg-[#1C1917]"
-          >
-            <span className="text-[13px] leading-4 text-[#FAFAF9] font-red-hat font-semibold">
-              {showFilter === "archived" ? "Archived" : "Trash"}
-            </span>
-          </button>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex flex-col flex-1 pt-4 px-6 pb-32">
@@ -543,6 +698,10 @@ export function NotesPage() {
                       archiveLabel={note.isArchived ? "Unarchive" : "Archive"}
                       deleteLabel={isTrashed ? "Delete" : "Trash"}
                       isLast={isLast}
+                      isSelecting={multiSelect.isSelecting}
+                      isSelected={multiSelect.selectedIds.has(note.id)}
+                      onToggleSelect={() => multiSelect.toggleItem(note.id)}
+                      longPressHandlers={multiSelect.longPressProps(note.id)}
                     />
                   </motion.div>
                 );
@@ -552,8 +711,36 @@ export function NotesPage() {
         )}
       </div>
 
-      {/* FAB Menu */}
-      <NotesFABMenu onAddNote={handleAddNote} onAskAI={() => setLocation("/")} onCreateFolder={() => setLocation("/collections")} />
+      {/* FAB Menu — hidden during selection */}
+      {!multiSelect.isSelecting && (
+        <NotesFABMenu onAddNote={handleAddNote} onAskAI={() => setLocation("/")} onCreateFolder={() => setLocation("/collections")} />
+      )}
+
+      {/* Multi-select bottom bar */}
+      <AnimatePresence>
+        {multiSelect.isSelecting && (
+          <MultiSelectBar actions={noteSelectActions} />
+        )}
+      </AnimatePresence>
+
+      {/* Export Drawer */}
+      <ExportDrawer
+        isOpen={showExportDrawer}
+        onClose={() => setShowExportDrawer(false)}
+        itemType="note"
+        itemLabel={exportItemLabel}
+        count={multiSelect.count}
+        onExport={handleBatchExport}
+      />
+
+      {/* Email Drawer (opened after ExportDrawer selects "email") */}
+      <EmailDrawer
+        isOpen={showEmailDrawer}
+        onClose={() => { setShowEmailDrawer(false); setPendingExportOptions(null); }}
+        onSend={handleEmailSend}
+        defaultEmail={userId || ""}
+        itemLabel={multiSelect.count === 1 ? "Note" : `${multiSelect.count} Notes`}
+      />
 
       {/* Filter Drawer */}
       <NotesFilterDrawer

@@ -673,6 +673,29 @@ ${transcript}
     });
   }
 
+  // ── Batch operations for multi-select ──
+
+  @rpc
+  async batchFavouriteConversations(ids: string[]): Promise<void> {
+    for (const id of ids) await this.favouriteConversation(id);
+  }
+
+  @rpc
+  async batchTrashConversations(ids: string[]): Promise<void> {
+    for (const id of ids) await this.trashConversation(id);
+  }
+
+  @rpc
+  async exportConversationsAsText(ids: string[]): Promise<string> {
+    const parts: string[] = [];
+    for (const id of ids) {
+      const conv = (this.conversations as unknown as Conversation[]).find((c) => c.id === id);
+      if (!conv) continue;
+      parts.push(`# ${conv.title || "Untitled Conversation"}\n${conv.aiSummary || conv.runningSummary || "No summary available"}`);
+    }
+    return parts.join("\n\n---\n\n");
+  }
+
   // =========================================================================
   // Helpers
   // =========================================================================

@@ -143,8 +143,23 @@ export class TranscriptManager extends SyncedManager {
       // Merge and dedupe dates, always include today, sort descending
       const allDates = Array.from(new Set([today, ...mongoDbDates, ...r2Dates]));
       allDates.sort((a, b) => b.localeCompare(a));
-      console.log(`[TranscriptManager] All available dates:`, allDates);
-      this.availableDates.set(allDates);
+
+      // Filter out trashed dates (check FileManager)
+      const fileManager = (this._session as any)?.file;
+      let visibleDates = allDates;
+      if (fileManager) {
+        try {
+          const { getFiles } = await import("../../models/file.model");
+          const trashedFiles = await getFiles(userId, { isTrashed: true });
+          const trashedDateSet = new Set(trashedFiles.map((f: any) => f.date));
+          visibleDates = allDates.filter((d) => !trashedDateSet.has(d));
+        } catch {
+          // If query fails, show all dates
+        }
+      }
+
+      console.log(`[TranscriptManager] All available dates:`, visibleDates);
+      this.availableDates.set(visibleDates);
 
       console.log(
         `[TranscriptManager] ========================================`,
@@ -615,6 +630,14 @@ export class TranscriptManager extends SyncedManager {
     this.interimText = "";
     this.segmentIndex = 0;
     this.getSummaryManager()?.clear();
+  }
+
+  @rpc
+  async removeDates(dates: string[]): Promise<void> {
+    const dateSet = new Set(dates);
+    this.availableDates.set(
+      (this.availableDates as unknown as string[]).filter((d) => !dateSet.has(d))
+    );
   }
 
 }

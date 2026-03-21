@@ -339,7 +339,7 @@ export function SettingsPage() {
           {/* Version */}
           <div className="mt-12 text-center">
             <p className="text-sm text-zinc-400 dark:text-zinc-500">
-              Mentra Notes v1.0.3
+              Mentra Notes v3.0.0
             </p>
           </div>
         </div>

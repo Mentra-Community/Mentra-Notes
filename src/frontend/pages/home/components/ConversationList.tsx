@@ -17,6 +17,15 @@ interface ConversationListProps {
   onSelectConversation: (conversation: Conversation) => void;
   onArchive?: (conversation: Conversation) => void;
   onDelete?: (conversation: Conversation) => void;
+  /** Multi-select props */
+  isSelecting?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
+  longPressProps?: (id: string, disabled?: boolean) => {
+    onTouchStart: (e: React.TouchEvent) => void;
+    onTouchEnd: () => void;
+    onTouchMove: () => void;
+  };
 }
 
 interface DayGroup {
@@ -33,6 +42,10 @@ export function ConversationList({
   onSelectConversation,
   onArchive,
   onDelete,
+  isSelecting = false,
+  selectedIds,
+  onToggleSelect,
+  longPressProps,
 }: ConversationListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -134,7 +147,7 @@ export function ConversationList({
   const hasMore = visibleCount < conversations.length;
 
   return (
-    <div ref={scrollRef} className="h-full overflow-y-auto px-6 pb-32">
+    <div ref={scrollRef} className="h-full overflow-y-auto pb-32">
       {groups.map((group) => (
         <div key={group.key}>
           {/* Day section header */}
@@ -158,7 +171,7 @@ export function ConversationList({
                   animate={{ opacity: 1, y: 0, height: "auto" }}
                   exit={{ opacity: 0, height: 0, marginTop: 0, marginBottom: 0 }}
                   transition={{ duration: 0.25, ease: "easeOut" }}
-                  style={{ overflow: "hidden" }}
+                  style={{ overflow: "visible" }}
                 >
                   <ConversationRow
                     conversation={conv}
@@ -166,6 +179,10 @@ export function ConversationList({
                     onArchive={onArchive}
                     onDelete={onDelete}
                     isLast={i === group.conversations.length - 1}
+                    isSelecting={isSelecting}
+                    isSelected={selectedIds?.has(conv.id) ?? false}
+                    onToggleSelect={() => onToggleSelect?.(conv.id)}
+                    longPressHandlers={longPressProps?.(conv.id, conv.status !== "ended")}
                   />
                 </motion.div>
               );

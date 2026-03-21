@@ -5,7 +5,7 @@
  * Supports both mobile and desktop views.
  */
 
-import { useState, useEffect, createContext, useContext } from "react";
+import { useState, useEffect, useRef, createContext, useContext } from "react";
 import { motion } from "framer-motion";
 import { useLocation } from "wouter";
 import { useMentraAuth } from "@mentra/react";
@@ -50,15 +50,17 @@ export function App() {
   // Redirect to onboarding on app open (controlled by feature flag + onboardingCompleted)
   const { enabled: showOnboarding, loaded: flagsLoaded } = useFeatureFlag(FLAGS.FRONTEND_ONBOARD, true);
   const [onboardingResolved, setOnboardingResolved] = useState(false);
+  const onboardingResolvedRef = useRef(false);
   useEffect(() => {
+    // Once resolved, never re-check (prevents re-trigger on reconnect)
+    if (onboardingResolvedRef.current) return;
     if (!flagsLoaded) return;
-    // Wait for session settings to be hydrated before checking
-    // onboardingCompleted is undefined until settings load from DB
     if (session?.settings?.onboardingCompleted === undefined) return;
     const alreadyCompleted = session.settings.onboardingCompleted === true;
     if (showOnboarding && !alreadyCompleted) {
       navigate("/onboarding");
     }
+    onboardingResolvedRef.current = true;
     setOnboardingResolved(true);
   }, [showOnboarding, flagsLoaded, session?.settings?.onboardingCompleted]);
 

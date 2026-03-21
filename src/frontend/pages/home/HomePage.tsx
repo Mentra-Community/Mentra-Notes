@@ -14,7 +14,9 @@ import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useMentraAuth } from "@mentra/react";
 import { ChevronLeft } from "lucide-react";
+import { AnimatePresence } from "motion/react";
 import { useSynced } from "../../hooks/useSynced";
+import { useMultiSelect } from "../../hooks/useMultiSelect";
 import type { SessionI, Conversation } from "../../../shared/types";
 import type { DailyFolder } from "./components/FolderList";
 import {
@@ -31,6 +33,10 @@ import { TranscriptList } from "./components/TranscriptList";
 import { Drawer } from "vaul";
 import { HomePageSkeleton } from "../../components/shared/SkeletonLoader";
 import { LoadingState } from "../../components/shared/LoadingState";
+import { SelectionHeader } from "../../components/shared/SelectionHeader";
+import { MultiSelectBar, type MultiSelectAction, ExportIcon, FavoriteIcon, DeleteIcon } from "../../components/shared/MultiSelectBar";
+import { ExportDrawer, type ExportOptions } from "../../components/shared/ExportDrawer";
+import { EmailDrawer } from "../../components/shared/EmailDrawer";
 
 export function HomePage() {
   const { userId } = useMentraAuth();
@@ -75,6 +81,19 @@ export function HomePage() {
     }, 150);
     return () => clearTimeout(swap);
   }, [activeTimeFilter]);
+
+  // Multi-select state (one for conversations, one for transcripts)
+  const convSelect = useMultiSelect();
+  const transcriptSelect = useMultiSelect();
+  const [showConvExportDrawer, setShowConvExportDrawer] = useState(false);
+  const [showTranscriptExportDrawer, setShowTranscriptExportDrawer] = useState(false);
+  const [showConvEmailDrawer, setShowConvEmailDrawer] = useState(false);
+  const [pendingConvExportOptions, setPendingConvExportOptions] = useState<ExportOptions | null>(null);
+  const [showTranscriptEmailDrawer, setShowTranscriptEmailDrawer] = useState(false);
+  const pendingTranscriptTextRef = useRef("");
+  const pendingTranscriptDatesRef = useRef<string[]>([]);
+  const [showTranscriptDeleteConfirm, setShowTranscriptDeleteConfirm] = useState(false);
+  const [transcriptDeleteWarning, setTranscriptDeleteWarning] = useState("");
 
   // Derive data from session
   const files = session?.file?.files ?? [];
@@ -356,6 +375,371 @@ export function HomePage() {
     [session?.conversation],
   );
 
+  // Exit selection on tab/filter change
+  useEffect(() => {
+    convSelect.cancel();
+  }, [timeFilter, convShowFilter]);
+
+  useEffect(() => {
+    convSelect.cancel();
+    transcriptSelect.cancel();
+  }, [renderedFilter]);
+
+  // ── Conversation multi-select handlers ──
+
+  const handleConvBatchFavourite = useCallback(async () => {
+    if (!session?.conversation) return;
+    const selectedConvs = filteredConversations.filter((c) => convSelect.selectedIds.has(c.id));
+    const allFav = selectedConvs.every((c) => c.isFavourite);
+    for (const conv of selectedConvs) {
+      if (allFav) {
+        await session.conversation.unfavouriteConversation(conv.id);
+      } else if (!conv.isFavourite) {
+        await session.conversation.favouriteConversation(conv.id);
+      }
+    }
+    convSelect.cancel();
+  }, [session, convSelect, filteredConversations]);
+
+  const handleConvBatchTrash = useCallback(async () => {
+    if (!session?.conversation) return;
+    for (const id of convSelect.selectedIds) {
+      await session.conversation.trashConversation(id);
+    }
+    convSelect.cancel();
+  }, [session, convSelect]);
+
+  /** Build plain text for clipboard export */
+  const buildConvExportText = useCallback(async (options: ExportOptions) => {
+    const selectedConvs = filteredConversations.filter((c) => convSelect.selectedIds.has(c.id));
+    const textParts: string[] = [];
+
+    for (const conv of selectedConvs) {
+      const parts: string[] = [];
+
+      const startDate = new Date(conv.startTime);
+      const dateLabel = startDate.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+      const startTimeLabel = startDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+      const endTimeLabel = conv.endTime
+        ? new Date(conv.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+        : "ongoing";
+      const durationMin = conv.endTime
+        ? Math.round((new Date(conv.endTime).getTime() - startDate.getTime()) / 60000)
+        : null;
+
+      if (options.includeContent) {
+        let meta = `Date: ${dateLabel}\nTime: ${startTimeLabel} – ${endTimeLabel}`;
+        if (durationMin !== null) meta += ` (${durationMin} min)`;
+        parts.push(`# ${conv.title || "Untitled Conversation"}\n${meta}\n\n${conv.aiSummary || conv.runningSummary || "No summary"}`);
+      }
+
+      if (options.includeTranscript) {
+        let transcriptText = "";
+        try {
+          if (session?.conversation?.loadConversationSegments) {
+            const segments = await session.conversation.loadConversationSegments(conv.id);
+            if (segments && segments.length > 0) {
+              transcriptText = segments
+                .map((s) => {
+                  const time = new Date(s.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+                  return `[${time}] ${s.text}`;
+                })
+                .join("\n");
+            }
+          }
+        } catch { /* fallback below */ }
+        if (!transcriptText && conv.chunks && conv.chunks.length > 0) {
+          transcriptText = conv.chunks.map((c) => c.text).join("\n\n");
+        }
+        if (transcriptText) parts.push(`\n## Transcript\n${transcriptText}`);
+      }
+
+      if (options.includeLinkedNote && conv.noteId) {
+        const linkedNote = notes.find((n) => n.id === conv.noteId);
+        if (linkedNote) {
+          const noteContent = (linkedNote.content || "")
+            .replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+          const noteCreated = linkedNote.createdAt
+            ? new Date(linkedNote.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+            : "";
+          parts.push(`\n## AI Note: ${linkedNote.title || "Untitled Note"}${noteCreated ? `\nGenerated: ${noteCreated}` : ""}\n\n${noteContent}`);
+        }
+      }
+
+      if (parts.length > 0) textParts.push(parts.join("\n"));
+    }
+    return textParts.join("\n\n---\n\n");
+  }, [filteredConversations, convSelect.selectedIds, notes, session]);
+
+  const handleConvBatchExport = useCallback(async (options: ExportOptions) => {
+    if (options.destination === "email") {
+      setPendingConvExportOptions(options);
+      setShowConvEmailDrawer(true);
+      return;
+    }
+
+    // Clipboard
+    const text = await buildConvExportText(options);
+    await navigator.clipboard.writeText(text);
+    convSelect.cancel();
+  }, [convSelect, buildConvExportText]);
+
+  const handleConvEmailSend = useCallback(async (to: string, cc: string) => {
+    const selectedConvs = filteredConversations.filter((c) => convSelect.selectedIds.has(c.id));
+    if (selectedConvs.length === 0) return;
+    const options = pendingConvExportOptions;
+
+    // Build notes array from conversations (using linked AI notes as the email note cards)
+    const emailNotes: Array<{
+      noteId: string;
+      noteTimestamp: string;
+      noteTitle: string;
+      noteContent: string;
+      noteType: string;
+    }> = [];
+
+    for (const conv of selectedConvs) {
+      const startDate = new Date(conv.startTime);
+      const timestamp = startDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+
+      // Build content parts based on toggled options
+      const contentParts: string[] = [];
+
+      if (options?.includeContent) {
+        contentParts.push(conv.aiSummary || conv.runningSummary || "No summary available");
+      }
+
+      if (options?.includeTranscript && conv.chunks && conv.chunks.length > 0) {
+        const transcriptText = conv.chunks.map((c) => c.text).join("\n\n");
+        contentParts.push(`<h3>Transcript</h3><p>${transcriptText.replace(/\n/g, "<br/>")}</p>`);
+      }
+
+      if (options?.includeLinkedNote && conv.noteId) {
+        const linkedNote = notes.find((n) => n.id === conv.noteId);
+        if (linkedNote) {
+          contentParts.push(`<h3>AI Note: ${linkedNote.title || "Untitled"}</h3>${linkedNote.content || ""}`);
+        }
+      }
+
+      if (contentParts.length > 0) {
+        emailNotes.push({
+          noteId: conv.noteId || conv.id,
+          noteTimestamp: timestamp,
+          noteTitle: conv.title || "Untitled Conversation",
+          noteContent: contentParts.join("<hr/>"),
+          noteType: "Conversation",
+        });
+      }
+    }
+
+    if (emailNotes.length === 0) return;
+
+    const firstConv = selectedConvs[0];
+    const sessionDate = new Date(firstConv.startTime).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    const startTime = new Date(firstConv.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    const endTime = firstConv.endTime
+      ? new Date(firstConv.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+      : "";
+
+    const ccList = cc ? cc.split(",").filter(Boolean) : undefined;
+
+    const res = await fetch("/api/email/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        to,
+        cc: ccList,
+        sessionDate,
+        sessionStartTime: startTime,
+        sessionEndTime: endTime,
+        notes: emailNotes,
+      }),
+    });
+
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Failed to send email");
+    convSelect.cancel();
+  }, [filteredConversations, convSelect, notes, pendingConvExportOptions]);
+
+  const convSelectActions = useMemo((): MultiSelectAction[] => {
+    const actions: MultiSelectAction[] = [
+      { icon: <ExportIcon />, label: "Export", onClick: () => setShowConvExportDrawer(true) },
+      { icon: <FavoriteIcon />, label: "Favorite", onClick: handleConvBatchFavourite },
+    ];
+    if (convShowFilter !== "trash") {
+      actions.push({ icon: <DeleteIcon />, label: "Trash", onClick: handleConvBatchTrash, variant: "danger" });
+    }
+    return actions;
+  }, [handleConvBatchFavourite, handleConvBatchTrash, convShowFilter]);
+
+  const convExportLabel = useMemo(() => {
+    if (convSelect.count === 1) {
+      const conv = filteredConversations.find((c) => convSelect.selectedIds.has(c.id));
+      return conv?.title || "Untitled Conversation";
+    }
+    return `${convSelect.count} conversations selected`;
+  }, [convSelect.count, convSelect.selectedIds, filteredConversations]);
+
+  const convMissingNoteCount = useMemo(() => {
+    const selectedConvs = filteredConversations.filter((c) => convSelect.selectedIds.has(c.id));
+    return selectedConvs.filter((c) => !c.noteId).length;
+  }, [convSelect.selectedIds, filteredConversations]);
+
+  // ── Transcript multi-select handlers ──
+
+  const handleTranscriptBatchExport = useCallback(async (options: ExportOptions) => {
+    if (!session?.transcript) return;
+
+    const selectedDates = [...transcriptSelect.selectedIds];
+    const textParts: string[] = [];
+
+    for (const dateStr of selectedDates) {
+      try {
+        const result = await session.transcript.loadDateTranscript(dateStr);
+        if (result?.segments && result.segments.length > 0) {
+          const [year, month, day] = dateStr.split("-").map(Number);
+          const dateObj = new Date(year, month - 1, day);
+          const dateLabel = dateObj.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+
+          const segmentLines = result.segments.map((s) => {
+            const time = new Date(s.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+            return `[${time}] ${s.text}`;
+          }).join("\n");
+
+          textParts.push(`# Transcript — ${dateLabel}\n${segmentLines}`);
+        }
+      } catch (err) {
+        console.error(`Failed to load transcript for ${dateStr}:`, err);
+      }
+    }
+
+    const text = textParts.join("\n\n---\n\n");
+
+    if (options.destination === "email") {
+      // Store text for email handler, open email drawer
+      pendingTranscriptTextRef.current = text;
+      pendingTranscriptDatesRef.current = selectedDates;
+      setShowTranscriptEmailDrawer(true);
+      return;
+    }
+
+    await navigator.clipboard.writeText(text);
+    transcriptSelect.cancel();
+  }, [transcriptSelect, session]);
+
+  const handleTranscriptEmailSend = useCallback(async (to: string, cc: string) => {
+    const dates = pendingTranscriptDatesRef.current;
+    if (dates.length === 0 || !session?.transcript) return;
+
+    // Build one note card per date so each transcript day is its own section
+    const emailNotes: Array<{
+      noteId: string;
+      noteTimestamp: string;
+      noteTitle: string;
+      noteContent: string;
+      noteType: string;
+    }> = [];
+
+    let sessionDate = "";
+    let firstStart = "";
+    let lastEnd = "";
+
+    for (const dateStr of dates) {
+      const result = await session.transcript.loadDateTranscript(dateStr);
+      if (!result?.segments?.length) continue;
+
+      const [year, month, day] = dateStr.split("-").map(Number);
+      const dateObj = new Date(year, month - 1, day);
+      const dateLabel = dateObj.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+      if (!sessionDate) sessionDate = dateObj.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
+      const segmentLines = result.segments.map((s) => {
+        const time = new Date(s.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+        if (!firstStart) firstStart = time;
+        lastEnd = time;
+        return `<tr><td style="color:#A8A29E;font-size:13px;padding:4px 12px 4px 0;vertical-align:top;white-space:nowrap;">${time}</td><td style="color:#1C1917;font-size:14px;line-height:21px;padding:4px 0;">${s.text}</td></tr>`;
+      }).join("");
+
+      const segCount = result.segments.length;
+      const startTime = new Date(result.segments[0].timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+      const endTime = new Date(result.segments[result.segments.length - 1].timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+
+      emailNotes.push({
+        noteId: `transcript-${dateStr}`,
+        noteTimestamp: `${startTime} — ${endTime}`,
+        noteTitle: dateLabel,
+        noteContent: `<p style="margin:0 0 12px;color:#A8A29E;font-size:12px;">${segCount} segments</p><table cellpadding="0" cellspacing="0" border="0" width="100%">${segmentLines}</table>`,
+        noteType: "Transcript",
+      });
+    }
+
+    if (emailNotes.length === 0) return;
+
+    const ccList = cc ? cc.split(",").filter(Boolean) : undefined;
+
+    const res = await fetch("/api/email/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        to,
+        cc: ccList,
+        sessionDate: sessionDate || "Transcripts",
+        sessionStartTime: firstStart,
+        sessionEndTime: lastEnd,
+        notes: emailNotes,
+      }),
+    });
+
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Failed to send email");
+    transcriptSelect.cancel();
+  }, [session, transcriptSelect, userId]);
+
+  const handleTranscriptDeleteRequest = useCallback(() => {
+    const dates = [...transcriptSelect.selectedIds];
+    // Check if any conversations exist on these dates
+    const affectedConvs = conversations.filter((c) => {
+      if (!c.startTime) return false;
+      const convDate = new Date(c.startTime);
+      const convDateStr = `${convDate.getFullYear()}-${String(convDate.getMonth() + 1).padStart(2, "0")}-${String(convDate.getDate()).padStart(2, "0")}`;
+      return dates.includes(convDateStr);
+    });
+
+    if (affectedConvs.length > 0) {
+      setTranscriptDeleteWarning(
+        `${affectedConvs.length} ${affectedConvs.length === 1 ? "conversation" : "conversations"} will lose ${affectedConvs.length === 1 ? "its" : "their"} linked transcript. This cannot be undone.`
+      );
+    } else {
+      setTranscriptDeleteWarning("This will permanently delete the transcript data. This cannot be undone.");
+    }
+    setShowTranscriptDeleteConfirm(true);
+  }, [transcriptSelect.selectedIds, conversations]);
+
+  const handleTranscriptBatchDeleteConfirmed = useCallback(async () => {
+    if (!session?.file) return;
+    const dates = [...transcriptSelect.selectedIds];
+    for (const dateStr of dates) {
+      await session.file.trashFile(dateStr);
+    }
+    await session.transcript?.removeDates(dates);
+    setShowTranscriptDeleteConfirm(false);
+    transcriptSelect.cancel();
+  }, [transcriptSelect, session]);
+
+  const transcriptSelectActions = useMemo(() => [
+    { icon: <ExportIcon />, label: "Export", onClick: () => setShowTranscriptExportDrawer(true) },
+    { icon: <DeleteIcon />, label: "Delete", onClick: handleTranscriptDeleteRequest, variant: "danger" as const },
+  ], [handleTranscriptDeleteRequest]);
+
+  const transcriptExportLabel = useMemo(() => {
+    return `${transcriptSelect.count} transcript${transcriptSelect.count === 1 ? "" : "s"} selected`;
+  }, [transcriptSelect.count]);
+
+  // Which multi-select is active (depends on current tab)
+  const activeSelect = renderedFilter === "conversations" ? convSelect : transcriptSelect;
+
   // --- Loading state ---
   if (!session) {
     return <HomePageSkeleton />;
@@ -581,8 +965,31 @@ export function HomePage() {
   // --- Populated state (conversations list) ---
   return (
     <div className="flex h-full flex-col bg-[#FAFAF9] relative overflow-hidden">
-      {/* Filter loading overlay is rendered inline below */}
-      {/* Header */}
+      {/* Header — swaps between normal and selection mode */}
+      {activeSelect.isSelecting ? (
+        <div className="shrink-0 pt-3">
+          <SelectionHeader
+            count={activeSelect.count}
+            onCancel={activeSelect.cancel}
+            onSelectAll={() => {
+              if (renderedFilter === "conversations") {
+                const selectableIds = filteredConversations
+                  .filter((c) => c.status === "ended")
+                  .map((c) => c.id);
+                convSelect.selectAll(selectableIds);
+              } else {
+                const selectableDates = availableDates.filter((d) => {
+                  const today = new Date();
+                  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+                  const isLive = d === todayStr && isRecording && !transcriptionPaused;
+                  return !isLive;
+                });
+                transcriptSelect.selectAll(selectableDates);
+              }
+            }}
+          />
+        </div>
+      ) : (
       <div
         className="flex flex-col pt-3 gap-3 px-6 shrink-0"
         style={{ opacity: tabOpacity, transition: "opacity 0.15s ease-in-out" }}
@@ -647,8 +1054,11 @@ export function HomePage() {
             <div
               className={`text-[14px] leading-[18px] text-[#A8A29E] font-red-hat`}
             >
-              Today · {todayConversationCount}{" "}
-              {todayConversationCount === 1 ? "conversation" : "conversations"}
+              {renderedFilter === "conversations" ? (
+                <>Today · {todayConversationCount}{" "}{todayConversationCount === 1 ? "conversation" : "conversations"}</>
+              ) : (
+                <>{availableDates.length} {availableDates.length === 1 ? "day" : "days"} of transcripts</>
+              )}
             </div>
           </div>
 
@@ -718,9 +1128,10 @@ export function HomePage() {
           </div>
         </div>
       </div>
+      )}
 
-      {/* Tab switcher */}
-      {renderedFilter === "conversations" && (
+      {/* Tab switcher — hidden during selection */}
+      {!activeSelect.isSelecting && renderedFilter === "conversations" && (
         <div
           className="flex items-center pt-4 gap-2 px-6 shrink-0 overflow-x-auto"
           style={{
@@ -821,7 +1232,7 @@ export function HomePage() {
       )}
 
       {/* Content area — single wrapper fades out/in on tab switch */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden px-6">
         <div
           className="h-full"
           style={{
@@ -830,13 +1241,17 @@ export function HomePage() {
           }}
         >
           {renderedFilter === "transcripts" ? (
-            <div className="h-full overflow-y-auto px-6 pb-32">
+            <div className="h-full overflow-y-auto px-0 pb-32">
               <TranscriptList
                 availableDates={availableDates}
                 files={files}
                 isRecording={isRecording}
                 transcriptionPaused={transcriptionPaused}
                 onSelect={(dateStr) => setLocation(`/transcript/${dateStr}`)}
+                isSelecting={transcriptSelect.isSelecting}
+                selectedDates={transcriptSelect.selectedIds}
+                onToggleSelect={(dateStr) => transcriptSelect.toggleItem(dateStr)}
+                longPressProps={transcriptSelect.longPressProps}
               />
             </div>
           ) : filterLoading ? (
@@ -958,20 +1373,118 @@ export function HomePage() {
                 onSelectConversation={handleSelectConversation}
                 onArchive={handleArchiveConversation}
                 onDelete={handleDeleteConversation}
+                isSelecting={convSelect.isSelecting}
+                selectedIds={convSelect.selectedIds}
+                onToggleSelect={(id) => convSelect.toggleItem(id)}
+                longPressProps={convSelect.longPressProps}
               />
             </>
           )}
         </div>
       </div>
 
-      {/* FAB */}
-      <FABMenu
-        transcriptionPaused={transcriptionPaused}
-        onAskAI={handleGlobalChat}
-        onAddNote={handleAddNote}
-        onStopTranscribing={handleStopTranscribing}
-        onResumeTranscribing={handleResumeTranscribing}
+      {/* FAB — hidden during selection */}
+      {!activeSelect.isSelecting && (
+        <FABMenu
+          transcriptionPaused={transcriptionPaused}
+          onAskAI={handleGlobalChat}
+          onAddNote={handleAddNote}
+          onStopTranscribing={handleStopTranscribing}
+          onResumeTranscribing={handleResumeTranscribing}
+        />
+      )}
+
+      {/* Multi-select bottom bar */}
+      <AnimatePresence>
+        {convSelect.isSelecting && renderedFilter === "conversations" && (
+          <MultiSelectBar actions={convSelectActions} />
+        )}
+        {transcriptSelect.isSelecting && renderedFilter === "transcripts" && (
+          <MultiSelectBar actions={transcriptSelectActions} />
+        )}
+      </AnimatePresence>
+
+      {/* Export Drawers */}
+      <ExportDrawer
+        isOpen={showConvExportDrawer}
+        onClose={() => setShowConvExportDrawer(false)}
+        itemType="conversation"
+        itemLabel={convExportLabel}
+        count={convSelect.count}
+        onExport={handleConvBatchExport}
+        missingNoteCount={convMissingNoteCount}
       />
+      <ExportDrawer
+        isOpen={showTranscriptExportDrawer}
+        onClose={() => setShowTranscriptExportDrawer(false)}
+        itemType="transcript"
+        itemLabel={transcriptExportLabel}
+        count={transcriptSelect.count}
+        onExport={handleTranscriptBatchExport}
+      />
+
+      {/* Email Drawer (opened after ExportDrawer selects "email") */}
+      <EmailDrawer
+        isOpen={showConvEmailDrawer}
+        onClose={() => { setShowConvEmailDrawer(false); setPendingConvExportOptions(null); }}
+        onSend={handleConvEmailSend}
+        defaultEmail={userId || ""}
+        itemLabel={convSelect.count === 1 ? "Conversation" : `${convSelect.count} Conversations`}
+      />
+      <EmailDrawer
+        isOpen={showTranscriptEmailDrawer}
+        onClose={() => setShowTranscriptEmailDrawer(false)}
+        onSend={handleTranscriptEmailSend}
+        defaultEmail={userId || ""}
+        itemLabel={transcriptSelect.count === 1 ? "Transcript" : `${transcriptSelect.count} Transcripts`}
+      />
+
+      {/* Transcript Delete Confirmation */}
+      <Drawer.Root open={showTranscriptDeleteConfirm} onOpenChange={(open) => !open && setShowTranscriptDeleteConfirm(false)}>
+        <Drawer.Portal>
+          <Drawer.Overlay className="fixed inset-0 bg-black/30 backdrop-blur-[6px] z-50" />
+          <Drawer.Content className="flex flex-col rounded-t-[20px] fixed bottom-0 left-0 right-0 z-50 bg-[#FAFAF9] outline-none">
+            <div className="flex justify-center pt-3 pb-4">
+              <div className="w-9 h-1 rounded-xs bg-[#D6D3D1] shrink-0" />
+            </div>
+            <Drawer.Title className="sr-only">Delete Transcripts</Drawer.Title>
+            <Drawer.Description className="sr-only">Confirm transcript deletion</Drawer.Description>
+            <div className="px-6 pb-10">
+              <div className="flex items-center justify-between pb-1">
+                <span className="text-xl leading-[26px] text-[#1C1917] font-red-hat font-extrabold tracking-[-0.02em]">
+                  Delete Transcripts?
+                </span>
+                <button onClick={() => setShowTranscriptDeleteConfirm(false)}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <line x1="18" y1="6" x2="6" y2="18" stroke="#78716C" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="6" y1="6" x2="18" y2="18" stroke="#78716C" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-[14px] leading-5 text-[#78716C] font-red-hat pb-6">
+                {transcriptDeleteWarning}
+              </p>
+              <button
+                onClick={handleTranscriptBatchDeleteConfirmed}
+                className="flex items-center justify-center w-full rounded-xl bg-[#DC2626] p-3.5 mb-3"
+              >
+                <span className="text-[16px] leading-5 text-white font-red-hat font-bold">
+                  Delete Transcripts
+                </span>
+              </button>
+              <button
+                onClick={() => setShowTranscriptDeleteConfirm(false)}
+                className="flex items-center justify-center w-full rounded-xl border border-[#E7E5E4] p-3.5"
+              >
+                <span className="text-[16px] leading-5 text-[#1C1917] font-red-hat font-bold">
+                  Cancel
+                </span>
+              </button>
+            </div>
+            <div className="h-safe-area-bottom" />
+          </Drawer.Content>
+        </Drawer.Portal>
+      </Drawer.Root>
 
       {/* Filter Drawer */}
       <ConversationFilterDrawer

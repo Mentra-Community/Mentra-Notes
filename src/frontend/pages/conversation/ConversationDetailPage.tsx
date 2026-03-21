@@ -136,6 +136,20 @@ export function ConversationDetailPage() {
     ? (session?.notes?.notes ?? []).find((n) => n.id === conversation.noteId)
     : null;
 
+  // Check if transcript was deleted (file exists but no transcript data)
+  const convDate = useMemo(() => {
+    if (!conversation?.startTime) return "";
+    const d = new Date(conversation.startTime);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }, [conversation?.startTime]);
+  const transcriptDeleted = useMemo(() => {
+    if (!convDate || isActive) return false;
+    const files = session?.file?.files ?? [];
+    const file = files.find((f) => f.date === convDate);
+    // Transcript was deleted if file is trashed or has no transcript
+    return file ? (file.isTrashed || !file.hasTranscript) : false;
+  }, [convDate, isActive, session?.file?.files]);
+
   const handleBack = () => {
     setLocation("/");
   };
@@ -165,13 +179,13 @@ export function ConversationDetailPage() {
 
         {/* Share + More buttons */}
         <div className="flex  shrink-0 mt-10 gap-2 ">
-          <button className="p-1">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" stroke="#52525B" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-              <polyline points="16,6 12,2 8,6" stroke="#52525B" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-              <line x1="12" y1="2" x2="12" y2="15" stroke="#52525B" strokeWidth="1.75" strokeLinecap="round" />
-            </svg>
-          </button>
+            {/* <button className="p-1">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" stroke="#52525B" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                <polyline points="16,6 12,2 8,6" stroke="#52525B" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                <line x1="12" y1="2" x2="12" y2="15" stroke="#52525B" strokeWidth="1.75" strokeLinecap="round" />
+              </svg>
+            </button> */}
           <DropdownMenu
             options={(() => {
               const isFav = conversation.isFavourite ?? false;
@@ -424,6 +438,17 @@ export function ConversationDetailPage() {
           ) : loadingSegments ? (
             <div className="flex flex-col items-center justify-center py-8">
               <LoadingState size={80} cycleMessages />
+            </div>
+          ) : transcriptDeleted ? (
+            <div className="flex items-center gap-2 py-3 px-4 rounded-xl bg-[#FEF2F2] border border-[#FEE2E2]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="15" y1="9" x2="9" y2="15" />
+                <line x1="9" y1="9" x2="15" y2="15" />
+              </svg>
+              <span className="text-[13px] leading-4 text-[#DC2626] font-red-hat font-medium">
+                Transcript deleted
+              </span>
             </div>
           ) : (
             <div className={`text-[13px] text-[#A8A29E] font-red-hat`}>
