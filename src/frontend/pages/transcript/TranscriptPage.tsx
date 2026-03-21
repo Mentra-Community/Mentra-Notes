@@ -176,6 +176,15 @@ export function TranscriptPage() {
     return allSegments.filter((s) => s.timestamp && getSegmentDate(s.timestamp) === dateString);
   }, [allSegments, dateString, loadedDate, isDataLoading, isToday, getSegmentDate]);
 
+  const transcriptHourCount = useMemo(() => {
+    const hours = new Set(
+      daySegments
+        .filter((s) => s.isFinal && s.timestamp)
+        .map((s) => new Date(s.timestamp).getHours())
+    );
+    return hours.size;
+  }, [daySegments]);
+
   const handleEmailSend = useCallback(async (to: string, cc: string) => {
     const finalSegments = daySegments
       .filter((s) => s.isFinal && s.type !== "photo")
@@ -250,9 +259,11 @@ export function TranscriptPage() {
                   </div>
                 )} */}
               </div>
-              {/* <span className="text-[14px] leading-[18px] font-red-hat text-[#A8A29E]">
-                {headerSub}
-              </span> */}
+              {transcriptHourCount > 0 && (
+                <span className="text-[14px] leading-[18px] font-red-hat text-[#A8A29E]">
+                  Today · {transcriptHourCount} {transcriptHourCount === 1 ? "hour" : "hours"}
+                </span>
+              )}
             </div>
           </div>
 
@@ -349,7 +360,7 @@ export function TranscriptPage() {
 
       {/* Bottom bar — shown when recording (active or paused) */}
       {isToday && (
-        <div className="flex items-center shrink-0 pt-3.5 pb-4 gap-4 bg-white border-t border-[#F0EEE9] px-6">
+        <div className="flex items-center shrink-0 pt-3.5 pb-5 gap-4 bg-white border-t border-[#F0EEE9] px-6">
           <div className="grow flex flex-col gap-0.5">
             <div className="flex items-center gap-1.5">
               {transcriptionPaused ? (

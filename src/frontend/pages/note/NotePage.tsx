@@ -21,7 +21,10 @@ import Image from "@tiptap/extension-image";
 import { useSynced } from "../../hooks/useSynced";
 import type { SessionI, Note, FolderColor } from "../../../shared/types";
 import { FolderPicker } from "./FolderPicker";
-import { DropdownMenu, type DropdownMenuOption } from "../../components/shared/DropdownMenu";
+import {
+  DropdownMenu,
+  type DropdownMenuOption,
+} from "../../components/shared/DropdownMenu";
 
 const FOLDER_COLOR_MAP: Record<FolderColor, string> = {
   red: "#DC2626",
@@ -362,90 +365,7 @@ export function NotePage() {
             Note
           </span>
         </button>
-        <div className="flex items-center gap-4">
-          {/* Save status */}
-          <span className={`text-[11px] text-[#A8A29E] font-red-hat`}>
-            {isSaving ? "Saving..." : showSaved ? "Saved" : ""}
-          </span>
-          {/* Export button */}
-          <button onClick={() => setShowEmailDrawer(true)} className="p-1">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" stroke="#52525B" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-              <polyline points="16,6 12,2 8,6" stroke="#52525B" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-              <line x1="12" y1="2" x2="12" y2="15" stroke="#52525B" strokeWidth="1.75" strokeLinecap="round" />
-            </svg>
-          </button>
-          {/* More menu */}
-          <DropdownMenu
-            options={(() => {
-              const isFav = note?.isFavourite ?? false;
-              const isArchived = note?.isArchived ?? false;
-              const isTrashed = note?.isTrashed ?? false;
 
-              const items: DropdownMenuOption[] = [
-                {
-                  id: "favourite",
-                  label: isFav ? "Unfavourite" : "Favourite",
-                  icon: (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill={isFav ? "#DC2626" : "none"} stroke={isFav ? "#DC2626" : "#78716C"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                    </svg>
-                  ),
-                  onClick: async () => {
-                    if (!session?.notes || !note) return;
-                    if (isFav) {
-                      await session.notes.unfavouriteNote(note.id);
-                    } else {
-                      await session.notes.favouriteNote(note.id);
-                    }
-                  },
-                },
-                {
-                  id: "archive",
-                  label: isArchived ? "Unarchive" : "Archive",
-                  icon: (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#78716C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 8v13H3V8" />
-                      <rect x="1" y="3" width="22" height="5" rx="1" />
-                      <line x1="10" y1="12" x2="14" y2="12" />
-                    </svg>
-                  ),
-                  onClick: async () => {
-                    if (!session?.notes || !note) return;
-                    if (isArchived) {
-                      await session.notes.unarchiveNote(note.id);
-                    } else {
-                      await session.notes.archiveNote(note.id);
-                    }
-                  },
-                },
-                { type: "divider" },
-                {
-                  id: "trash",
-                  label: isTrashed ? "Untrash" : "Trash",
-                  danger: !isTrashed,
-                  icon: (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={isTrashed ? "#78716C" : "#DC2626"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 6h18" />
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                    </svg>
-                  ),
-                  onClick: async () => {
-                    if (!session?.notes || !note) return;
-                    if (isTrashed) {
-                      await session.notes.untrashNote(note.id);
-                    } else {
-                      await session.notes.trashNote(note.id);
-                      setLocation("/notes");
-                    }
-                  },
-                },
-              ];
-              return items;
-            })()}
-          />
-        </div>
       </div>
 
       {/* Scrollable content */}
@@ -453,7 +373,7 @@ export function NotePage() {
         {/* Meta section */}
         <div className="flex flex-col pt-5 gap-3 px-6">
           {/* Badges row */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex flex-row">
             {note.isAIGenerated ? (
               <div className="flex items-center rounded-sm py-0.5 px-2 bg-[#FEE2E2]">
                 <span
@@ -499,6 +419,137 @@ export function NotePage() {
             >
               {dateLabel}
             </span>
+            <div className="flex items-center gap-4 ml-auto">
+              {/* Save status */}
+              <span className={`text-[11px] text-[#A8A29E] font-red-hat`}>
+                {isSaving ? "Saving..." : showSaved ? "Saved" : ""}
+              </span>
+              {/* Export button */}
+              <button onClick={() => setShowEmailDrawer(true)} className="p-1">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"
+                    stroke="#52525B"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <polyline
+                    points="16,6 12,2 8,6"
+                    stroke="#52525B"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <line
+                    x1="12"
+                    y1="2"
+                    x2="12"
+                    y2="15"
+                    stroke="#52525B"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+              {/* More menu */}
+              <DropdownMenu
+                options={(() => {
+                  const isFav = note?.isFavourite ?? false;
+                  const isArchived = note?.isArchived ?? false;
+                  const isTrashed = note?.isTrashed ?? false;
+
+                  const items: DropdownMenuOption[] = [
+                    {
+                      id: "favourite",
+                      label: isFav ? "Unfavourite" : "Favourite",
+                      icon: (
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill={isFav ? "#DC2626" : "none"}
+                          stroke={isFav ? "#DC2626" : "#78716C"}
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                        </svg>
+                      ),
+                      onClick: async () => {
+                        if (!session?.notes || !note) return;
+                        if (isFav) {
+                          await session.notes.unfavouriteNote(note.id);
+                        } else {
+                          await session.notes.favouriteNote(note.id);
+                        }
+                      },
+                    },
+                    {
+                      id: "archive",
+                      label: isArchived ? "Unarchive" : "Archive",
+                      icon: (
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="#78716C"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M21 8v13H3V8" />
+                          <rect x="1" y="3" width="22" height="5" rx="1" />
+                          <line x1="10" y1="12" x2="14" y2="12" />
+                        </svg>
+                      ),
+                      onClick: async () => {
+                        if (!session?.notes || !note) return;
+                        if (isArchived) {
+                          await session.notes.unarchiveNote(note.id);
+                        } else {
+                          await session.notes.archiveNote(note.id);
+                        }
+                      },
+                    },
+                    { type: "divider" },
+                    {
+                      id: "trash",
+                      label: isTrashed ? "Untrash" : "Trash",
+                      danger: !isTrashed,
+                      icon: (
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke={isTrashed ? "#78716C" : "#DC2626"}
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M3 6h18" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                      ),
+                      onClick: async () => {
+                        if (!session?.notes || !note) return;
+                        if (isTrashed) {
+                          await session.notes.untrashNote(note.id);
+                        } else {
+                          await session.notes.trashNote(note.id);
+                          setLocation("/notes");
+                        }
+                      },
+                    },
+                  ];
+                  return items;
+                })()}
+              />
+            </div>
           </div>
 
           {/* Title (editable, auto-wrapping) */}
@@ -699,7 +750,7 @@ export function NotePage() {
               </svg>
             </button>
             {/* Link (placeholder) */}
-              {/* <button className="flex items-center justify-center rounded-[10px] shrink-0 size-10">
+            {/* <button className="flex items-center justify-center rounded-[10px] shrink-0 size-10">
                 <svg
                   width="18"
                   height="18"

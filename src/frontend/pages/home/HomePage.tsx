@@ -650,14 +650,6 @@ export function HomePage() {
               Today · {todayConversationCount}{" "}
               {todayConversationCount === 1 ? "conversation" : "conversations"}
             </div>
-            {renderedFilter === "transcripts" && availableDates.length > 0 && (
-              <div
-                className={`text-[14px] leading-[18px] text-[#A8A29E] font-red-hat`}
-              >
-                {availableDates.length}{" "}
-                {availableDates.length === 1 ? "day" : "days"} recorded
-              </div>
-            )}
           </div>
 
           <div className="flex items-center gap-2">
