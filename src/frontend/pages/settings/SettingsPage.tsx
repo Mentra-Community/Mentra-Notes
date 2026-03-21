@@ -1,135 +1,55 @@
 /**
  * SettingsPage - App settings and preferences
  *
- * Features:
- * - General settings (Notifications, Data & Storage)
- * - Recording settings (Persistent transcription toggle)
- * - Glasses display mode selector
- * - Preferences (Dark mode toggle)
- * - Auto-detects and sends user timezone
+ * Warm stone design. Shows user profile at top,
+ * then grouped settings sections matching current backend logic.
  */
 
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useMentraAuth } from "@mentra/react";
-import { clsx } from "clsx";
-import {
-  ChevronLeft,
-  ChevronRight,
-  // Bell,
-  // Database,
-  // Glasses,
-  // Check,
-} from "lucide-react";
 import { useSynced } from "../../hooks/useSynced";
-import type { SessionI /*, GlassesDisplayMode */ } from "../../../shared/types";
+import type { SessionI } from "../../../shared/types";
 import { useTheme } from "../../App";
 import { SettingsPageSkeleton } from "../../components/shared/SkeletonLoader";
 
-interface SettingsRowProps {
-  icon?: React.ReactNode;
-  label: string;
-  value?: string;
-  type?: "toggle" | "link" | "none";
-  onClick?: () => void;
-  active?: boolean;
-  disabled?: boolean;
-}
+// ── Toggle Switch (matches ExportDrawer style) ──
 
-function SettingsRow({
-  icon,
-  label,
-  value,
-  type = "none",
-  onClick,
-  active,
-  disabled,
-}: SettingsRowProps) {
+function ToggleSwitch({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled?: boolean }) {
   return (
     <button
-      onClick={disabled ? undefined : onClick}
-      disabled={disabled || type === "none"}
-      className={clsx(
-        "w-full flex items-center justify-between py-4 border-b border-zinc-100 dark:border-zinc-800 transition-colors",
-        disabled && "opacity-50",
-        (type === "link" || type === "toggle") &&
-          !disabled &&
-          "hover:bg-zinc-50 dark:hover:bg-zinc-900/50",
-      )}
+      onClick={disabled ? undefined : onChange}
+      disabled={disabled}
+      className={`w-11 h-[26px] flex items-center rounded-[13px] shrink-0 p-0.5 transition-colors duration-200 ${
+        disabled ? "opacity-50" : ""
+      } ${checked ? "bg-[#2563EB] justify-end" : "bg-[#E7E5E4] justify-start"}`}
     >
-      <div className="flex items-center gap-3">
-        {icon && (
-          <span className="text-zinc-400 dark:text-zinc-500">{icon}</span>
-        )}
-        <span className="text-base font-medium text-zinc-900 dark:text-zinc-100">
-          {label}
-        </span>
-      </div>
-
-      <div className="flex items-center gap-3">
-        {value && (
-          <span className="text-sm text-zinc-500 dark:text-zinc-400">
-            {value}
-          </span>
-        )}
-
-        {type === "toggle" && (
-          <div
-            className={clsx(
-              "w-11 h-6 rounded-full p-0.5 relative transition-colors",
-              disabled ? "cursor-not-allowed" : "cursor-pointer",
-              active
-                ? "bg-zinc-900 dark:bg-white"
-                : "bg-zinc-200 dark:bg-zinc-700",
-            )}
-          >
-            <div
-              className={clsx(
-                "w-5 h-5 rounded-full bg-white dark:bg-black shadow-sm transition-transform",
-                active && "translate-x-5",
-              )}
-            />
-          </div>
-        )}
-
-        {type === "link" && (
-          <ChevronRight
-            size={18}
-            className="text-zinc-300 dark:text-zinc-600"
-          />
-        )}
-      </div>
+      <div className="w-[22px] h-[22px] rounded-[11px] bg-[#FAFAF9] shrink-0" />
     </button>
   );
 }
 
-// interface DisplayModeOption {
-//   value: GlassesDisplayMode;
-//   label: string;
-//   description: string;
-// }
+// ── Section Header ──
 
-// const displayModeOptions: DisplayModeOption[] = [
-//   {
-//     value: "off",
-//     label: "Off",
-//     description: "Nothing shown on glasses",
-//   },
-//   {
-//     value: "live_transcript",
-//     label: "Live Transcript",
-//     description: "Real-time transcription text",
-//   },
-//   {
-//     value: "hour_summary",
-//     label: "Hour Summary",
-//     description: "Rolling summary of the current hour",
-//   },
-//   {
-//     value: "key_points",
-//     label: "Key Points Only",
-//     description: "Only show important moments",
-//   },
-// ];
+function SectionHeader({ label }: { label: string }) {
+  return (
+    <div className="pt-6 pb-2.5">
+      <span className="tracking-widest uppercase text-[11px] leading-3.5 text-[#A8A29E] font-red-hat font-bold">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+// ── Chevron icon ──
+
+function ChevronRight() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+      <polyline points="9,6 15,12 9,18" stroke="#D6D3D1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 export function SettingsPage() {
   const [, setLocation] = useLocation();
@@ -137,19 +57,32 @@ export function SettingsPage() {
   const { session, isConnected } = useSynced<SessionI>(userId || "");
   const { isDarkMode, toggleTheme } = useTheme();
 
+  // Profile photo state
+  const [photoError, setPhotoError] = useState(false);
+
   // Get settings from session
-  const persistentTranscription =
-    session?.settings?.showLiveTranscript ?? false;
-  // const glassesDisplayMode =
-  //   session?.settings?.glassesDisplayMode ?? "live_transcript";
+  const displayName = session?.settings?.displayName ?? null;
+  const role = session?.settings?.role ?? null;
+  const company = session?.settings?.company ?? null;
+  const persistentTranscription = session?.settings?.showLiveTranscript ?? false;
   const savedTimezone = session?.settings?.timezone;
 
-  // Timezone is now auto-synced at connection time in useSynced hook
+  // Build profile subtitle
+  const profileSubtitle = [role, company].filter(Boolean).join(" · ") || userId || "";
+
+  // Initials for avatar fallback
+  const initials = displayName
+    ? displayName.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)
+    : (userId || "?").slice(0, 2).toUpperCase();
+
+  // Supabase profile photo URL
+  const profilePhotoUrl = userId
+    ? `https://lyleqmzybkbifsxbkxqp.supabase.co/storage/v1/object/public/profile-photos/${userId}`
+    : null;
 
   // Toggle persistent transcription via RPC
   const handleTogglePersistentTranscription = async () => {
     if (!session?.settings?.updateSettings) return;
-
     try {
       await session.settings.updateSettings({
         showLiveTranscript: !persistentTranscription,
@@ -159,189 +92,127 @@ export function SettingsPage() {
     }
   };
 
-  // Change glasses display mode — commented out for now
-  // const handleChangeDisplayMode = async (mode: GlassesDisplayMode) => {
-  //   if (!session?.settings?.updateSettings) return;
-  //   try {
-  //     await session.settings.updateSettings({
-  //       glassesDisplayMode: mode,
-  //     });
-  //   } catch (err) {
-  //     console.error("[SettingsPage] Failed to change display mode:", err);
-  //   }
-  // };
-
-  const handleBack = () => {
-    setLocation("/");
-  };
-
   // Loading state
   if (!session) {
     return <SettingsPageSkeleton />;
   }
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-black">
-      {/* Header */}
-      <div className="shrink-0 border-b border-zinc-200 dark:border-zinc-800 py-3">
-        <div className="flex items-center">
-          <button
-            onClick={handleBack}
-            className="p-2 -ml-2 min-w-11 min-h-11 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 transition-colors md:hidden pl-6"
-          >
-            <ChevronLeft size={24} />
-          </button>
-          <h1 className="text-xl font-normal text-zinc-900 dark:text-white tracking-tight md:ml-0">
-            Settings
-          </h1>
-        </div>
-      </div>
-
-      {/* Content */}
+    <div className="h-full flex flex-col bg-[#FAFAF9]">
       <div className="flex-1 overflow-y-auto">
-        <div className="px-6 md:px-6 pb-24">
-          {/* General Section */}
-          {/* <div className="mt-6 mb-2">
-            <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">
-              General
-            </h3>
-            <SettingsRow
-              icon={<Bell size={20} />}
-              label="Notifications"
-              type="link"
-              onClick={() => {}}
-            />
-            <SettingsRow
-              icon={<Database size={20} />}
-              label="Data & Storage"
-              type="link"
-              onClick={() => {}}
-            />
-          </div> */}
+        <div className="flex flex-col px-6 pb-24">
 
-          {/* Recording Section */}
-          <div className="mt-8 mb-2">
-            <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">
-              Recording
-            </h3>
-            <SettingsRow
-              label="Persistent transcription"
-              type="toggle"
-              active={persistentTranscription}
-              onClick={handleTogglePersistentTranscription}
+          {/* Header */}
+          <div className="flex flex-col pt-3 gap-2">
+            <span className="tracking-widest uppercase text-[11px] leading-3.5 text-[#DC2626] font-red-hat font-bold">
+              Mentra Notes
+            </span>
+            <span className="tracking-[-0.03em] text-[30px] leading-[34px] text-[#1C1917] font-red-hat font-extrabold">
+              Settings
+            </span>
+          </div>
+
+          {/* ── User Profile ── */}
+          <div className="flex items-center py-4 gap-3.5 border-b border-[#E7E5E4]">
+            <div className="flex items-center justify-center shrink-0 rounded-3xl bg-[#1C1917] size-12 overflow-hidden">
+              {profilePhotoUrl && !photoError ? (
+                <img
+                  src={profilePhotoUrl}
+                  alt={displayName || "Profile"}
+                  className="w-full h-full object-cover"
+                  onError={() => setPhotoError(true)}
+                />
+              ) : (
+                <span className="text-[#FAFAF9] font-red-hat font-bold text-[17px] leading-[22px]">
+                  {initials}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-col grow shrink basis-0 gap-px">
+              <span className="text-[17px] leading-[22px] text-[#1C1917] font-red-hat font-bold">
+                {displayName || "User"}
+              </span>
+              <span className="text-[13px] leading-[18px] text-[#78716C] font-red-hat">
+                {profileSubtitle}
+              </span>
+            </div>
+            <ChevronRight />
+          </div>
+
+          {/* ── Recording ── */}
+          <SectionHeader label="Recording" />
+
+          <div className="flex items-center justify-between py-3.5 border-b border-[#E7E5E4]">
+            <div className="flex flex-col grow shrink basis-0 gap-0.5">
+              <span className="text-[15px] leading-5 text-[#1C1917] font-red-hat font-medium">
+                Persistent transcription
+              </span>
+              <span className="text-xs leading-4 text-[#78716C] font-red-hat">
+                Always-on recording in background
+              </span>
+            </div>
+            <ToggleSwitch
+              checked={persistentTranscription}
+              onChange={handleTogglePersistentTranscription}
               disabled={!isConnected}
             />
-            <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1 mb-4">
-              When enabled, Mentra Notes captures transcripts automatically
-              while active
-            </p>
           </div>
 
-          {/* Glasses Display Section — commented out for now
-          <div className="mt-8 mb-2">
-            <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">
-              Glasses Display
-            </h3>
-            <div className="flex items-center gap-2 mb-3 text-zinc-600 dark:text-zinc-400">
-              <Glasses size={18} />
-              <span className="text-sm">What to show on your glasses</span>
+          {/* ── Preferences ── */}
+          <SectionHeader label="Preferences" />
+
+          <div className="flex items-center justify-between py-3.5 border-b border-[#E7E5E4]">
+            <span className="text-[15px] leading-5 text-[#1C1917] font-red-hat font-medium">
+              Dark Mode
+            </span>
+            <ToggleSwitch checked={isDarkMode} onChange={toggleTheme} />
+          </div>
+
+          {/* ── Onboarding ── */}
+          <SectionHeader label="Onboarding" />
+
+          <button
+            onClick={async () => {
+              if (!session?.settings?.updateSettings) return;
+              await session.settings.updateSettings({ onboardingCompleted: false });
+              setLocation("/onboarding");
+            }}
+            disabled={!isConnected}
+            className="flex items-center justify-between py-3.5 border-b border-[#E7E5E4] w-full text-left disabled:opacity-50"
+          >
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[15px] leading-5 text-[#1C1917] font-red-hat font-medium">
+                Reset onboarding
+              </span>
+              <span className="text-xs leading-4 text-[#78716C] font-red-hat">
+                Restart the tutorial and update your profile
+              </span>
             </div>
-            <div className="space-y-2">
-              {displayModeOptions.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => handleChangeDisplayMode(option.value)}
-                  disabled={!isConnected}
-                  className={clsx(
-                    "w-full flex items-center justify-between p-4 rounded-xl border transition-all text-left",
-                    glassesDisplayMode === option.value
-                      ? "bg-zinc-50 dark:bg-zinc-900 border-zinc-900 dark:border-white"
-                      : "bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700",
-                    !isConnected && "opacity-50 cursor-not-allowed",
-                  )}
-                >
-                  <div>
-                    <span
-                      className={clsx(
-                        "font-medium block",
-                        glassesDisplayMode === option.value
-                          ? "text-zinc-900 dark:text-white"
-                          : "text-zinc-700 dark:text-zinc-300",
-                      )}
-                    >
-                      {option.label}
-                    </span>
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {option.description}
-                    </span>
-                  </div>
-                  {glassesDisplayMode === option.value && (
-                    <div className="w-6 h-6 rounded-full bg-zinc-900 dark:bg-white flex items-center justify-center">
-                      <Check
-                        size={14}
-                        className="text-white dark:text-zinc-900"
-                      />
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div> */}
+            <ChevronRight />
+          </button>
 
-          {/* Preferences Section */}
-          <div className="mt-8 mb-2">
-            <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">
-              Preferences
-            </h3>
-            <SettingsRow
-              label="Dark Mode"
-              type="toggle"
-              active={isDarkMode}
-              onClick={toggleTheme}
-            />
-          </div>
-
-          {/* Onboarding */}
-          <div className="mt-8 mb-2">
-            <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">
-              Onboarding
-            </h3>
-            <SettingsRow
-              label="Reset onboarding"
-              type="link"
-              onClick={async () => {
-                if (!session?.settings?.updateSettings) return;
-                await session.settings.updateSettings({ onboardingCompleted: false });
-                setLocation("/onboarding");
-              }}
-              disabled={!isConnected}
-            />
-            <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1 mb-4">
-              Restart the onboarding tutorial and update your profile
-            </p>
-          </div>
-
-          {/* Timezone Info */}
+          {/* ── Timezone ── */}
           {savedTimezone && (
-            <div className="mt-8 mb-2">
-              <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">
-                Timezone
-              </h3>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                {savedTimezone}
-              </p>
-              <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
-                Days and times are shown in your local timezone
-              </p>
-            </div>
+            <>
+              <SectionHeader label="Timezone" />
+              <div className="py-3.5 border-b border-[#E7E5E4]">
+                <span className="text-[15px] leading-5 text-[#1C1917] font-red-hat font-medium">
+                  {savedTimezone}
+                </span>
+                <p className="text-xs leading-4 text-[#78716C] font-red-hat mt-0.5">
+                  Days and times are shown in your local timezone
+                </p>
+              </div>
+            </>
           )}
 
           {/* Version */}
-          <div className="mt-12 text-center">
-            <p className="text-sm text-zinc-400 dark:text-zinc-500">
+          <div className="flex justify-center py-6">
+            <span className="text-[13px] leading-4 text-[#D6D3D1] font-red-hat">
               Mentra Notes v3.0.0
-            </p>
+            </span>
           </div>
+
         </div>
       </div>
     </div>
