@@ -59,22 +59,26 @@ export function GeneratingNotePage() {
     if (!session?.notes || !conversation || generationStartedRef.current) return;
     generationStartedRef.current = true;
 
+    // Use chunks for time range, fall back to conversation start/end times
     const firstChunk = chunks[0];
     const lastChunk = chunks[chunks.length - 1];
+    const startTime = firstChunk ? new Date(firstChunk.startTime) : conversation.startTime ? new Date(conversation.startTime) : undefined;
+    const endTime = lastChunk ? new Date(lastChunk.endTime) : conversation.endTime ? new Date(conversation.endTime) : undefined;
 
     (async () => {
       try {
         const note = await session.notes.generateNote(
           conversation.title || undefined,
-          firstChunk ? new Date(firstChunk.startTime) : undefined,
-          lastChunk ? new Date(lastChunk.endTime) : undefined,
+          startTime,
+          endTime,
         );
         if (note?.id && session?.conversation) {
           await session.conversation.linkNoteToConversation(conversation.id, note.id);
         }
         generatedNoteId.current = note?.id || null;
         setGenerateDone(true);
-      } catch {
+      } catch (err) {
+        console.error("[GeneratingNotePage] Note generation failed:", err);
         setLocation(`/conversation/${id}`);
       }
     })();

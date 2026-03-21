@@ -42,11 +42,11 @@ export const AUTO_NOTES_CONFIG = {
   /** Number of preceding chunks to pull into a new conversation as context */
   CONTEXT_PREAMBLE_CHUNKS: 3,
 
-  /** 1 silent/filler chunk → pause the conversation */
-  SILENCE_PAUSE_CHUNKS: 1,
+  /** Consecutive filler chunks needed before pausing (prevents "uh-huh" from pausing) */
+  SILENCE_PAUSE_CHUNKS: 2,
 
-  /** 3 consecutive silent/filler chunks → end the conversation permanently */
-  SILENCE_END_CHUNKS: 4,
+  /** Consecutive silent/filler chunks in PAUSED state → end conversation permanently */
+  SILENCE_END_CHUNKS: 7,
 
   /** Max words for the running summary (compressed every 3 chunks) */
   SUMMARY_MAX_WORDS: 300,

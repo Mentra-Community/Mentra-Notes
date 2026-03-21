@@ -60,6 +60,7 @@ export class SettingsManager extends SyncedManager {
       this.timezone = settings.timezone || null;
       // Onboarding
       this.onboardingCompleted = settings.onboardingCompleted ?? false;
+      console.log(`[SettingsManager] Hydrated onboardingCompleted: ${this.onboardingCompleted} (raw: ${settings.onboardingCompleted})`);
       this.role = settings.role || null;
       this.company = settings.company || null;
       this.priorities = settings.priorities || [];

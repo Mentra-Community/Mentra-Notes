@@ -560,7 +560,7 @@ export function NotesPage() {
       )}
 
       {/* Content */}
-      <div className="flex flex-col flex-1 pt-4 px-6 pb-32">
+      <div className="flex-1 min-h-0 overflow-y-auto pt-4 px-6 pb-32">
         {filterLoading ? (
           <div className="flex flex-col items-center justify-center flex-1">
             <LoadingState size={100} cycleMessages />

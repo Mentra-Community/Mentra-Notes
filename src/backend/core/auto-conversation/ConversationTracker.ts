@@ -53,6 +53,9 @@ export class ConversationTracker {
   private pendingChunks: TranscriptChunkI[] = [];
   private pendingSilenceCount: number = 0;
 
+  // Consecutive filler counter for TRACKING state (reset on meaningful chunk)
+  private trackingFillerCount: number = 0;
+
   private _onConversationEnd: ConversationEndCallback | null = null;
   private _onConversationUpdate: ConversationUpdateCallback | null = null;
 
@@ -234,17 +237,26 @@ export class ConversationTracker {
 
     switch (decision) {
       case "CONTINUATION":
+        this.trackingFillerCount = 0; // Reset filler counter on meaningful content
         await this.addChunkToConversation(chunk);
         break;
 
       case "NEW_CONVERSATION":
+        this.trackingFillerCount = 0;
         // End current conversation, start new one
         await this.endConversation();
         await this.startNewConversation(chunk);
         break;
 
       case "FILLER":
-        await this.pauseConversation();
+        this.trackingFillerCount++;
+        console.log(
+          `[Tracker] State: TRACKING | LLM classified as FILLER ${this.trackingFillerCount}/${AUTO_NOTES_CONFIG.SILENCE_PAUSE_CHUNKS}`,
+        );
+        if (this.trackingFillerCount >= AUTO_NOTES_CONFIG.SILENCE_PAUSE_CHUNKS) {
+          await this.pauseConversation();
+          this.trackingFillerCount = 0;
+        }
         break;
     }
   }
@@ -308,11 +320,15 @@ export class ConversationTracker {
     if (!this.activeConversation) return;
 
     if (this.state === "TRACKING") {
+      this.trackingFillerCount++;
       console.log(
-        `[Tracker] State: TRACKING | filler received — pausing`,
+        `[Tracker] State: TRACKING | filler ${this.trackingFillerCount}/${AUTO_NOTES_CONFIG.SILENCE_PAUSE_CHUNKS}`,
       );
-      // First filler chunk → pause
-      await this.pauseConversation();
+      if (this.trackingFillerCount >= AUTO_NOTES_CONFIG.SILENCE_PAUSE_CHUNKS) {
+        // Enough consecutive fillers → pause
+        await this.pauseConversation();
+        this.trackingFillerCount = 0;
+      }
       return;
     }
 
@@ -497,6 +513,7 @@ export class ConversationTracker {
 
     this.activeConversation = conversation;
     this.state = "TRACKING";
+    this.trackingFillerCount = 0; // Reset filler counter on resume
 
     await this.addChunkToConversation(chunk);
 

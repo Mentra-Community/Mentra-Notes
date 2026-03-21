@@ -327,12 +327,21 @@ export class NotesManager extends SyncedManager {
       // Filter segments by time range if provided
       let relevantSegments = segments;
       if (startDate || endDate) {
-        relevantSegments = segments.filter((seg) => {
+        const filtered = segments.filter((seg) => {
           const segTime = new Date(seg.timestamp).getTime();
           const afterStart = !startDate || segTime >= startDate.getTime();
           const beforeEnd = !endDate || segTime <= endDate.getTime();
           return afterStart && beforeEnd;
         });
+        console.log(`[NotesManager] Time filter: ${filtered.length}/${segments.length} segments match range`);
+        // If time filter returns nothing but we have segments, use all segments for the date
+        // (handles timezone mismatches between conversation and transcript timestamps)
+        if (filtered.length > 0) {
+          relevantSegments = filtered;
+        } else if (segments.length > 0) {
+          console.log(`[NotesManager] Time filter matched 0 segments — falling back to all ${segments.length} segments for the date`);
+          relevantSegments = segments;
+        }
       }
 
       // Build transcript text, skipping photo placeholder text
