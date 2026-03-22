@@ -33,8 +33,8 @@ export const AUTO_NOTES_CONFIG = {
   // Phase 3: Conversation Tracking
   // =========================================================================
 
-  /** Meaningful chunks needed before creating a conversation */
-  MIN_CHUNKS_TO_CONFIRM: 2,
+  /** Meaningful chunks needed before creating a conversation (~15s of sustained speech) */
+  MIN_CHUNKS_TO_CONFIRM: 3,
 
   /** Filler chunks in PENDING state before discarding buffer */
   PENDING_SILENCE_THRESHOLD: 3,

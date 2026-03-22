@@ -100,10 +100,14 @@ export function ConversationDetailPage() {
 
   // Load segments on-demand for ended conversations (not loaded during hydration)
   const [loadingSegments, setLoadingSegments] = useState(false);
+  const segmentsLoadedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!conversation || !session?.conversation?.loadConversationSegments) return;
     if (conversation.status === "active" || conversation.status === "paused") return;
     if (conversation.segments && conversation.segments.length > 0) return;
+    // Don't re-attempt if we already loaded for this conversation (may have 0 segments)
+    if (segmentsLoadedRef.current === conversation.id) return;
+    segmentsLoadedRef.current = conversation.id;
     setLoadingSegments(true);
     session.conversation.loadConversationSegments(conversation.id)
       .catch(() => {})

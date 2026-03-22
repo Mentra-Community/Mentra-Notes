@@ -380,6 +380,33 @@ export function NotesPage() {
                 0 notes
               </div>
             </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsFilterOpen(true)}
+                className="flex items-center justify-center w-[34px] h-[34px] rounded-[10px] bg-[#F5F5F4] shrink-0"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" stroke="#78716C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              <div className="flex items-center rounded-[10px] py-[3px] px-[3px] bg-[#F5F5F4]">
+                <div className="flex items-center justify-center w-[34px] h-[30px] rounded-lg bg-[#1C1917] shrink-0">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <line x1="4" y1="6" x2="20" y2="6" stroke="#FAFAF9" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="4" y1="12" x2="20" y2="12" stroke="#FAFAF9" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="4" y1="18" x2="20" y2="18" stroke="#FAFAF9" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                </div>
+                <button onClick={() => setLocation("/collections")} className="flex items-center justify-center w-[34px] h-[30px] rounded-lg shrink-0">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <rect x="3" y="3" width="7" height="7" rx="1" stroke="#78716C" strokeWidth="2" />
+                    <rect x="14" y="3" width="7" height="7" rx="1" stroke="#78716C" strokeWidth="2" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" stroke="#78716C" strokeWidth="2" />
+                    <rect x="14" y="14" width="7" height="7" rx="1" stroke="#78716C" strokeWidth="2" />
+                  </svg>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 

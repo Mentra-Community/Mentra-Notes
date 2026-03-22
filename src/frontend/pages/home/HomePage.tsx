@@ -40,7 +40,7 @@ import { EmailDrawer } from "../../components/shared/EmailDrawer";
 
 export function HomePage() {
   const { userId } = useMentraAuth();
-  const { session, isConnected, reconnect } = useSynced<SessionI>(userId || "");
+  const { session } = useSynced<SessionI>(userId || "");
   const [, setLocation] = useLocation();
   const search = useSearch();
 
@@ -745,191 +745,7 @@ export function HomePage() {
     return <HomePageSkeleton />;
   }
 
-  // --- Empty state (no conversations) ---
-  if (isConversationsHydrated && conversations.length === 0) {
-    return (
-      <div className="flex h-full flex-col bg-[#FAFAF9] relative overflow-hidden">
-        {/* Header */}
-        <div className="flex flex-col pt-6 gap-2 px-6">
-          <div className="flex items-center gap-2">
-            <div
-              className={`text-[11px] tracking-widest uppercase leading-3.5 text-[#DC2626] font-red-hat font-bold`}
-            >
-              Mentra Notes
-            </div>
-            <div
-              className={`flex items-center gap-1 h-full px-1 rounded ${isMicActive ? "bg-[#FEF2F2]" : "bg-[#F5F5F4]"}`}
-            >
-              <div
-                className={`shrink-0 rounded-full size-1.75 ${isMicActive ? "bg-[#DC2626] animate-pulse" : "bg-[#A8A29E]"}`}
-              />
-              {isMicActive ? (
-                <svg
-                  width="9"
-                  height="9"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#DC2626"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                  <line x1="12" y1="19" x2="12" y2="23" />
-                  <line x1="8" y1="23" x2="16" y2="23" />
-                </svg>
-              ) : (
-                <svg
-                  width="9"
-                  height="9"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#A8A29E"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <line x1="1" y1="1" x2="23" y2="23" />
-                  <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
-                  <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.13 1.49-.35 2.17" />
-                  <line x1="12" y1="19" x2="12" y2="23" />
-                  <line x1="8" y1="23" x2="16" y2="23" />
-                </svg>
-              )}
-            </div>
-          </div>
-          <div className="flex items-end justify-between">
-            <div className="flex flex-col gap-0.5">
-              <div className="text-[30px] tracking-[-0.03em] leading-[34px] text-[#1C1917] font-red-hat font-extrabold">
-                Conversations
-              </div>
-              <div className="text-[14px] leading-[18px] text-[#A8A29E] font-red-hat">
-                No conversations yet
-              </div>
-            </div>
-            {/* Conversations / Transcripts toggle */}
-            <div className="flex items-center rounded-[10px] py-[3px] px-[3px] bg-[#F5F5F4]">
-              <button
-                onClick={() => setActiveTimeFilter("conversations")}
-                className={`flex items-center justify-center w-[34px] h-[30px] rounded-lg shrink-0 ${renderedFilter === "conversations" ? "bg-[#1C1917]" : ""}`}
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke={
-                    renderedFilter === "conversations" ? "#FAFAF9" : "#78716C"
-                  }
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />
-                </svg>
-              </button>
-              <button
-                onClick={() => setActiveTimeFilter("transcripts")}
-                className={`flex items-center justify-center w-[34px] h-[30px] rounded-lg shrink-0 ${renderedFilter === "transcripts" ? "bg-[#1C1917]" : ""}`}
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke={
-                    renderedFilter === "transcripts" ? "#FAFAF9" : "#78716C"
-                  }
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M4 14h6" />
-                  <path d="M4 2h10" />
-                  <rect x="4" y="18" width="16" height="4" rx="1" />
-                  <rect x="4" y="6" width="16" height="4" rx="1" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Center content */}
-        <div className="flex flex-col items-center justify-center grow px-10 gap-4">
-          <div className="flex items-center justify-center shrink-0 rounded-[20px] bg-[#F5F5F4] size-16">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-                stroke="#A8A29E"
-                strokeWidth="1.75"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
-          <div
-            className={`text-[18px] leading-[22px] text-center text-[#1C1917] font-red-hat font-bold`}
-          >
-            Start a conversation
-          </div>
-          <div
-            className={`text-[14px] leading-5 text-center text-[#A8A29E] font-red-hat`}
-          >
-            Mentra Notes is listening in the background. When it detects a
-            conversation, it will appear here.
-          </div>
-          {isRecording && (
-            <div className="flex items-center mt-1 rounded-[20px] py-2 px-4 gap-2 bg-[#FEF2F2]">
-              <div className="shrink-0 rounded-sm bg-[#EF4444] size-2 animate-pulse" />
-              <div
-                className={`text-[13px] leading-4 text-[#DB2627] font-red-hat font-medium`}
-              >
-                Microphone active · Listening
-              </div>
-            </div>
-          )}
-          {!isConnected && (
-            <button
-              onClick={reconnect}
-              className={`mt-2 px-5 py-2.5 bg-[#1C1917] text-[#FAFAF9] rounded-xl text-[14px] font-red-hat font-semibold`}
-            >
-              Connect
-            </button>
-          )}
-        </div>
-
-        {/* Top-right menu */}
-
-        {/* FAB */}
-        <FABMenu
-          transcriptionPaused={transcriptionPaused}
-          onAskAI={handleGlobalChat}
-          onAddNote={handleAddNote}
-          onStopTranscribing={handleStopTranscribing}
-          onResumeTranscribing={handleResumeTranscribing}
-        />
-
-        {/* Global AI Chat */}
-        <GlobalAIChat
-          isOpen={showGlobalChat}
-          onClose={() => setShowGlobalChat(false)}
-        />
-
-        {/* Filter Drawer (still needed for filter-based empty states) */}
-        <ConversationFilterDrawer
-          isOpen={isFilterOpen}
-          onClose={() => setIsFilterOpen(false)}
-          sortBy={convSortBy}
-          dateRange={convDateRange}
-          showFilter={convShowFilter}
-          customStart={convCustomStart}
-          customEnd={convCustomEnd}
-          onApply={handleFilterApply}
-        />
-      </div>
-    );
-  }
+  const hasNoConversations = isConversationsHydrated && conversations.length === 0;
 
   // --- Calendar view ---
   if (viewMode === "calendar") {
@@ -1055,7 +871,9 @@ export function HomePage() {
               className={`text-[14px] leading-[18px] text-[#A8A29E] font-red-hat`}
             >
               {renderedFilter === "conversations" ? (
-                <>Today · {todayConversationCount}{" "}{todayConversationCount === 1 ? "conversation" : "conversations"}</>
+                hasNoConversations
+                  ? <>No conversations yet</>
+                  : <>Today · {todayConversationCount}{" "}{todayConversationCount === 1 ? "conversation" : "conversations"}</>
               ) : (
                 <>{availableDates.length} {availableDates.length === 1 ? "day" : "days"} of transcripts</>
               )}
@@ -1257,6 +1075,28 @@ export function HomePage() {
           ) : filterLoading ? (
             <div className="flex flex-col items-center justify-center h-full">
               <LoadingState size={100} cycleMessages />
+            </div>
+          ) : hasNoConversations ? (
+            <div className="flex flex-col items-center justify-center h-full px-10 gap-4">
+              <div className="flex items-center justify-center shrink-0 rounded-[20px] bg-[#F5F5F4] size-16">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="#A8A29E" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <div className="text-[18px] leading-[22px] text-center text-[#1C1917] font-red-hat font-bold">
+                Start a conversation
+              </div>
+              <div className="text-[14px] leading-5 text-center text-[#A8A29E] font-red-hat">
+                Mentra Notes is listening in the background. When it detects a conversation, it will appear here.
+              </div>
+              {isRecording && (
+                <div className="flex items-center mt-1 rounded-[20px] py-2 px-4 gap-2 bg-[#FEF2F2]">
+                  <div className="shrink-0 rounded-sm bg-[#EF4444] size-2 animate-pulse" />
+                  <div className="text-[13px] leading-4 text-[#DB2627] font-red-hat font-medium">
+                    Microphone active · Listening
+                  </div>
+                </div>
+              )}
             </div>
           ) : filteredConversations.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-5">

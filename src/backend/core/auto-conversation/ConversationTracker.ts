@@ -243,9 +243,14 @@ export class ConversationTracker {
 
       case "NEW_CONVERSATION":
         this.trackingFillerCount = 0;
-        // End current conversation, start new one
+        // End current conversation, go to PENDING (requires confirmation like any new conversation)
         await this.endConversation();
-        await this.startNewConversation(chunk);
+        this.pendingChunks = [chunk];
+        this.pendingSilenceCount = 0;
+        this.state = "PENDING";
+        console.log(
+          `[Tracker] TRACKING → PENDING | new topic detected, buffering chunk (1/${AUTO_NOTES_CONFIG.MIN_CHUNKS_TO_CONFIRM})`,
+        );
         break;
 
       case "FILLER":
@@ -285,11 +290,16 @@ export class ConversationTracker {
       await this.resumeConversation(this.activeConversation, chunk);
     } else {
       console.log(
-        `[Tracker] State: PAUSED | chunk #${chunk.chunkIndex} is new topic — ending paused, starting new`,
+        `[Tracker] State: PAUSED | chunk #${chunk.chunkIndex} is new topic — ending paused, going to PENDING`,
       );
-      // Different topic — end the paused conversation, start new
+      // Different topic — end the paused conversation, require confirmation for new one
       await this.endConversation();
-      await this.startNewConversation(chunk);
+      this.pendingChunks = [chunk];
+      this.pendingSilenceCount = 0;
+      this.state = "PENDING";
+      console.log(
+        `[Tracker] PAUSED → PENDING | new topic buffered (1/${AUTO_NOTES_CONFIG.MIN_CHUNKS_TO_CONFIRM})`,
+      );
     }
   }
 
@@ -819,12 +829,14 @@ Respond with exactly one word: CONTINUATION, NEW_CONVERSATION, or FILLER`;
   ): Promise<boolean> {
     if (!this.provider) return false;
 
-    const prompt = `A conversation was paused. A new chunk of speech has arrived. Is this a continuation of the previous conversation?
+    const prompt = `A conversation was paused briefly. New speech has arrived. Is this still part of the same conversation session?
+
+IMPORTANT: Be very lenient. Real conversations naturally drift between subtopics, go on tangents, and circle back. Only answer NO if the new speech is clearly about a COMPLETELY UNRELATED subject with zero connection to anything discussed before (e.g., switching from a work meeting to ordering food). Topic shifts, new questions, tangents, greetings, and asides within the same social context should all be YES.
 
 Previous conversation summary:
 "${conversation.runningSummary || "(no summary yet)"}"
 
-New chunk:
+New speech:
 "${chunk.text}"
 
 Respond with exactly YES or NO.`;
@@ -850,7 +862,7 @@ Respond with exactly YES or NO.`;
       return text.includes("YES");
     } catch (error) {
       console.error("[Tracker] Resumption check failed:", error);
-      return false;
+      return true; // Default to continuation on error — better to merge than to split
     }
   }
 
