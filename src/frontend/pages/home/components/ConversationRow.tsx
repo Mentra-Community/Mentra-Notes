@@ -41,7 +41,7 @@ function getDurationMinutes(conversation: Conversation): number | null {
   if (!conversation.endTime) return null;
   const start = new Date(conversation.startTime).getTime();
   const end = new Date(conversation.endTime).getTime();
-  return Math.round((end - start) / 60000);
+  return Math.max(1, Math.round((end - start) / 60000));
 }
 
 export const ConversationRow = memo(function ConversationRow({
@@ -141,16 +141,13 @@ export const ConversationRow = memo(function ConversationRow({
       <motion.div
         style={isSelecting ? undefined : { x }}
         onClick={rowClick}
-        className={`flex items-center py-3.5 relative z-10 ${isSelecting ? "select-none" : ""} ${
+        className={`flex items-center py-3.5 relative z-10 select-none ${
           isSelected ? "bg-[#FEE2E24D] px-6 -mx-6" : "bg-[#FAFAF9]"
         } ${!isLast ? (isActive ? "border-b border-b-[#FEE2E2]" : "border-b border-b-[#F5F5F4]") : ""}`}
       >
-        {/* Checkbox */}
-        <div
-          className="shrink-0 overflow-hidden"
-          style={{ width: isSelecting && canSelect ? 36 : 0 }}
-        >
-          <div className="w-[22px]">
+        {/* Checkbox — no layout shift, uses opacity */}
+        {isSelecting && canSelect && (
+          <div className="shrink-0 w-[22px]">
             {isSelected ? (
               <div className="flex items-center justify-center w-[22px] h-[22px] rounded-md bg-[#DC2626]">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
@@ -161,7 +158,7 @@ export const ConversationRow = memo(function ConversationRow({
               <div className="w-[22px] h-[22px] rounded-md border-2 border-[#D6D3D1]" />
             )}
           </div>
-        </div>
+        )}
 
         {/* Time column */}
         <div className="flex flex-col items-center shrink-0 w-10">
@@ -184,11 +181,19 @@ export const ConversationRow = memo(function ConversationRow({
         {/* Content column */}
         <div className="flex flex-col grow shrink basis-0 gap-1.5 min-w-0 pl-3.5">
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className={`text-[16px] leading-5 font-red-hat font-semibold truncate ${
-              conversation.title ? "text-[#1C1917]" : "text-[#A8A29E] italic"
-            }`}>
-              {conversation.title || "New Conversation"}
-            </span>
+            {conversation.title ? (
+              <span className="text-[16px] leading-5 font-red-hat font-semibold truncate text-[#1C1917]">
+                {conversation.title}
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-[14px] leading-5 font-red-hat font-medium text-[#A8A29E]">
+                <svg className="animate-spin shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="#D6D3D1" strokeWidth="3" />
+                  <path d="M12 2a10 10 0 0 1 10 10" stroke="#A8A29E" strokeWidth="3" strokeLinecap="round" />
+                </svg>
+                Generating title...
+              </span>
+            )}
             {conversation.isFavourite && (
               <span className="text-[#DC2626] font-red-hat text-sm leading-3.5 shrink-0">★</span>
             )}

@@ -781,8 +781,8 @@ export function HomePage() {
   // --- Populated state (conversations list) ---
   return (
     <div className="flex h-full flex-col bg-[#FAFAF9] relative overflow-hidden">
-      {/* Header — swaps between normal and selection mode */}
-      {activeSelect.isSelecting ? (
+      {/* Selection header — overlays normal header when selecting */}
+      {activeSelect.isSelecting && (
         <div className="shrink-0 pt-3">
           <SelectionHeader
             count={activeSelect.count}
@@ -805,9 +805,10 @@ export function HomePage() {
             }}
           />
         </div>
-      ) : (
+      )}
+      {/* Normal header — hidden during selection */}
       <div
-        className="flex flex-col pt-3 gap-3 px-6 shrink-0"
+        className={`flex flex-col pt-3 gap-3 px-6 shrink-0 ${activeSelect.isSelecting ? "hidden" : ""}`}
         style={{ opacity: tabOpacity, transition: "opacity 0.15s ease-in-out" }}
       >
         <div className="flex items-center  gap-2">
@@ -946,7 +947,6 @@ export function HomePage() {
           </div>
         </div>
       </div>
-      )}
 
       {/* Tab switcher — hidden during selection */}
       {!activeSelect.isSelecting && renderedFilter === "conversations" && (
@@ -1192,7 +1192,7 @@ export function HomePage() {
           ) : (
             <>
               {convShowFilter === "trash" && trashedConversationCount > 0 && (
-                <div className="flex items-center justify-between px-6 py-3">
+                <div className="flex items-center justify-between py-3">
                   <span className="text-[13px] leading-4 text-[#A8A29E] font-red-hat font-medium">
                     {trashedConversationCount}{" "}
                     {trashedConversationCount === 1

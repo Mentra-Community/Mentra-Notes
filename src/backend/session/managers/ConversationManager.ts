@@ -389,7 +389,7 @@ export class ConversationManager extends SyncedManager {
         })
         .join("\n\n");
 
-      const prompt = `Summarize this conversation from smart glasses. Respond with EXACTLY this format:
+      const prompt = `Summarize this conversation. Respond with EXACTLY this format:
 
 TITLE: <max 5 words>
 

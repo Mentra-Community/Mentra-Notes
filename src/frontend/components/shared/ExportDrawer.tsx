@@ -39,7 +39,7 @@ export function ExportDrawer({
   onExport,
   missingNoteCount = 0,
 }: ExportDrawerProps) {
-  const [includeContent, setIncludeContent] = useState(true);
+  const includeContent = true; // Always included
   const [includeTranscript, setIncludeTranscript] = useState(false);
   const [includeLinkedNote, setIncludeLinkedNote] = useState(false);
   const [destination, setDestination] = useState<ExportOptions["destination"]>("clipboard");
@@ -100,7 +100,7 @@ export function ExportDrawer({
               Included in export
             </div>
 
-            {/* Toggle: Content */}
+            {/* Content — always included (non-toggleable) */}
             <div className="flex items-center justify-between py-3.5 border-b border-b-[#E7E5E4]">
               <div className="flex flex-col gap-0.5">
                 <span className="text-[15px] leading-5 text-[#1C1917] font-red-hat font-semibold">
@@ -110,42 +110,75 @@ export function ExportDrawer({
                   {contentToggleDesc}
                 </span>
               </div>
-              <ToggleSwitch checked={includeContent} onChange={setIncludeContent} />
+              <ToggleSwitch checked={true} onChange={() => {}} />
             </div>
 
-            {/* Toggle: Transcript (not shown for transcript type — it IS the transcript) */}
-            {itemType !== "transcript" && (
-              <div className="flex items-center justify-between py-3.5 border-b border-b-[#E7E5E4]">
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-[15px] leading-5 text-[#1C1917] font-red-hat font-semibold">
-                    Linked Transcript
-                  </span>
-                  <span className="text-xs leading-4 text-[#A8A29E] font-red-hat">
-                    Full conversation with speaker labels
-                  </span>
+            {/* Notes: Linked Conversation toggle → sub-toggle for Conversation Transcript */}
+            {itemType === "note" && (
+              <>
+                <div className="flex items-center justify-between py-3.5 border-b border-b-[#E7E5E4]">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[15px] leading-5 text-[#1C1917] font-red-hat font-semibold">
+                      Linked Conversation
+                    </span>
+                    <span className="text-xs leading-4 text-[#A8A29E] font-red-hat">
+                      Conversation summary from this note
+                    </span>
+                    {includeLinkedNote && missingNoteCount > 0 && (
+                      <span className="text-xs leading-4 text-[#DC2626] font-red-hat font-medium mt-0.5">
+                        {missingNoteCount} {missingNoteCount === 1 ? "note has" : "notes have"} no linked conversation
+                      </span>
+                    )}
+                  </div>
+                  <ToggleSwitch checked={includeLinkedNote} onChange={setIncludeLinkedNote} />
                 </div>
-                <ToggleSwitch checked={includeTranscript} onChange={setIncludeTranscript} />
-              </div>
+                {includeLinkedNote && (
+                  <div className="flex items-center justify-between py-3.5 border-b border-b-[#E7E5E4]">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[15px] leading-5 text-[#1C1917] font-red-hat font-semibold">
+                        Conversation Transcript
+                      </span>
+                      <span className="text-xs leading-4 text-[#A8A29E] font-red-hat">
+                        Full conversation with speaker labels
+                      </span>
+                    </div>
+                    <ToggleSwitch checked={includeTranscript} onChange={setIncludeTranscript} />
+                  </div>
+                )}
+              </>
             )}
 
-            {/* Toggle: Linked AI Note (only for conversations) */}
+            {/* Conversations: Linked Transcript toggle + Linked AI Note toggle */}
             {itemType === "conversation" && (
-              <div className="flex items-center justify-between py-3.5">
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-[15px] leading-5 text-[#1C1917] font-red-hat font-semibold">
-                    Linked AI Note
-                  </span>
-                  <span className="text-xs leading-4 text-[#A8A29E] font-red-hat">
-                    AI-generated note from conversation
-                  </span>
-                  {includeLinkedNote && missingNoteCount > 0 && (
-                    <span className="text-xs leading-4 text-[#DC2626] font-red-hat font-medium mt-0.5">
-                      {missingNoteCount} {missingNoteCount === 1 ? "conversation has" : "conversations have"} no AI note — will be skipped
+              <>
+                <div className="flex items-center justify-between py-3.5 border-b border-b-[#E7E5E4]">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[15px] leading-5 text-[#1C1917] font-red-hat font-semibold">
+                      Linked Transcript
                     </span>
-                  )}
+                    <span className="text-xs leading-4 text-[#A8A29E] font-red-hat">
+                      Full conversation with speaker labels
+                    </span>
+                  </div>
+                  <ToggleSwitch checked={includeTranscript} onChange={setIncludeTranscript} />
                 </div>
-                <ToggleSwitch checked={includeLinkedNote} onChange={setIncludeLinkedNote} />
-              </div>
+                <div className="flex items-center justify-between py-3.5">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[15px] leading-5 text-[#1C1917] font-red-hat font-semibold">
+                      Linked AI Note
+                    </span>
+                    <span className="text-xs leading-4 text-[#A8A29E] font-red-hat">
+                      AI-generated note from conversation
+                    </span>
+                    {includeLinkedNote && missingNoteCount > 0 && (
+                      <span className="text-xs leading-4 text-[#DC2626] font-red-hat font-medium mt-0.5">
+                        {missingNoteCount} {missingNoteCount === 1 ? "conversation has" : "conversations have"} no AI note — will be skipped
+                      </span>
+                    )}
+                  </div>
+                  <ToggleSwitch checked={includeLinkedNote} onChange={setIncludeLinkedNote} />
+                </div>
+              </>
             )}
 
             {/* Section: Export to */}

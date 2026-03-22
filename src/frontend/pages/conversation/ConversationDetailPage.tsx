@@ -43,7 +43,7 @@ function getDurationMinutes(conv: Conversation): number | null {
   if (!conv.endTime) return null;
   const start = new Date(conv.startTime).getTime();
   const end = new Date(conv.endTime).getTime();
-  return Math.round((end - start) / 60000);
+  return Math.max(1, Math.round((end - start) / 60000));
 }
 
 function formatTimeRange(conv: Conversation): string {
@@ -172,9 +172,21 @@ export function ConversationDetailPage() {
           </svg>
         </button>
         <div className="flex flex-col grow shrink basis-0 gap-1 min-w-0">
-          <div className={`text-[22px] tracking-[-0.02em] leading-[26px] text-[#1C1917] font-red-hat font-extrabold max-w-[90%]`}>
-            {conversation.title || "Untitled Conversation"}
-          </div>
+          {conversation.title ? (
+            <div className="text-[22px] tracking-[-0.02em] leading-[26px] text-[#1C1917] font-red-hat font-extrabold max-w-[90%]">
+              {conversation.title}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <svg className="animate-spin shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="#D6D3D1" strokeWidth="3" />
+                <path d="M12 2a10 10 0 0 1 10 10" stroke="#A8A29E" strokeWidth="3" strokeLinecap="round" />
+              </svg>
+              <span className="text-[16px] leading-5 text-[#A8A29E] font-red-hat font-medium">
+                Generating title...
+              </span>
+            </div>
+          )}
           <div className={`text-[13px] leading-4 text-[#A8A29E] font-red-hat`}>
             {timeRange}
             {duration !== null ? ` · ${duration} min` : ""}

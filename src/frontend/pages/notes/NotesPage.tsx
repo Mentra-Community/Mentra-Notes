@@ -216,51 +216,90 @@ export function NotesPage() {
     multiSelect.cancel();
   }, [session, multiSelect]);
 
-  /** Build plain text for clipboard export */
-  const buildNotesExportText = useCallback((options: ExportOptions) => {
-    const selectedNotes = filteredNotes.filter((n) => multiSelect.selectedIds.has(n.id));
-    const textParts: string[] = [];
+  /** Find the linked conversation for a note */
+  const findLinkedConversation = useCallback((note: Note) => {
+    if (!note.isAIGenerated) return null;
+    return conversations.find((c) => c.noteId === note.id) || null;
+  }, [conversations]);
 
-    for (const note of selectedNotes) {
-      if (options.includeContent) {
-        const content = stripHtmlAndTruncate(note.content, 9999);
-        const [year, month, day] = note.date.split("-").map(Number);
-        const dateObj = new Date(year, month - 1, day);
-        const dateLabel = dateObj.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-        const createdAt = note.createdAt ? new Date(note.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "";
-        const typeLabel = note.isAIGenerated ? "AI Generated" : "Manual";
-        const fromConv = note.isAIGenerated ? conversationTitleMap.get(note.date) : null;
-
-        let meta = `Date: ${dateLabel}`;
-        if (createdAt) meta += `\nCreated: ${createdAt}`;
-        meta += `\nType: ${typeLabel}`;
-        if (fromConv) meta += `\nFrom: ${fromConv}`;
-
-        textParts.push(`# ${note.title || "Untitled Note"}\n${meta}\n\n${content}\n`);
-      }
-    }
-    return textParts.join("\n---\n\n");
-  }, [filteredNotes, multiSelect.selectedIds, conversationTitleMap]);
-
+  /** Build plain text for clipboard export (async — may load transcript segments) */
   const handleBatchExport = useCallback(async (options: ExportOptions) => {
     if (!session?.notes) return;
 
     if (options.destination === "email") {
-      // Save options and open email drawer
       setPendingExportOptions(options);
       setShowEmailDrawer(true);
       return;
     }
 
     // Clipboard
-    const text = buildNotesExportText(options);
+    const selectedNotes = filteredNotes.filter((n) => multiSelect.selectedIds.has(n.id));
+    const textParts: string[] = [];
+
+    for (const note of selectedNotes) {
+      const parts: string[] = [];
+      const content = stripHtmlAndTruncate(note.content, 9999);
+      const [year, month, day] = note.date.split("-").map(Number);
+      const dateObj = new Date(year, month - 1, day);
+      const dateLabel = dateObj.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+      const createdAt = note.createdAt ? new Date(note.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "";
+      const typeLabel = note.isAIGenerated ? "AI Generated" : "Manual";
+      const fromConv = note.isAIGenerated ? conversationTitleMap.get(note.date) : null;
+
+      let meta = `Date: ${dateLabel}`;
+      if (createdAt) meta += `\nCreated: ${createdAt}`;
+      meta += `\nType: ${typeLabel}`;
+      if (fromConv) meta += `\nFrom: ${fromConv}`;
+
+      parts.push(`# ${note.title || "Untitled Note"}\n${meta}\n\n${content}`);
+
+      // Linked Conversation
+      if (options.includeLinkedNote) {
+        const conv = findLinkedConversation(note);
+        if (conv) {
+          const summary = conv.aiSummary || conv.runningSummary || "No summary";
+          const startTime = new Date(conv.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+          const endTime = conv.endTime ? new Date(conv.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "ongoing";
+          parts.push(`\n## Linked Conversation: ${conv.title || "Untitled"}\nTime: ${startTime} – ${endTime}\n\n${summary}`);
+
+          // Conversation Transcript (sub-option)
+          if (options.includeTranscript) {
+            let transcriptText = "";
+            try {
+              if (session?.conversation?.loadConversationSegments) {
+                const segments = await session.conversation.loadConversationSegments(conv.id);
+                if (segments && segments.length > 0) {
+                  transcriptText = segments
+                    .map((s) => {
+                      const time = new Date(s.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+                      return `[${time}] ${s.text}`;
+                    })
+                    .join("\n");
+                }
+              }
+            } catch { /* fallback below */ }
+            if (!transcriptText && conv.chunks && conv.chunks.length > 0) {
+              transcriptText = conv.chunks.map((c) => c.text).join("\n\n");
+            }
+            if (transcriptText) {
+              parts.push(`\n### Transcript\n${transcriptText}`);
+            }
+          }
+        }
+      }
+
+      textParts.push(parts.join("\n"));
+    }
+
+    const text = textParts.join("\n\n---\n\n");
     await navigator.clipboard.writeText(text);
     multiSelect.cancel();
-  }, [session, multiSelect, buildNotesExportText]);
+  }, [session, multiSelect, filteredNotes, conversationTitleMap, findLinkedConversation]);
 
   const handleEmailSend = useCallback(async (to: string, cc: string) => {
     const selectedNotes = filteredNotes.filter((n) => multiSelect.selectedIds.has(n.id));
     if (selectedNotes.length === 0) return;
+    const options = pendingExportOptions;
 
     const firstNote = selectedNotes[0];
     const [year, month, day] = firstNote.date.split("-").map(Number);
@@ -270,15 +309,54 @@ export function NotesPage() {
       ? new Date(firstNote.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
       : "";
 
-    const emailNotes = selectedNotes.map((note) => ({
-      noteId: note.id,
-      noteTimestamp: note.createdAt
-        ? new Date(note.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-        : "",
-      noteTitle: note.title || "Untitled Note",
-      noteContent: note.content || "",
-      noteType: note.isAIGenerated ? "AI Generated" : "Manual",
-    }));
+    const emailNotes: Array<{
+      noteId: string;
+      noteTimestamp: string;
+      noteTitle: string;
+      noteContent: string;
+      noteType: string;
+    }> = [];
+
+    for (const note of selectedNotes) {
+      // Build content with optional linked conversation + transcript
+      let contentHtml = note.content || "";
+
+      if (options?.includeLinkedNote) {
+        const conv = findLinkedConversation(note);
+        if (conv) {
+          const summary = conv.aiSummary || conv.runningSummary || "No summary";
+          const convStart = new Date(conv.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+          const convEnd = conv.endTime ? new Date(conv.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "ongoing";
+          contentHtml += `<hr/><h3>Linked Conversation: ${conv.title || "Untitled"}</h3><p style="color:#A8A29E;font-size:12px;">${convStart} – ${convEnd}</p><p>${summary}</p>`;
+
+          if (options?.includeTranscript) {
+            let transcriptHtml = "";
+            try {
+              if (session?.conversation?.loadConversationSegments) {
+                const segments = await session.conversation.loadConversationSegments(conv.id);
+                if (segments && segments.length > 0) {
+                  transcriptHtml = segments.map((s) => {
+                    const time = new Date(s.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+                    return `<tr><td style="color:#A8A29E;font-size:12px;padding:2px 8px 2px 0;vertical-align:top;white-space:nowrap;">[${time}]</td><td style="font-size:13px;padding:2px 0;">${s.text}</td></tr>`;
+                  }).join("");
+                  contentHtml += `<h4>Transcript</h4><table cellpadding="0" cellspacing="0" border="0">${transcriptHtml}</table>`;
+                }
+              }
+            } catch { /* segments not available */ }
+          }
+        }
+      }
+
+      emailNotes.push({
+        noteId: note.id,
+        noteTimestamp: note.createdAt
+          ? new Date(note.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+          : "",
+        noteTitle: note.title || "Untitled Note",
+        noteContent: contentHtml,
+        noteType: note.isAIGenerated ? "AI Generated" : "Manual",
+      });
+    }
 
     const ccList = cc ? cc.split(",").filter(Boolean) : undefined;
 
@@ -299,7 +377,7 @@ export function NotesPage() {
     const data = await res.json();
     if (!data.success) throw new Error(data.error || "Failed to send email");
     multiSelect.cancel();
-  }, [filteredNotes, multiSelect]);
+  }, [filteredNotes, multiSelect, pendingExportOptions, findLinkedConversation]);
 
   const noteSelectActions = useMemo((): MultiSelectAction[] => {
     const actions: MultiSelectAction[] = [
@@ -573,13 +651,13 @@ export function NotesPage() {
             );
           })}
           {/* Show filter tag from drawer (archived/trash) */}
-          {(showFilter === "archived" || showFilter === "trash") && (
+          {(showFilter === "favourites" || showFilter === "archived" || showFilter === "trash") && (
             <button
               onClick={() => setShowFilter("all")}
               className="flex items-center rounded-[20px] py-[7px] px-4 shrink-0 bg-[#1C1917]"
             >
               <span className="text-[13px] leading-4 text-[#FAFAF9] font-red-hat font-semibold">
-                {showFilter === "archived" ? "Archived" : "Trash"}
+                {showFilter === "favourites" ? "Favourites" : showFilter === "archived" ? "Archived" : "Trash"}
               </span>
             </button>
           )}
@@ -589,11 +667,11 @@ export function NotesPage() {
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-y-auto pt-4 px-6 pb-32">
         {filterLoading ? (
-          <div className="flex flex-col items-center justify-center flex-1">
+          <div className="flex flex-col items-center justify-center h-full">
             <LoadingState size={100} cycleMessages />
           </div>
         ) : filteredNotes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center flex-1 gap-5">
+          <div className="flex flex-col items-center justify-center h-full gap-5">
               <svg width="140" height="130" viewBox="0 0 140 130" fill="none">
                 <circle cx="30" cy="90" r="3" fill="#D94F3B66" />
                 <circle cx="38" cy="90" r="3" fill="#D94F3B66" />
@@ -758,6 +836,7 @@ export function NotesPage() {
         itemLabel={exportItemLabel}
         count={multiSelect.count}
         onExport={handleBatchExport}
+        missingNoteCount={filteredNotes.filter((n) => multiSelect.selectedIds.has(n.id) && !findLinkedConversation(n)).length}
       />
 
       {/* Email Drawer (opened after ExportDrawer selects "email") */}
