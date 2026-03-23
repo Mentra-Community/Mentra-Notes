@@ -543,7 +543,7 @@ export function NotesPage() {
           </div>
         </div>
 
-        <NotesFABMenu onAddNote={handleAddNote} onAskAI={() => setLocation("/")} onCreateFolder={() => setLocation("/collections")} />
+        <NotesFABMenu onAddNote={handleAddNote} onAskAI={() => setLocation("/")} onCreateFolder={() => setLocation("/collections")} transcriptionPaused={transcriptionPaused} />
       </div>
     );
   }
@@ -818,7 +818,7 @@ export function NotesPage() {
 
       {/* FAB Menu — hidden during selection */}
       {!multiSelect.isSelecting && (
-        <NotesFABMenu onAddNote={handleAddNote} onAskAI={() => setLocation("/")} onCreateFolder={() => setLocation("/collections")} />
+        <NotesFABMenu onAddNote={handleAddNote} onAskAI={() => setLocation("/")} onCreateFolder={() => setLocation("/collections")} transcriptionPaused={transcriptionPaused} />
       )}
 
       {/* Multi-select bottom bar */}

@@ -13,14 +13,17 @@ interface NotesFABMenuProps {
   onAddNote: () => void;
   onAskAI: () => void;
   onCreateFolder: () => void;
+  transcriptionPaused?: boolean;
 }
 
 export function NotesFABMenu({
   onAddNote,
   onAskAI,
   onCreateFolder,
+  transcriptionPaused = false,
 }: NotesFABMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const isMicOn = !transcriptionPaused;
 
   const actions = [
     // {
@@ -104,20 +107,46 @@ export function NotesFABMenu({
           </button>
         ))}
 
-        {/* Main FAB button */}
-        <button
-          onClick={() => setIsOpen((v) => !v)}
-          className="flex items-center justify-center w-[52px] h-[52px] rounded-2xl bg-[#DC2626] [box-shadow:#DC262640_0px_4px_16px] pointer-events-auto"
-          style={{
-            transform: `rotate(${isOpen ? 45 : 0}deg)`,
-            transition: "transform 0.2s ease-in-out",
-          }}
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-        </button>
+        {/* Main FAB row — mic indicator + FAB button */}
+        <div className="flex items-center gap-2.5 pointer-events-auto">
+          {/* Mic status indicator */}
+          <div
+            className={`flex items-center justify-center rounded-full size-8 ${
+              isMicOn
+                ? "bg-[#FEF2F2] border border-[#FEE2E2]"
+                : "bg-[#F5F5F4] border border-[#E7E5E4]"
+            }`}
+            style={{
+              opacity: isOpen ? 0 : 1,
+              transition: "opacity 0.15s ease",
+            }}
+          >
+            {isMicOn ? (
+              <div className="rounded-full bg-[#DC2626] size-2 animate-pulse" />
+            ) : (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="1" y1="1" x2="23" y2="23" />
+                <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
+                <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.13 1.49-.35 2.17" />
+              </svg>
+            )}
+          </div>
+
+          {/* FAB button */}
+          <button
+            onClick={() => setIsOpen((v) => !v)}
+            className="flex items-center justify-center w-[52px] h-[52px] rounded-2xl bg-[#DC2626] [box-shadow:#DC262640_0px_4px_16px]"
+            style={{
+              transform: `rotate(${isOpen ? 45 : 0}deg)`,
+              transition: "transform 0.2s ease-in-out",
+            }}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
+        </div>
       </div>
     </>
   );

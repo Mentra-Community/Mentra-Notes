@@ -425,7 +425,7 @@ export function NotePage() {
                 {isSaving ? "Saving..." : showSaved ? "Saved" : ""}
               </span>
               {/* Export button */}
-              <button onClick={() => setShowEmailDrawer(true)} className="p-1">
+              {/* <button onClick={() => setShowEmailDrawer(true)} className="p-1">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                   <path
                     d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"
@@ -451,7 +451,7 @@ export function NotePage() {
                     strokeLinecap="round"
                   />
                 </svg>
-              </button>
+              </button> */}
               {/* More menu */}
               <DropdownMenu
                 options={(() => {

@@ -75,14 +75,8 @@ export function App() {
   });
 
 
-  // Theme state
-  const [theme, setTheme] = useState<"light" | "dark">(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("theme");
-      if (saved === "dark" || saved === "light") return saved;
-    }
-    return "light";
-  });
+  // Theme state — forced to light mode (dark mode disabled)
+  const [theme, setTheme] = useState<"light" | "dark">("light");
 
   // Toggle Theme Function
   const toggleTheme = () => {
