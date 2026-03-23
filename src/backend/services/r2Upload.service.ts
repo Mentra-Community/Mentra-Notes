@@ -6,6 +6,26 @@ import {
 } from "@aws-sdk/client-s3";
 import type { TranscriptSegmentI } from "../models/daily-transcript.model";
 
+// Singleton S3Client — reused across all R2 operations to prevent memory leaks
+// (each S3Client holds connection pools + buffers that accumulate if created per-request)
+let _s3Client: S3Client | null = null;
+function getS3Client(): S3Client {
+  if (!_s3Client) {
+    const endpoint = process.env.CLOUDFLARE_R2_ENDPOINT;
+    const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY;
+    if (!endpoint || !accessKeyId || !secretAccessKey) {
+      throw new Error("R2 credentials not configured");
+    }
+    _s3Client = new S3Client({
+      region: "auto",
+      endpoint,
+      credentials: { accessKeyId, secretAccessKey },
+    });
+  }
+  return _s3Client;
+}
+
 // =============================================================================
 // Interfaces
 // =============================================================================
@@ -70,11 +90,7 @@ export async function uploadPhotoToR2(params: {
     return { success: false, error: new Error("R2 credentials not configured") };
   }
 
-  const s3Client = new S3Client({
-    region: "auto",
-    endpoint,
-    credentials: { accessKeyId, secretAccessKey },
-  });
+  const s3Client = getS3Client();
 
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
@@ -281,14 +297,7 @@ async function uploadToR2(
   secretAccessKey: string,
   attempt: number,
 ): Promise<{ success: boolean }> {
-  const s3Client = new S3Client({
-    region: "auto",
-    endpoint: endpoint,
-    credentials: {
-      accessKeyId,
-      secretAccessKey,
-    },
-  });
+  const s3Client = getS3Client();
 
   try {
     console.log(`[R2] Uploading to: ${endpoint}/${bucketName}/${key}`);
@@ -337,14 +346,7 @@ async function fetchExistingBatch(
     throw new Error("R2 credentials not configured");
   }
 
-  const s3Client = new S3Client({
-    region: "auto",
-    endpoint: endpoint,
-    credentials: {
-      accessKeyId,
-      secretAccessKey,
-    },
-  });
+  const s3Client = getS3Client();
 
   try {
     const command = new GetObjectCommand({
@@ -418,14 +420,7 @@ export async function deleteFromR2(params: {
     };
   }
 
-  const s3Client = new S3Client({
-    region: "auto",
-    endpoint: endpoint,
-    credentials: {
-      accessKeyId,
-      secretAccessKey,
-    },
-  });
+  const s3Client = getS3Client();
 
   try {
     const command = new DeleteObjectCommand({

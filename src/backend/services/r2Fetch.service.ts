@@ -25,7 +25,11 @@ export interface R2DateListResult {
 // Helper: Get S3 Client
 // =============================================================================
 
+// Singleton S3Client — reused across all fetch operations to prevent memory leaks
+let _r2Client: S3Client | null = null;
 function getR2Client(): S3Client | null {
+  if (_r2Client) return _r2Client;
+
   const endpoint = process.env.CLOUDFLARE_R2_ENDPOINT;
   const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID;
   const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY;
@@ -35,11 +39,12 @@ function getR2Client(): S3Client | null {
     return null;
   }
 
-  return new S3Client({
+  _r2Client = new S3Client({
     region: "auto",
     endpoint,
     credentials: { accessKeyId, secretAccessKey },
   });
+  return _r2Client;
 }
 
 // =============================================================================

@@ -99,6 +99,8 @@ export class SummaryManager extends SyncedManager {
 
   destroy(): void {
     this.stopRollingSummaryTimer();
+    this.provider = null;
+    this.timeManager = null;
   }
 
   // ===========================================================================

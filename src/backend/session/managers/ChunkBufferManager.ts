@@ -62,6 +62,9 @@ export class ChunkBufferManager extends SyncedManager {
 
   destroy(): void {
     this.stop();
+    this.buffer = [];
+    this._onChunkReady = null;
+    this.timeManager = null;
   }
 
   // =========================================================================

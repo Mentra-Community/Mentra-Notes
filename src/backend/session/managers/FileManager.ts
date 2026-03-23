@@ -557,6 +557,12 @@ export class FileManager extends SyncedManager {
   }
 
   // ===========================================================================
+  destroy(): void {
+    this._operationInProgress = null;
+    this._timeManager = null;
+    this._lastKnownToday = null;
+  }
+
   // RPC Methods
   // ===========================================================================
 

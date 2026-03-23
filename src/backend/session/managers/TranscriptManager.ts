@@ -246,6 +246,9 @@ export class TranscriptManager extends SyncedManager {
       clearTimeout(this.saveTimer);
       this.saveTimer = null;
     }
+    this.pendingSegments = [];
+    this._onForceFinalize = null;
+    this.timeManager = null;
   }
 
   // ===========================================================================

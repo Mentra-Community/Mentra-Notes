@@ -12,8 +12,8 @@ services:
     type: web
     run: bun run start
     port: 80
-    cpuCores: 1.0
-    ramMegabytes: 1024
+    cpuCores: 2.0
+    ramMegabytes: 5024
     env:
       NODE_ENV: ${NODE_ENV}
       PORTER_APP_NAME: ${PORTER_APP_NAME}

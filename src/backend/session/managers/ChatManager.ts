@@ -45,6 +45,11 @@ export class ChatManager extends SyncedManager {
   private provider: AgentProvider | null = null;
   private timeManager: TimeManager | null = null;
 
+  destroy(): void {
+    this.provider = null;
+    this.timeManager = null;
+  }
+
   // ===========================================================================
   // Private Helpers
   // ===========================================================================

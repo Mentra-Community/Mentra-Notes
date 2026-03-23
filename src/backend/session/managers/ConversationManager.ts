@@ -166,6 +166,10 @@ export class ConversationManager extends SyncedManager {
   destroy(): void {
     this.triageClassifier = null;
     this.conversationTracker = null;
+    this.segmentCache.clear();
+    this.provisionalTitleInFlight.clear();
+    this.llmProvider = null;
+    this.timeManager = null;
   }
 
   // =========================================================================

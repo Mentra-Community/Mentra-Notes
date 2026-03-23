@@ -754,7 +754,8 @@ export class SessionManager<T extends SyncedSession = SyncedSession> {
       session = this._factory(userId);
       this._sessions.set(userId, session);
       await session.hydrate();
-      console.log(`[SessionManager] Created session for ${userId}`);
+      const memMB = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
+      console.log(`[SessionManager] Created session for ${userId} (heap: ${memMB}MB, sessions: ${this._sessions.size})`);
     }
 
     return session;
@@ -771,7 +772,8 @@ export class SessionManager<T extends SyncedSession = SyncedSession> {
     if (session) {
       await session.dispose();
       this._sessions.delete(userId);
-      console.log(`[SessionManager] Removed session for ${userId}`);
+      const memMB = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
+      console.log(`[SessionManager] Removed session for ${userId} (heap: ${memMB}MB, sessions: ${this._sessions.size})`);
     }
   }
 
