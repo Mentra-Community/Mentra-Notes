@@ -1208,8 +1208,6 @@ export function HomePage() {
       {!activeSelect.isSelecting && (
         <FABMenu
           transcriptionPaused={transcriptionPaused}
-          onAskAI={handleGlobalChat}
-          onAddNote={handleAddNote}
           onStopTranscribing={handleStopTranscribing}
           onResumeTranscribing={handleResumeTranscribing}
         />

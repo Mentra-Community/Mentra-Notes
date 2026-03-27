@@ -137,7 +137,7 @@ export function CollectionsPage() {
         </div>
         <div className="flex items-end justify-between">
           <div className="flex flex-col gap-0.5">
-            <div className="text-[30px] tracking-[-0.03em] leading-[34px] text-[#1C1917] font-red-hat font-extrabold">
+            <div className="text-[32px] leading-10 text-[#1C1917] font-red-hat font-extrabold">
               Notes
             </div>
             <div className="text-[14px] leading-[18px] text-[#A8A29E] font-red-hat">

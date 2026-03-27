@@ -109,28 +109,7 @@ export function NotesFABMenu({
 
         {/* Main FAB row — mic indicator + FAB button */}
         <div className="flex items-center gap-2.5 pointer-events-auto">
-          {/* Mic status indicator */}
-          <div
-            className={`flex items-center justify-center rounded-full size-8 ${
-              isMicOn
-                ? "bg-[#FEF2F2] border border-[#FEE2E2]"
-                : "bg-[#F5F5F4] border border-[#E7E5E4]"
-            }`}
-            style={{
-              opacity: isOpen ? 0 : 1,
-              transition: "opacity 0.15s ease",
-            }}
-          >
-            {isMicOn ? (
-              <div className="rounded-full bg-[#DC2626] size-2 animate-pulse" />
-            ) : (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="1" y1="1" x2="23" y2="23" />
-                <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
-                <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.13 1.49-.35 2.17" />
-              </svg>
-            )}
-          </div>
+
 
           {/* FAB button */}
           <button

@@ -136,7 +136,6 @@ export function SettingsPage() {
                 {profileSubtitle}
               </span>
             </div>
-            <ChevronRight />
           </div>
 
           {/* ── Recording ── */}

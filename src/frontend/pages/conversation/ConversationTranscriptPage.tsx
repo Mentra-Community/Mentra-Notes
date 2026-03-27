@@ -17,6 +17,7 @@ import { useAutoScroll } from "../../hooks/useAutoScroll";
 import { WaveIndicator } from "../../components/shared/WaveIndicator";
 import type { SessionI, TranscriptSegment } from "../../../shared/types";
 import { ArrowDown } from "lucide-react";
+import { StopTranscriptionDialog } from "../home/components/StopTranscriptionDialog";
 
 /** Stable speakerId string → sequential color index */
 function buildSpeakerMap(segments: TranscriptSegment[]): Map<string, number> {
@@ -81,8 +82,11 @@ export function ConversationTranscriptPage() {
   }, [conversation?.startTime]);
 
 
+  const [showStopDrawer, setShowStopDrawer] = useState(false);
+
   const handleStop = () => {
     session?.settings?.updateSettings({ transcriptionPaused: true });
+    setShowStopDrawer(false);
     setLocation(`/conversation/${id}`);
   };
 
@@ -194,16 +198,24 @@ export function ConversationTranscriptPage() {
           </span>
         </div>
 
-        {/* Stop button */}
+        {/* Stop button — mic icon */}
         <button
-          onClick={handleStop}
-          className="w-13 h-13 flex items-center justify-center rounded-full bg-[#EF4444] shrink-0"
+          onClick={() => setShowStopDrawer(true)}
+          className="w-13 h-13 flex items-center justify-center rounded-full bg-[#DC2626] shrink-0"
         >
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <rect x="5" y="5" width="8" height="8" rx="2" fill="#FFFFFF" />
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" fill="#FFFFFF" />
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
+            <line x1="12" y1="19" x2="12" y2="23" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
           </svg>
         </button>
       </div>
+
+      <StopTranscriptionDialog
+        open={showStopDrawer}
+        onCancel={() => setShowStopDrawer(false)}
+        onConfirm={handleStop}
+      />
     </div>
   );
 }

@@ -15,6 +15,7 @@ import { TranscriptTab } from "../day/components/tabs/TranscriptTab";
 import { DropdownMenu } from "../../components/shared/DropdownMenu";
 import { EmailDrawer } from "../../components/shared/EmailDrawer";
 import { DayPageSkeleton } from "../../components/shared/SkeletonLoader";
+import { StopTranscriptionDialog } from "../home/components/StopTranscriptionDialog";
 
 export function TranscriptPage() {
   const params = useParams<{ date: string }>();
@@ -359,58 +360,37 @@ export function TranscriptPage() {
           {transcriptionPaused ? (
             <button
               onClick={() => session?.settings?.updateSettings({ transcriptionPaused: false })}
-              className="w-13 h-13 flex items-center justify-center rounded-full bg-[#F5F4F0] shrink-0"
+              className="w-13 h-13 flex items-center justify-center rounded-full bg-[#1C1917] shrink-0"
             >
-              {/* Play/resume triangle */}
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                <path d="M6 4.5L14 9L6 13.5V4.5Z" fill="#1C1917" />
+              {/* Mic off */}
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="1" y1="1" x2="23" y2="23" />
+                <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
+                <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.13 1.49-.35 2.17" />
+                <line x1="12" y1="19" x2="12" y2="23" />
               </svg>
             </button>
           ) : (
             <button
               onClick={() => setShowStopConfirm(true)}
-              className="w-13 h-13 flex items-center justify-center rounded-full bg-[#EF4444] shrink-0"
+              className="w-13 h-13 flex items-center justify-center rounded-full bg-[#DC2626] shrink-0"
             >
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                <rect x="5" y="5" width="8" height="8" rx="2" fill="#FFFFFF" />
+              {/* Mic on */}
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" fill="#FFFFFF" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
+                <line x1="12" y1="19" x2="12" y2="23" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
               </svg>
             </button>
           )}
         </div>
       )}
 
-      {/* Stop confirmation dialog */}
-      {showStopConfirm && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setShowStopConfirm(false)} />
-          <div className="relative w-full bg-white rounded-t-[20px] px-6 pt-6 pb-10 flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[17px] font-red-hat font-bold text-[#1C1917] leading-5">
-                Stop transcription?
-              </span>
-              <span className="text-[13px] font-red-hat text-[#78716C] leading-5">
-                Your glasses will stop recording transcriptions. You'll need to turn this back on manually through the app.
-              </span>
-            </div>
-            <button
-              onClick={handleStopTranscription}
-              className="w-full flex items-center justify-center rounded-[12px] bg-[#EF4444] py-3.5"
-            >
-              <span className="text-[15px] font-red-hat font-semibold text-white">
-                Stop transcription
-              </span>
-            </button>
-            <button
-              onClick={() => setShowStopConfirm(false)}
-              className="w-full flex items-center justify-center rounded-[12px] bg-[#F5F4F0] py-3.5"
-            >
-              <span className="text-[15px] font-red-hat font-semibold text-[#1C1917]">
-                Cancel
-              </span>
-            </button>
-          </div>
-        </div>
-      )}
+      <StopTranscriptionDialog
+        open={showStopConfirm}
+        onCancel={() => setShowStopConfirm(false)}
+        onConfirm={handleStopTranscription}
+      />
 
       <EmailDrawer
         isOpen={showEmailDrawer}
