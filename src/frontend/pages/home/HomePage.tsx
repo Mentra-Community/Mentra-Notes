@@ -1057,24 +1057,39 @@ export function HomePage() {
             </div>
           ) : hasNoConversations ? (
             <div className="flex flex-col items-center justify-center h-full px-10 gap-4">
-              <div className="flex items-center justify-center shrink-0 rounded-[20px] bg-[#F5F5F4] size-16">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="#A8A29E" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-              <div className="text-[18px] leading-[22px] text-center text-[#1C1917] font-red-hat font-bold">
-                Start a conversation
-              </div>
-              <div className="text-[14px] leading-5 text-center text-[#A8A29E] font-red-hat">
-                Mentra Notes is listening in the background. When it detects a conversation, it will appear here.
-              </div>
-              {isRecording && (
-                <div className="flex items-center mt-1 rounded-[20px] py-2 px-4 gap-2 bg-[#FEF2F2]">
-                  <div className="shrink-0 rounded-sm bg-[#EF4444] size-2 animate-pulse" />
-                  <div className="text-[13px] leading-4 text-[#DB2627] font-red-hat font-medium">
-                    Microphone active · Listening
+              {isMicActive ? (
+                <>
+                  <div className="flex items-center justify-center shrink-0 rounded-[20px] bg-[#FEF2F2] size-16">
+                    <div className="relative flex items-center justify-center">
+                      <div className="absolute size-10 rounded-full bg-[#FEE2E2] animate-ping opacity-30" />
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                        <rect x="9" y="1" width="6" height="12" rx="3" stroke="#DC2626" strokeWidth="1.75" />
+                        <path d="M5 10a7 7 0 0 0 14 0" stroke="#DC2626" strokeWidth="1.75" strokeLinecap="round" />
+                        <line x1="12" y1="17" x2="12" y2="21" stroke="#DC2626" strokeWidth="1.75" strokeLinecap="round" />
+                      </svg>
+                    </div>
                   </div>
-                </div>
+                  <div className="text-[18px] leading-[22px] text-center text-[#1C1917] font-red-hat font-bold">
+                    Listening...
+                  </div>
+                  <div className="text-[14px] leading-5 text-center text-[#A8A29E] font-red-hat">
+                    Waiting to capture your conversation
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-center shrink-0 rounded-[20px] bg-[#F5F5F4] size-16">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="#A8A29E" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                  <div className="text-[18px] leading-[22px] text-center text-[#1C1917] font-red-hat font-bold">
+                    Start a conversation
+                  </div>
+                  <div className="text-[14px] leading-5 text-center text-[#A8A29E] font-red-hat">
+                    Mentra Notes is listening in the background. When it detects a conversation, it will appear here.
+                  </div>
+                </>
               )}
             </div>
           ) : filteredConversations.length === 0 ? (
@@ -1198,6 +1213,7 @@ export function HomePage() {
                 longPressProps={convSelect.longPressProps}
                 highlightId={mergedHighlightId}
                 onHighlightSeen={(id) => { if (mergedHighlightId === id) setMergedHighlightId(null); }}
+                isMicActive={isMicActive}
               />
             </>
           )}

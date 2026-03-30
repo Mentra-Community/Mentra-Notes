@@ -10,6 +10,7 @@ import { format, isToday, isYesterday } from "date-fns";
 import { AnimatePresence, motion } from "motion/react";
 import type { Conversation } from "../../../../shared/types";
 import { ConversationRow } from "./ConversationRow";
+import { WaveIndicator } from "../../../components/shared/WaveIndicator";
 
 
 interface ConversationListProps {
@@ -30,6 +31,8 @@ interface ConversationListProps {
   highlightId?: string | null;
   /** Called when user clicks on the highlighted conversation */
   onHighlightSeen?: (id: string) => void;
+  /** Whether the microphone is currently active */
+  isMicActive?: boolean;
 }
 
 interface DayGroup {
@@ -52,6 +55,7 @@ export function ConversationList({
   longPressProps,
   highlightId,
   onHighlightSeen,
+  isMicActive = false,
 }: ConversationListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -164,6 +168,23 @@ export function ConversationList({
               {group.label} · {group.count} {group.count === 1 ? "conversation" : "conversations"}
             </span>
           </div>
+
+          {/* Listening placeholder — shown under Today when mic is active and no conversation is being transcribed */}
+          {group.label === "Today" && isMicActive && !group.conversations.some((c) => c.status === "active") && (
+            <div className="flex items-center py-3 gap-3 border-b border-b-[#F5F5F4]">
+              <div className="flex flex-col items-center shrink-0 w-10">
+                <WaveIndicator color="#DC2626" height={10} barWidth={2} gap={1} />
+              </div>
+              <div className="flex flex-col gap-0.5 pl-3.5">
+                <span className="text-[14px] leading-5 font-red-hat font-semibold text-[#dc2626a2]">
+                  Listening...
+                </span>
+                <span className="text-[12px] leading-4 font-red-hat text-[#D6D3D1]">
+                  Waiting to capture your conversation
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Conversation rows */}
           <AnimatePresence initial={false}>

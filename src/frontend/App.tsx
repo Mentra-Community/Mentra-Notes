@@ -48,7 +48,7 @@ export function App() {
   const { session } = useSynced<SessionI>(userId || "");
 
   // Redirect to onboarding on app open (controlled by feature flag + onboardingCompleted)
-  const { enabled: showOnboarding, loaded: flagsLoaded } = useFeatureFlag(FLAGS.FRONTEND_ONBOARD, true);
+  const { enabled: showOnboarding, loaded: flagsLoaded } = useFeatureFlag(FLAGS.FRONTEND_ONBOARD, false);
   const [onboardingResolved, setOnboardingResolved] = useState(false);
   const onboardingResolvedRef = useRef(false);
   useEffect(() => {
