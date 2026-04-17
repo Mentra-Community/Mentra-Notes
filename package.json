@@ -48,6 +48,7 @@
     "@tiptap/pm": "^3.19.0",
     "@tiptap/react": "^3.19.0",
     "@tiptap/starter-kit": "^3.19.0",
+    "adm-zip": "^0.5.17",
     "bun-plugin-tailwind": "^0.1.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -74,6 +75,7 @@
     "wouter": "^3.9.0"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.8",
     "@types/bun": "latest",
     "@types/react": "^19",
     "@types/react-dom": "^19",

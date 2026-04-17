@@ -13,78 +13,20 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 import { useMentraAuth } from "@mentra/react";
-import { format, isToday, isYesterday } from "date-fns";
+import { isToday, isYesterday, format } from "date-fns";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
+import { Drawer } from "vaul";
 import { useSynced } from "../../hooks/useSynced";
-import type { SessionI, Note, FolderColor } from "../../../shared/types";
-import { FolderPicker } from "./FolderPicker";
-import {
-  DropdownMenu,
-  type DropdownMenuOption,
-} from "../../components/shared/DropdownMenu";
-
-const FOLDER_COLOR_MAP: Record<FolderColor, string> = {
-  red: "#DC2626",
-  gray: "#78716C",
-  blue: "#2563EB",
-};
+import type { SessionI, Note } from "../../../shared/types";
 import { NotePageSkeleton } from "../../components/shared/SkeletonLoader";
 import { EmailDrawer } from "../../components/shared/EmailDrawer";
+import { ExportDrawer, type ExportOptions } from "../../components/shared/ExportDrawer";
+import { useTabBar } from "../../components/layout/Shell";
+import { isDevelopmentMode } from "../../lib/devMode";
 import { rewriteR2Urls } from "../../../shared/constants";
-
-// =============================================================================
-// Content parser — extracts structured sections from note content
-// =============================================================================
-
-interface ParsedNote {
-  summary: string;
-}
-
-function parseNoteContent(content: string, summary?: string): ParsedNote {
-  const result: ParsedNote = {
-    summary: "",
-  };
-
-  if (summary) {
-    result.summary = summary;
-    return result;
-  }
-
-  if (!content) return result;
-
-  // Strip HTML tags to extract a plain-text summary
-  const text = content
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
-    .replace(/<\/li>/gi, "\n")
-    .replace(/<\/h[1-6]>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .trim();
-
-  const lines = text
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
-  for (const line of lines) {
-    const bulletText = line
-      .replace(/^[-•*]\s*/, "")
-      .replace(/^\d+\.\s*/, "")
-      .trim();
-    if (!bulletText) continue;
-    result.summary += (result.summary ? " " : "") + bulletText;
-    if (result.summary.length > 200) break;
-  }
-
-  return result;
-}
 
 // =============================================================================
 // Component
@@ -98,10 +40,19 @@ export function NotePage() {
 
   const [editTitle, setEditTitle] = useState("");
   const [showEmailDrawer, setShowEmailDrawer] = useState(false);
+  const [showExportDrawer, setShowExportDrawer] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Hide the bottom tab bar while on this route (spec: detail page is full-bleed)
+  const tabBar = useTabBar();
+  useEffect(() => {
+    tabBar.setHidden(true);
+    return () => tabBar.setHidden(false);
+  }, [tabBar]);
 
   const noteId = params.id || "";
   const allNotes = session?.notes?.notes ?? [];
@@ -114,23 +65,24 @@ export function NotePage() {
     return conversations.find((c) => c.noteId === note.id) ?? null;
   }, [note, conversations]);
 
-  // Parse structured content
-  const parsed = useMemo(() => {
-    if (!note) return null;
-    return parseNoteContent(note.content, note.summary);
-  }, [note?.content, note?.summary]);
+  // Format the meta line: "Today, 2:10 PM" / "Yesterday, 2:10 PM" / "Mar 12, 2:10 PM"
+  // Uses createdAt so a note created at 11:58 PM stays in its real day.
+  const metaLabel = useMemo(() => {
+    const created = note?.createdAt ? new Date(note.createdAt) : null;
+    if (!created) return "";
+    let dayLabel: string;
+    if (isToday(created)) dayLabel = "Today";
+    else if (isYesterday(created)) dayLabel = "Yesterday";
+    else {
+      const sameYear = created.getFullYear() === new Date().getFullYear();
+      dayLabel = sameYear ? format(created, "MMM d") : format(created, "MMM d, yyyy");
+    }
+    const time = created.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    return `${dayLabel}, ${time}`;
+  }, [note?.createdAt]);
 
-  // Format date
-  const dateLabel = useMemo(() => {
-    if (!note?.date) return "";
-    const [year, month, day] = note.date.split("-").map(Number);
-    const dateObj = new Date(year, month - 1, day);
-    if (isToday(dateObj)) return "Today";
-    if (isYesterday(dateObj)) return "Yesterday";
-    return format(dateObj, "MMM d, yyyy");
-  }, [note?.date]);
-
-  // Source label
+  // Dev-only "From: …" source label — conversations UI is deprecated but we
+  // still want the link in dev so engineers can jump into the source.
   const sourceLabel = useMemo(() => {
     if (!note?.isAIGenerated || !sourceConversation) return null;
     const duration = sourceConversation.endTime
@@ -142,6 +94,7 @@ export function NotePage() {
       : null;
     return `From: ${sourceConversation.title}${duration ? ` · ${duration} min` : ""}`;
   }, [note, sourceConversation]);
+
 
   // Parse markdown to HTML
   const parseContentToHtml = useCallback((content: string): string => {
@@ -289,6 +242,28 @@ export function NotePage() {
     setLocation("/notes");
   };
 
+  const handleExport = useCallback(async (options: ExportOptions) => {
+    if (!note) return;
+    if (options.destination === "email") {
+      setShowEmailDrawer(true);
+      return;
+    }
+    const content = editor?.getHTML() || note.content || "";
+    const text = content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const title = editTitle || note.title || "Untitled Note";
+    await navigator.clipboard.writeText(`# ${title}\n\n${text}`);
+  }, [note, editor, editTitle]);
+
+  const handleDeleteConfirmed = useCallback(async () => {
+    if (!session?.notes?.permanentlyDeleteNote || !note) {
+      setShowDeleteConfirm(false);
+      return;
+    }
+    await session.notes.permanentlyDeleteNote(note.id);
+    setShowDeleteConfirm(false);
+    setLocation("/notes");
+  }, [session, note, setLocation]);
+
   const handleEmailSend = async (to: string, cc: string) => {
     if (!note) return;
     const ccList = cc ? cc.split(",").filter(Boolean) : undefined;
@@ -346,234 +321,71 @@ export function NotePage() {
   };
 
   return (
-    <div className="flex h-full flex-col bg-[#FAFAF9] overflow-hidden">
-      {/* Header bar */}
-      <div className="flex items-center justify-between pt-3 px-6 shrink-0">
-        <button onClick={handleBack} className="flex items-center gap-3.5">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <polyline
-              points="15,18 9,12 15,6"
-              stroke="#1C1917"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+    <div className="[font-synthesis:none] flex h-full flex-col bg-[#FCFBFA] overflow-hidden antialiased">
+      {/* Header bar — back chevron + "Note" label */}
+      <div className="flex items-center justify-between py-3 px-6 shrink-0">
+        <button onClick={handleBack} className="flex items-center gap-2">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
           </svg>
-          <span
-            className={`text-[16px] leading-5 text-[#1C1917] font-red-hat font-semibold`}
-          >
+          <span className="text-[18px] leading-[22px] text-[#1A1A1A] font-red-hat font-bold">
             Note
           </span>
         </button>
-
+        {/* Save status — kept but muted, so auto-save is still visible */}
+        <span className="text-[11px] text-[#A8A29E] font-red-hat mr-20">
+          {isSaving ? "Saving..." : showSaved ? "Saved" : ""}
+        </span>
       </div>
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
-        {/* Meta section */}
-        <div className="flex flex-col pt-5 gap-3 px-6">
-          {/* Badges row */}
-          <div className="flex items-center gap-2 flex flex-row">
-            {note.isAIGenerated ? (
-              <div className="flex items-center rounded-sm py-0.5 px-2 bg-[#FEE2E2]">
-                <span
-                  className={`text-[10px] leading-3.5 text-[#DC2626] font-red-hat font-bold`}
-                >
-                  AI
-                </span>
-              </div>
-            ) : (
-              <div className="flex items-center rounded-sm py-0.5 px-2 bg-[#DBEAFE]">
-                <span
-                  className={`text-[10px] leading-3.5 text-[#2563EB] font-red-hat font-semibold`}
-                >
-                  Manual
-                </span>
-              </div>
-            )}
-            {(() => {
-              const folders = session?.folders?.folders ?? [];
-              const noteFolder = folders.find((f) => f.id === note.folderId);
-              if (!noteFolder) return null;
-              const color = FOLDER_COLOR_MAP[noteFolder.color];
-              return (
-                <div className="flex items-center rounded-sm py-0.5 px-2 gap-1 bg-[#F5F5F4]">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
-                      stroke={color}
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      fill="none"
-                    />
-                  </svg>
-                  <span className="text-[10px] leading-3.5 text-[#78716C] font-red-hat font-semibold">
-                    {noteFolder.name}
-                  </span>
-                </div>
-              );
-            })()}
-            <span
-              className={`text-[12px] leading-4 text-[#A8A29E] font-red-hat`}
-            >
-              {dateLabel}
-            </span>
-            <div className="flex items-center gap-4 ml-auto">
-              {/* Save status */}
-              <span className={`text-[11px] text-[#A8A29E] font-red-hat`}>
-                {isSaving ? "Saving..." : showSaved ? "Saved" : ""}
-              </span>
-              {/* Export button */}
-              {/* <button onClick={() => setShowEmailDrawer(true)} className="p-1">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"
-                    stroke="#52525B"
-                    strokeWidth="1.75"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <polyline
-                    points="16,6 12,2 8,6"
-                    stroke="#52525B"
-                    strokeWidth="1.75"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <line
-                    x1="12"
-                    y1="2"
-                    x2="12"
-                    y2="15"
-                    stroke="#52525B"
-                    strokeWidth="1.75"
-                    strokeLinecap="round"
-                  />
+        {/* Title row — extrabold title + export + delete action icons */}
+        <div className="flex flex-col pb-3.5 gap-1.5 pt-2 px-6">
+          <div className="flex items-center gap-1.5 justify-center">
+            <textarea
+              value={editTitle}
+              onChange={(e) => {
+                setEditTitle(e.target.value);
+                e.target.style.height = "auto";
+                e.target.style.height = e.target.scrollHeight + "px";
+              }}
+              ref={(el) => {
+                if (el) {
+                  el.style.height = "auto";
+                  el.style.height = el.scrollHeight + "px";
+                }
+              }}
+              placeholder="Untitled Note"
+              rows={1}
+              className="flex-1 tracking-[-0.5px] text-[#1A1A1A] font-red-hat font-extrabold text-[26px] leading-8 bg-transparent border-none focus:outline-none placeholder-[#D6D3D1] resize-none overflow-hidden break-words pr-6"
+            />
+            <div className="flex gap-3 w-fit shrink-0 pt-1">
+              <button onClick={() => setShowExportDrawer(true)} aria-label="Export note">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B655D" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                  <polyline points="16 6 12 2 8 6" />
+                  <line x1="12" y1="2" x2="12" y2="15" />
                 </svg>
-              </button> */}
-              {/* More menu */}
-              <DropdownMenu
-                options={(() => {
-                  const isFav = note?.isFavourite ?? false;
-                  const isArchived = note?.isArchived ?? false;
-                  const isTrashed = note?.isTrashed ?? false;
-
-                  const items: DropdownMenuOption[] = [
-                    {
-                      id: "favourite",
-                      label: isFav ? "Unfavourite" : "Favourite",
-                      icon: (
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill={isFav ? "#DC2626" : "none"}
-                          stroke={isFav ? "#DC2626" : "#78716C"}
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                        </svg>
-                      ),
-                      onClick: async () => {
-                        if (!session?.notes || !note) return;
-                        if (isFav) {
-                          await session.notes.unfavouriteNote(note.id);
-                        } else {
-                          await session.notes.favouriteNote(note.id);
-                        }
-                      },
-                    },
-                    {
-                      id: "archive",
-                      label: isArchived ? "Unarchive" : "Archive",
-                      icon: (
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="#78716C"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M21 8v13H3V8" />
-                          <rect x="1" y="3" width="22" height="5" rx="1" />
-                          <line x1="10" y1="12" x2="14" y2="12" />
-                        </svg>
-                      ),
-                      onClick: async () => {
-                        if (!session?.notes || !note) return;
-                        if (isArchived) {
-                          await session.notes.unarchiveNote(note.id);
-                        } else {
-                          await session.notes.archiveNote(note.id);
-                        }
-                      },
-                    },
-                    { type: "divider" },
-                    {
-                      id: "trash",
-                      label: isTrashed ? "Untrash" : "Trash",
-                      danger: !isTrashed,
-                      icon: (
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke={isTrashed ? "#78716C" : "#DC2626"}
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M3 6h18" />
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                        </svg>
-                      ),
-                      onClick: async () => {
-                        if (!session?.notes || !note) return;
-                        if (isTrashed) {
-                          await session.notes.untrashNote(note.id);
-                        } else {
-                          await session.notes.trashNote(note.id);
-                          setLocation("/notes");
-                        }
-                      },
-                    },
-                  ];
-                  return items;
-                })()}
-              />
+              </button>
+              <button onClick={() => setShowDeleteConfirm(true)} aria-label="Delete note">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B655D" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+              </button>
             </div>
           </div>
-
-          {/* Title (editable, auto-wrapping) */}
-          <textarea
-            value={editTitle}
-            onChange={(e) => {
-              setEditTitle(e.target.value);
-              e.target.style.height = "auto";
-              e.target.style.height = e.target.scrollHeight + "px";
-            }}
-            ref={(el) => {
-              if (el) {
-                el.style.height = "auto";
-                el.style.height = el.scrollHeight + "px";
-              }
-            }}
-            placeholder="Untitled Note"
-            rows={1}
-            className={`w-full text-[24px] leading-[30px] text-[#1C1917] font-red-hat font-extrabold bg-transparent border-none focus:outline-none placeholder-[#D6D3D1] resize-none overflow-hidden break-words p-0`}
-          />
-
-          {/* Source conversation */}
-          {sourceLabel && sourceConversation && (
-            <button className="flex items-center gap-2 active:opacity-70 transition-opacity">
+          {/* Timestamp line — "Today, 2:10 PM" */}
+          <div className="text-[#9C958D] font-red-hat text-[13px] leading-4">
+            {metaLabel}
+          </div>
+          {/* Dev-only "From: …" conversation link */}
+          {isDevelopmentMode && sourceLabel && sourceConversation && (
+            <button
+              onClick={() => setLocation(`/conversation/${sourceConversation.id}`)}
+              className="flex items-center gap-2 active:opacity-70 transition-opacity self-start"
+            >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                 <path
                   d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
@@ -583,45 +395,12 @@ export function NotePage() {
                   strokeLinejoin="round"
                 />
               </svg>
-              <span
-                onClick={() =>
-                  setLocation(`/conversation/${sourceConversation.id}`)
-                }
-                className={`text-[13px] leading-[18px] text-[#78716C] font-red-hat font-medium underline underline-offset-2 decoration-[#D6D3D1]`}
-              >
+              <span className="text-[13px] leading-[18px] text-[#78716C] font-red-hat font-medium underline underline-offset-2 decoration-[#D6D3D1]">
                 {sourceLabel}
               </span>
             </button>
           )}
         </div>
-
-        {/* Folder picker */}
-        <div className="pt-4">
-          <FolderPicker
-            folders={session?.folders?.folders ?? []}
-            currentFolderId={note?.folderId}
-            onSelect={async (folderId) => {
-              if (!session?.notes?.updateNote || !note) return;
-              await session.notes.updateNote(note.id, { folderId });
-            }}
-          />
-        </div>
-
-        {/* Divider */}
-        <div className="h-px mt-1 mb-5 bg-[#E7E5E4] mx-6" />
-
-        {/* Summary section (AI-generated notes only) */}
-        {note.isAIGenerated && parsed?.summary && (
-          <div className="flex flex-col gap-2.5 px-6">
-            <div className="flex items-center gap-2">
-              <span
-                className={`text-[11px] tracking-[0.08em] uppercase leading-3.5 text-[#A8A29E] font-red-hat font-bold`}
-              >
-                Summary
-              </span>
-            </div>
-          </div>
-        )}
 
         {/* Inline TipTap editor — always visible, always editable */}
         <div className="px-6 pt-0 pb-32">
@@ -648,7 +427,8 @@ export function NotePage() {
         </div>
       </div>
 
-      {/* Bottom formatting toolbar */}
+      {/* Bottom formatting toolbar — commented out for read-only/minimal detail page */}
+      {false && (
       <div className="flex items-center justify-center pt-3 pb-3 gap-1 border-t border-[#F4F4F5] bg-[#FAFAF9] shrink-0">
         {editor && (
           <>
@@ -768,8 +548,19 @@ export function NotePage() {
           </>
         )}
       </div>
+      )}
 
-      {/* Email Drawer */}
+      {/* Export Drawer (clipboard / email) */}
+      <ExportDrawer
+        isOpen={showExportDrawer}
+        onClose={() => setShowExportDrawer(false)}
+        itemType="note"
+        itemLabel={editTitle || note.title || "Untitled Note"}
+        count={1}
+        onExport={handleExport}
+      />
+
+      {/* Email Drawer (opened by ExportDrawer when destination=email) */}
       <EmailDrawer
         isOpen={showEmailDrawer}
         onClose={() => setShowEmailDrawer(false)}
@@ -777,6 +568,53 @@ export function NotePage() {
         defaultEmail={userId || ""}
         itemLabel="Note"
       />
+
+      {/* Delete confirmation — permanent */}
+      <Drawer.Root open={showDeleteConfirm} onOpenChange={(open) => !open && setShowDeleteConfirm(false)}>
+        <Drawer.Portal>
+          <Drawer.Overlay className="fixed inset-0 bg-black/30 backdrop-blur-[6px] z-50" />
+          <Drawer.Content className="flex flex-col rounded-t-[20px] fixed bottom-0 left-0 right-0 z-50 bg-[#FAFAF9] outline-none">
+            <div className="flex justify-center pt-3 pb-4">
+              <div className="w-9 h-1 rounded-xs bg-[#D6D3D1] shrink-0" />
+            </div>
+            <Drawer.Title className="sr-only">Delete Note</Drawer.Title>
+            <Drawer.Description className="sr-only">Confirm permanent note deletion</Drawer.Description>
+            <div className="px-6 pb-10">
+              <div className="flex items-center justify-between pb-1">
+                <span className="text-xl leading-[26px] text-[#1C1917] font-red-hat font-extrabold tracking-[-0.02em]">
+                  Delete Note?
+                </span>
+                <button onClick={() => setShowDeleteConfirm(false)}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <line x1="18" y1="6" x2="6" y2="18" stroke="#78716C" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="6" y1="6" x2="18" y2="18" stroke="#78716C" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-[14px] leading-5 text-[#78716C] font-red-hat pb-6">
+                This will permanently delete this note. This cannot be undone.
+              </p>
+              <button
+                onClick={handleDeleteConfirmed}
+                className="flex items-center justify-center w-full rounded-xl bg-[#DC2626] p-3.5 mb-3"
+              >
+                <span className="text-[16px] leading-5 text-white font-red-hat font-bold">
+                  Delete Note
+                </span>
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex items-center justify-center w-full rounded-xl border border-[#E7E5E4] p-3.5"
+              >
+                <span className="text-[16px] leading-5 text-[#1C1917] font-red-hat font-bold">
+                  Cancel
+                </span>
+              </button>
+            </div>
+            <div className="h-safe-area-bottom" />
+          </Drawer.Content>
+        </Drawer.Portal>
+      </Drawer.Root>
     </div>
   );
 }

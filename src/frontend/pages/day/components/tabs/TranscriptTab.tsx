@@ -90,6 +90,8 @@ interface TranscriptTabProps {
   isCompactMode?: boolean; // When true, all hours show in minimal/compact view
   isSyncingPhoto?: boolean; // When true, a photo is being uploaded/analyzed
   isLoading?: boolean; // When true, show skeleton loading state
+  /** Hour (0-23) to auto-expand + scroll to on mount (e.g. from #hour-N deep-link) */
+  targetHour?: number;
 }
 
 interface GroupedSegments {
@@ -119,6 +121,7 @@ export function TranscriptTab({
   isCompactMode = false,
   isSyncingPhoto = false,
   isLoading = false,
+  targetHour,
 }: TranscriptTabProps) {
   // Track expanded state for each hour (only used when not in compact mode)
   const [expandedHours, setExpandedHours] = useState<Set<string>>(new Set());
@@ -478,6 +481,37 @@ export function TranscriptTab({
   useEffect(() => {
     initialScrollDone.current = false;
   }, [dateString]);
+
+  // Deep-link: when `targetHour` is provided (e.g. from /transcript/{date}#hour-N),
+  // expand that hour and scroll its header to the top after segments have loaded.
+  // Runs once per (date, targetHour) combo.
+  const lastTargetHourRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (targetHour === undefined || targetHour < 0) return;
+    if (isLoading) return;
+    const key = `${dateString}-${targetHour}`;
+    if (lastTargetHourRef.current === key) return;
+
+    const hourKey = createHourKey(targetHour);
+    // Bail if that hour has no segments yet (wrong day, or still hydrating)
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const section = container.querySelector(`[data-hour-section="${hourKey}"]`);
+    if (!section) return;
+
+    lastTargetHourRef.current = key;
+    // Expand + pin: same flow as tapping the hour's expand button
+    setExpandedHours((prev) => {
+      if (prev.has(hourKey)) return prev;
+      const next = new Set(prev);
+      next.add(hourKey);
+      return next;
+    });
+    // Give React a frame to mount the expanded content, then scroll
+    requestAnimationFrame(() => {
+      scrollHeaderToTop(hourKey, "smooth");
+    });
+  }, [targetHour, dateString, isLoading, scrollHeaderToTop]);
 
   useEffect(() => {
     const container = scrollContainerRef.current;

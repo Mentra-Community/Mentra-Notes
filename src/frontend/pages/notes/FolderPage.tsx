@@ -194,19 +194,14 @@ export function FolderPage() {
             </div>
           </div>
         ) : (
-          folderNotes.map((note, i) => {
-            const isLast = i === folderNotes.length - 1;
+          folderNotes.map((note) => {
             return (
               <NoteRow
                 key={note.id}
                 note={note}
-                fromLabel={null}
-                formatNoteDate={formatNoteDate}
+                meta={formatNoteDate(note)}
                 stripHtmlAndTruncate={stripHtmlAndTruncate}
                 onSelect={handleSelectNote}
-                onArchive={handleArchiveNote}
-                onDelete={handleTrashNote}
-                isLast={isLast}
               />
             );
           })

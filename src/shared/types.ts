@@ -229,6 +229,26 @@ export interface SettingsManagerI {
     topics?: string[];
     transcriptionPaused?: boolean;
   }): Promise<void>;
+
+  /** Builds a ZIP of all transcripts + notes and emails it as an attachment. */
+  sendExportAllEmail(params: {
+    to: string | string[];
+    cc?: string | string[];
+  }): Promise<{ transcriptCount: number; noteCount: number; bytes: number }>;
+
+  /** Fresh-install wipe — deletes all user-owned data except the settings document. */
+  deleteAllUserData(): Promise<{
+    deleted: {
+      notes: number;
+      transcripts: number;
+      hourSummaries: number;
+      folders: number;
+      chatHistories: number;
+      conversations: number;
+      transcriptChunks: number;
+      files: number;
+    };
+  }>;
 }
 
 /**

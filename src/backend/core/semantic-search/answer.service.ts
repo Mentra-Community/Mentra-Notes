@@ -19,8 +19,8 @@ export async function generateAnswer(
 
   const context = top
     .map((r, i) => {
-      const label = r.type === "note" ? "Note" : "Conversation";
-      const body = r.content || r.summary;
+      const label = r.type === "note" ? "Note" : "Transcript";
+      const body = r.type === "note" ? (r.content || r.summary) : r.summary;
       return `[${i + 1}] ${label}: "${r.title}" (${r.date})\n${body}`;
     })
     .join("\n\n");

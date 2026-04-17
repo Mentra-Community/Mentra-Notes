@@ -1,0 +1,122 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html dir="ltr" lang="en">
+<head>
+  <meta content="width=device-width" name="viewport" />
+  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+  <meta name="x-apple-disable-message-reformatting" />
+  <meta content="IE=edge" http-equiv="X-UA-Compatible" />
+  <meta content="telephone=no,address=no,email=no,date=no,url=no" name="format-detection" />
+  <style>
+    @media only screen and (max-width: 640px) {
+      .email-container { min-width: 100% !important; max-width: 100% !important; width: 100% !important; border-radius: 0 !important; }
+      .email-wrapper { padding: 0 !important; }
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;background-color:#FAFAF9;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+  <!--[if mso]><table width="620" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+  <div class="email-wrapper" style="max-width:620px;margin:0 auto;padding:20px 0;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FAFAF9;">
+    <tr>
+      <td align="center">
+        <table class="email-container" cellpadding="0" cellspacing="0" border="0" style="table-layout:fixed;width:100%;min-width:620px;max-width:620px;background-color:#FFFFFF;border-radius:16px;overflow:hidden;">
+
+          <!-- HEADER -->
+          <tr>
+            <td align="center" style="padding:48px 40px 32px;">
+              <table cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="padding-right:10px;vertical-align:middle;">
+                    <img src="https://pub-b5f134142a0f4fbdb5c05a2f75fc8624.r2.dev/assets/Icon.png" width="36" height="36" alt="Mentra Notes" style="display:block;border-radius:10px;width:36px;height:36px;" />
+                  </td>
+                  <td style="vertical-align:middle;">
+                    <span style="color:#1C1917;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;letter-spacing:-0.02em;line-height:28px;">Mentra Notes</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- KICKER + TITLE -->
+          <tr>
+            <td style="padding:0 40px;">
+              <p style="margin:0 0 6px 0;color:#D32F2F;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.12em;line-height:14px;text-transform:uppercase;">Data Export</p>
+              <p style="margin:0 0 16px 0;color:#1A1A1A;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:28px;font-weight:800;letter-spacing:-0.02em;line-height:34px;">Your data is attached</p>
+            </td>
+          </tr>
+
+          <!-- INTRO TEXT -->
+          <tr>
+            <td style="padding:0 40px;">
+              <p style="margin:0 0 8px 0;color:#78716C;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;line-height:22px;">Hi there,</p>
+              <p style="margin:0;color:#78716C;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;line-height:22px;">You requested a copy of your data from Mentra Notes. The ZIP file attached to this email contains every transcript and note in your account, saved as plain <strong style="color:#1C1917;">.txt</strong> files so you can open them anywhere.</p>
+            </td>
+          </tr>
+
+          <!-- SUMMARY CARD -->
+          <tr>
+            <td style="padding:28px 40px 0;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F5F5F4;border:1px solid #E7E5E4;border-radius:12px;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <p style="margin:0 0 14px 0;color:#A8A29E;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.08em;line-height:14px;text-transform:uppercase;">Included</p>
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="padding:4px 0;">
+                          <span style="color:#1C1917;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;">&bull; {{transcriptCount}} transcript{{transcriptPlural}}</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:4px 0;">
+                          <span style="color:#1C1917;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;">&bull; {{noteCount}} note{{notePlural}}</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:4px 0;">
+                          <span style="color:#1C1917;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;">&bull; ZIP size: {{zipSize}}</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- FILENAME -->
+          <tr>
+            <td style="padding:20px 40px 0;">
+              <p style="margin:0;color:#A8A29E;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:18px;">Attached file: <span style="color:#1C1917;font-weight:600;">{{zipFilename}}</span></p>
+            </td>
+          </tr>
+
+          <!-- HOW TO OPEN -->
+          <tr>
+            <td style="padding:28px 40px 0;">
+              <p style="margin:0 0 10px 0;color:#1C1917;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;line-height:20px;">Opening the archive</p>
+              <p style="margin:0;color:#78716C;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;line-height:22px;">Tap the attachment on your phone, or download and unzip on desktop. Inside you&rsquo;ll find a <strong style="color:#1C1917;">transcripts/</strong> folder (one file per day) and a <strong style="color:#1C1917;">notes/</strong> folder (one file per note).</p>
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td style="padding:40px 40px 48px;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="border-top:1px solid #E7E5E4;padding-top:16px;">
+                    <p style="margin:0 0 12px 0;color:#A8A29E;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:18px;text-align:center;">You&rsquo;re receiving this because you requested a data export from Mentra Notes. If you didn&rsquo;t request this, you can safely ignore this email.</p>
+                    <p style="margin:0;color:#A8A29E;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:16px;text-align:center;">Mentra Notes.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+  </div>
+  <!--[if mso]></td></tr></table><![endif]-->
+</body>
+</html>

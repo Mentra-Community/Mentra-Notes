@@ -91,17 +91,14 @@ export function ExportDrawer({
             </div>
 
             {/* Subtitle */}
-            <div className="pb-5 text-[13px] leading-[18px] text-[#A8A29E] font-red-hat">
+            <div className=" py-4 text-[18px] leading-[18px] text-[#A8A29E] font-red-hat">
               {itemLabel}
             </div>
 
-            {/* Section: Included in export */}
-            <div className="tracking-[0.08em] uppercase pb-2.5 text-[11px] leading-3.5 text-[#A8A29E] font-red-hat font-bold">
-              Included in export
-            </div>
+            
 
             {/* Content — always included (non-toggleable) */}
-            <div className="flex items-center justify-between py-3.5 border-b border-b-[#E7E5E4]">
+            {/* <div className="flex items-center justify-between py-3.5 border-b border-b-[#E7E5E4]">
               <div className="flex flex-col gap-0.5">
                 <span className="text-[15px] leading-5 text-[#1C1917] font-red-hat font-semibold">
                   {contentToggleLabel}
@@ -111,42 +108,10 @@ export function ExportDrawer({
                 </span>
               </div>
               <ToggleSwitch checked={true} onChange={() => {}} />
-            </div>
+            </div> */}
 
-            {/* Notes: Linked Conversation toggle → sub-toggle for Conversation Transcript */}
-            {itemType === "note" && (
-              <>
-                <div className="flex items-center justify-between py-3.5 border-b border-b-[#E7E5E4]">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-[15px] leading-5 text-[#1C1917] font-red-hat font-semibold">
-                      Linked Conversation
-                    </span>
-                    <span className="text-xs leading-4 text-[#A8A29E] font-red-hat">
-                      Conversation summary from this note
-                    </span>
-                    {includeLinkedNote && missingNoteCount > 0 && (
-                      <span className="text-xs leading-4 text-[#DC2626] font-red-hat font-medium mt-0.5">
-                        {missingNoteCount} {missingNoteCount === 1 ? "note has" : "notes have"} no linked conversation
-                      </span>
-                    )}
-                  </div>
-                  <ToggleSwitch checked={includeLinkedNote} onChange={setIncludeLinkedNote} />
-                </div>
-                {includeLinkedNote && (
-                  <div className="flex items-center justify-between py-3.5 border-b border-b-[#E7E5E4]">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-[15px] leading-5 text-[#1C1917] font-red-hat font-semibold">
-                        Conversation Transcript
-                      </span>
-                      <span className="text-xs leading-4 text-[#A8A29E] font-red-hat">
-                        Full conversation with speaker labels
-                      </span>
-                    </div>
-                    <ToggleSwitch checked={includeTranscript} onChange={setIncludeTranscript} />
-                  </div>
-                )}
-              </>
-            )}
+            {/* Notes: Linked Conversation + Transcript toggles hidden — the
+                conversations UI is dormant so there's nothing to link to. */}
 
             {/* Conversations: Linked Transcript toggle + Linked AI Note toggle */}
             {itemType === "conversation" && (

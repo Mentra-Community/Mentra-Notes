@@ -12,6 +12,7 @@ if (!process.env.RESEND_API_KEY) {
 const templateDir = resolve(import.meta.dir, "../../public/resend-email-template");
 const emailTemplate = readFileSync(resolve(templateDir, "notes-email.html"), "utf-8");
 const transcriptTemplate = readFileSync(resolve(templateDir, "transcript-email.html"), "utf-8");
+const dataExportTemplate = readFileSync(resolve(templateDir, "data-export-email.html"), "utf-8");
 
 /** Escape plain text for safe HTML interpolation */
 function escapeHtml(str: string): string {
@@ -218,6 +219,64 @@ function buildTranscriptEmailHtml({
     .replaceAll("{{downloadTxt}}", downloadTxt)
     .replaceAll("{{downloadDocx}}", downloadDocx)
     .replaceAll("{{transcriptRows}}", transcriptRows);
+}
+
+// =============================================================================
+// Data Export Email (full-account ZIP)
+// =============================================================================
+
+interface SendDataExportEmailRequest {
+  to: string | string[];
+  cc?: string | string[];
+  zipBuffer: Buffer;
+  zipFilename: string;
+  transcriptCount: number;
+  noteCount: number;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+export async function sendDataExportEmail({
+  to,
+  cc,
+  zipBuffer,
+  zipFilename,
+  transcriptCount,
+  noteCount,
+}: SendDataExportEmailRequest) {
+  const html = dataExportTemplate
+    .replaceAll("{{transcriptCount}}", String(transcriptCount))
+    .replaceAll("{{transcriptPlural}}", transcriptCount === 1 ? "" : "s")
+    .replaceAll("{{noteCount}}", String(noteCount))
+    .replaceAll("{{notePlural}}", noteCount === 1 ? "" : "s")
+    .replaceAll("{{zipSize}}", formatBytes(zipBuffer.byteLength))
+    .replaceAll("{{zipFilename}}", escapeHtml(zipFilename));
+
+  const ccList = cc ? (Array.isArray(cc) ? cc : [cc]).filter(Boolean) : undefined;
+
+  const { data, error } = await resend.emails.send({
+    from: "Mentra Notes <notes@mentra.glass>",
+    to: Array.isArray(to) ? to : [to],
+    ...(ccList && ccList.length > 0 ? { cc: ccList } : {}),
+    subject: "Your Mentra Notes data export",
+    html,
+    attachments: [
+      {
+        filename: zipFilename,
+        content: zipBuffer,
+      },
+    ],
+  });
+
+  if (error) {
+    throw new Error(`Failed to send data export email: ${error.message}`);
+  }
+
+  return data;
 }
 
 export async function sendTranscriptEmail({

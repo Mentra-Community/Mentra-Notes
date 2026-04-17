@@ -35,6 +35,17 @@ export function TranscriptPage() {
   const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const isToday = dateString === todayString;
 
+  // Deep-link support: /transcript/{date}#hour-N expands and scrolls to that hour.
+  // Parsed once on mount; the TranscriptTab effect handles the actual scroll once
+  // segments are hydrated.
+  const targetHour = useMemo<number | undefined>(() => {
+    if (typeof window === "undefined") return undefined;
+    const m = window.location.hash.match(/^#hour-(\d{1,2})$/);
+    if (!m) return undefined;
+    const h = parseInt(m[1], 10);
+    return Number.isFinite(h) && h >= 0 && h <= 23 ? h : undefined;
+  }, []);
+
   // Session data
   const allSegments = session?.transcript?.segments ?? [];
   const hourSummaries = session?.summary?.hourSummaries ?? [];
@@ -344,6 +355,7 @@ export function TranscriptPage() {
           isCompactMode={isCompactMode}
           isSyncingPhoto={isToday ? isSyncingPhoto : false}
           isLoading={isDataLoading}
+          targetHour={targetHour}
         />
       </div>
 

@@ -41,6 +41,10 @@ const HourSummarySchema = new Schema<HourSummaryI>(
 // Compound index for efficient user + date + hour queries
 HourSummarySchema.index({ userId: 1, date: 1, hour: 1 }, { unique: true });
 
+// Text index on summary (which contains both title line + body) powers search.
+// Falls back to $regex at query time if the index isn't built yet.
+HourSummarySchema.index({ summary: "text" });
+
 // =============================================================================
 // Model
 // =============================================================================
@@ -117,4 +121,52 @@ export async function deleteHourSummariesForDate(
 ): Promise<number> {
   const result = await HourSummary.deleteMany({ userId, date });
   return result.deletedCount ?? 0;
+}
+
+/**
+ * Text-search a user's hour summaries. Uses Mongo `$text` when the index is
+ * available; falls back to a case-insensitive regex across `summary` so the
+ * search still works on environments where the text index hasn't been built.
+ */
+export async function searchHourSummaries(
+  userId: string,
+  query: string,
+  limit: number = 10,
+): Promise<Array<HourSummaryI & { score?: number }>> {
+  const q = query.trim();
+  if (!q) return [];
+
+  // $text defaults to OR across words, which makes gibberish queries like
+  // "smart camera asdfd" match any doc containing "smart" or "camera". Wrap
+  // each word in quotes so Mongo requires all of them (logical AND).
+  const words = q.split(/\s+/).filter(Boolean);
+  const strictQuery = words.map((w) => `"${w.replace(/"/g, '\\"')}"`).join(" ");
+
+  try {
+    const results = await HourSummary.find(
+      { userId, $text: { $search: strictQuery } },
+      { score: { $meta: "textScore" } },
+    )
+      .sort({ score: { $meta: "textScore" } })
+      .limit(limit)
+      .lean();
+    return results as unknown as Array<HourSummaryI & { score?: number }>;
+  } catch (err) {
+    console.warn("[HourSummary] $text search failed, falling back to regex:", err);
+  }
+
+  // Fallback: regex that requires all words to appear somewhere in `summary`
+  // (order-independent), using a lookahead chain. Keeps the AND-semantics of
+  // the $text path when the text index isn't available.
+  const escaped = words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const regex = new RegExp(escaped.map((w) => `(?=.*${w})`).join(""), "is");
+  const results = await HourSummary.find({
+    userId,
+    summary: { $regex: regex },
+  })
+    .sort({ date: -1, hour: -1 })
+    .limit(limit)
+    .lean();
+
+  return results as unknown as Array<HourSummaryI & { score?: number }>;
 }

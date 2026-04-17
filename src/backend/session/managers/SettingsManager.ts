@@ -10,6 +10,9 @@ import {
   getOrCreateUserSettings,
   updateUserSettings,
 } from "../../models";
+import { wipeAllUserData } from "../../services/wipeAllUserData.service";
+import { buildUserDataZip } from "../../services/exportAll.service";
+import { sendDataExportEmail } from "../../services/resend.service";
 
 // =============================================================================
 // Types
@@ -168,6 +171,92 @@ export class SettingsManager extends SyncedManager {
     }
   }
 
+  /**
+   * Builds a ZIP of all transcripts + notes as plain-text files and emails it
+   * as an attachment. Used from Settings → Export all data. Webviews can't
+   * reliably trigger file downloads on iOS, so email is the only delivery path.
+   */
+  @rpc
+  async sendExportAllEmail(params: {
+    to: string | string[];
+    cc?: string | string[];
+  }): Promise<{ transcriptCount: number; noteCount: number; bytes: number }> {
+    const userId = this._session?.userId;
+    if (!userId) throw new Error("No user session");
+
+    const { to, cc } = params || {};
+    if (!to || (Array.isArray(to) && to.length === 0)) {
+      throw new Error("At least one recipient is required");
+    }
+
+    const { buffer, transcriptCount, noteCount } = await buildUserDataZip(userId);
+    const stamp = new Date().toISOString().slice(0, 10);
+    const zipFilename = `mentra-notes-export-${stamp}.zip`;
+
+    await sendDataExportEmail({
+      to,
+      cc,
+      zipBuffer: buffer,
+      zipFilename,
+      transcriptCount,
+      noteCount,
+    });
+
+    console.log(
+      `[SettingsManager] Emailed export to ${Array.isArray(to) ? to.join(",") : to} (${formatBytesForLog(buffer.byteLength)}, ${transcriptCount}t / ${noteCount}n)`,
+    );
+
+    return {
+      transcriptCount,
+      noteCount,
+      bytes: buffer.byteLength,
+    };
+  }
+
+  /**
+   * Fresh-install wipe. Deletes notes/transcripts/hour-summaries/conversations/
+   * folders/chat history/files but preserves the user's settings document.
+   * Also resets in-memory manager state so the UI shows empty immediately.
+   */
+  @rpc
+  async deleteAllUserData(): Promise<{
+    deleted: {
+      notes: number;
+      transcripts: number;
+      hourSummaries: number;
+      folders: number;
+      chatHistories: number;
+      conversations: number;
+      transcriptChunks: number;
+      files: number;
+    };
+  }> {
+    const userId = this._session?.userId;
+    if (!userId) throw new Error("No user session");
+
+    const session = this._session as any;
+
+    // Stop any in-flight work that could re-persist data mid-wipe.
+    try { session?.transcript?.stopRecording?.(); } catch {}
+    try { session?.chunkBuffer?.stop?.(); } catch {}
+    try { session?.chunkBuffer?.clearBuffer?.(); } catch {}
+    try { session?.conversation?.forceEndActiveConversation?.(); } catch {}
+
+    const result = await wipeAllUserData(userId);
+
+    // Reset live manager state so the UI reflects an empty install.
+    try { session?.notes?.notes?.set?.([]); } catch {}
+    try { session?.transcript?.segments?.set?.([]); } catch {}
+    try { session?.summary?.hourSummaries?.set?.([]); } catch {}
+    try { session?.folders?.folders?.set?.([]); } catch {}
+    try { session?.conversation?.conversations?.set?.([]); } catch {}
+    try { session?.file?.files?.set?.([]); } catch {}
+
+    console.log(`[SettingsManager] Wiped all user data for ${userId}:`, result);
+
+    return { deleted: result };
+  }
+
   @rpc
   async getSettings(): Promise<{
     showLiveTranscript: boolean;
@@ -196,4 +285,10 @@ export class SettingsManager extends SyncedManager {
       topics: this.topics,
     };
   }
+}
+
+function formatBytesForLog(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }

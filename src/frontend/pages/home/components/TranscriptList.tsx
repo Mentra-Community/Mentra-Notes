@@ -119,25 +119,28 @@ export function TranscriptList({
             }`}
             {...(!isSelecting ? lpHandlers || {} : {})}
           >
-            {/* Checkbox slot — width animates from 0 to 22+gap so the row slides.
-                initial={false} avoids the mount-time animation that would flash
-                a visible checkbox on first render. */}
-            <motion.div
-              initial={false}
-              animate={{ width: isSelecting && canSelect ? 22 : 0 }}
-              transition={{ type: "tween", duration: 0.22, ease: "easeOut" }}
-              className="shrink-0 overflow-hidden"
-            >
-              {isSelected ? (
-                <div className="flex items-center justify-center w-[22px] h-[22px] rounded-md bg-[#DC2626]">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                    <polyline points="6,12 10,16 18,8" stroke="#FAFAF9" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
-              ) : (
-                <div className="w-[22px] h-[22px] rounded-md border-2 border-[#D6D3D1]" />
-              )}
-            </motion.div>
+            {/* Checkbox slot — only mounted while selecting so flex `gap-3` doesn't
+                reserve space for an invisible 0-width child when not in selection
+                mode (which would push the mic icon to the right). */}
+            {isSelecting && canSelect && (
+              <motion.div
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: 22, opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={{ type: "tween", duration: 0.22, ease: "easeOut" }}
+                className="shrink-0 overflow-hidden"
+              >
+                {isSelected ? (
+                  <div className="flex items-center justify-center w-[22px] h-[22px] rounded-md bg-[#DC2626]">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                      <polyline points="6,12 10,16 18,8" stroke="#FAFAF9" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                ) : (
+                  <div className="w-[22px] h-[22px] rounded-md border-2 border-[#D6D3D1]" />
+                )}
+              </motion.div>
+            )}
 
             {/* Mic icon / Wave indicator */}
             <div className={`flex items-center justify-center shrink-0 rounded-xl size-10 ${today ? "bg-[#FEE2E2]" : "bg-[#F5F5F4]"}`}>
