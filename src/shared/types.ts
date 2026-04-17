@@ -135,6 +135,7 @@ export interface TranscriptManagerI {
   availableDates: string[]; // Dates with transcripts (for folder list)
   isLoadingHistory: boolean; // Loading indicator for historical data
   isSyncingPhoto: boolean; // True while a photo is being uploaded/analyzed
+  isHydrated: boolean; // True once initial hydration completes
 
   // RPCs
   getRecentSegments(count?: number): Promise<TranscriptSegment[]>;
@@ -273,6 +274,8 @@ export interface ConversationManagerI {
   conversations: Conversation[];
   activeConversationId: string | null;
   isHydrated: boolean;
+  lastAutoNoteErrorSeq: number;
+  lastAutoNoteErrorMessage: string | null;
 
   // RPCs
   deleteConversation(conversationId: string): Promise<void>;

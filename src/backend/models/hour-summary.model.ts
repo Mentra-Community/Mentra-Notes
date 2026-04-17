@@ -106,3 +106,15 @@ export async function getHourSummary(
 ): Promise<HourSummaryI | null> {
   return HourSummary.findOne({ userId, date, hour });
 }
+
+/**
+ * Delete all hour summaries for a user + date.
+ * Called when a day's transcript is trashed so titles don't reappear on reload.
+ */
+export async function deleteHourSummariesForDate(
+  userId: string,
+  date: string,
+): Promise<number> {
+  const result = await HourSummary.deleteMany({ userId, date });
+  return result.deletedCount ?? 0;
+}

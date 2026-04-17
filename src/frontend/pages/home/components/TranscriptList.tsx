@@ -8,6 +8,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { format, isToday, isYesterday } from "date-fns";
+import { motion } from "motion/react";
 import type { FileData } from "../../../../shared/types";
 import { WaveIndicator } from "../../../components/shared/WaveIndicator";
 
@@ -90,77 +91,54 @@ export function TranscriptList({
         const isLive = today && isRecording && !transcriptionPaused;
         const isLast = i === visible.length - 1;
         const isSelected = selectedDates?.has(dateStr) ?? false;
-        const canSelect = !isLive; // Can't select live transcript
+        const canSelect = true;
 
         const lpHandlers = longPressProps?.(dateStr, !canSelect);
 
-        if (isSelecting) {
-          return (
-            <div
-              key={dateStr}
-              ref={isLast ? lastItemRef : undefined}
-              onClick={() => { if (canSelect) onToggleSelect?.(dateStr); }}
-              className={`flex items-center py-4 gap-3 w-full text-left select-none ${
-                isSelected ? "bg-[#FEE2E24D]  " : ""
-              } ${!canSelect ? "opacity-40" : ""} ${
-                i < visible.length - 1 ? "border-b border-[#F5F5F4]" : ""
-              }`}
-            >
-              {/* Checkbox */}
-              {canSelect && (
-                <div
-                  className="shrink-0 overflow-hidden"
-                  style={{ width: 22 }}
-                >
-                  {isSelected ? (
-                    <div className="flex items-center justify-center w-[22px] h-[22px] rounded-md bg-[#DC2626]">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                        <polyline points="6,12 10,16 18,8" stroke="#FAFAF9" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </div>
-                  ) : (
-                    <div className="w-[22px] h-[22px] rounded-md border-2 border-[#D6D3D1]" />
-                  )}
-                </div>
-              )}
+        // Single tree — checkbox slot animates in/out, chevron crossfades out.
+        // Avoids a hard DOM swap so the row content slides smoothly.
+        const handleClick = () => {
+          if (isSelecting) {
+            if (canSelect) onToggleSelect?.(dateStr);
+          } else {
+            onSelect(dateStr);
+          }
+        };
 
-              {/* Mic icon */}
-              <div className={`flex items-center justify-center shrink-0 rounded-xl size-10 ${today ? "bg-[#FEE2E2]" : "bg-[#F5F5F4]"}`}>
-                {isLive ? (
-                  <WaveIndicator color="#DC2626" height={16} barWidth={3} gap={2.5} />
-                ) : (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={today ? "#DC2626" : "#78716C"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                    <line x1="12" y1="19" x2="12" y2="23" />
-                    <line x1="8" y1="23" x2="16" y2="23" />
-                  </svg>
-                )}
-              </div>
-              {/* Content */}
-              <div className="flex flex-col grow shrink basis-0 gap-0.5 min-w-0">
-                <span className="text-[15px] leading-5 text-[#1C1917] font-red-hat font-semibold">
-                  {label}
-                </span>
-                <span className="text-[13px] leading-4 text-[#A8A29E] font-red-hat">
-                  {segCount} segments{hourCount > 0 ? ` · ${hourCount} ${hourCount === 1 ? "hour" : "hours"}` : ""}
-                </span>
-              </div>
-            </div>
-          );
-        }
-
-        // Normal mode
         return (
-          <button
+          <motion.div
+            layout
+            transition={{ layout: { duration: 0.1, ease: "easeOut" } }}
             key={dateStr}
             ref={isLast ? lastItemRef : undefined}
-            onClick={() => onSelect(dateStr)}
-            className={`flex items-center py-4 gap-3 w-full text-left select-none ${
+            onClick={handleClick}
+            className={`flex items-center py-4 gap-3 w-full text-left select-none cursor-pointer transition-colors duration-200 ${isSelecting ? "px-6" : ""} ${
+              isSelecting && isSelected ? "bg-[#FEE2E24D]" : ""
+            } ${isSelecting && !canSelect ? "opacity-40" : ""} ${
               i < visible.length - 1 ? "border-b border-[#F5F5F4]" : ""
             }`}
-            {...(lpHandlers || {})}
+            {...(!isSelecting ? lpHandlers || {} : {})}
           >
+            {/* Checkbox slot — width animates from 0 to 22+gap so the row slides.
+                initial={false} avoids the mount-time animation that would flash
+                a visible checkbox on first render. */}
+            <motion.div
+              initial={false}
+              animate={{ width: isSelecting && canSelect ? 22 : 0 }}
+              transition={{ type: "tween", duration: 0.22, ease: "easeOut" }}
+              className="shrink-0 overflow-hidden"
+            >
+              {isSelected ? (
+                <div className="flex items-center justify-center w-[22px] h-[22px] rounded-md bg-[#DC2626]">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                    <polyline points="6,12 10,16 18,8" stroke="#FAFAF9" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+              ) : (
+                <div className="w-[22px] h-[22px] rounded-md border-2 border-[#D6D3D1]" />
+              )}
+            </motion.div>
+
             {/* Mic icon / Wave indicator */}
             <div className={`flex items-center justify-center shrink-0 rounded-xl size-10 ${today ? "bg-[#FEE2E2]" : "bg-[#F5F5F4]"}`}>
               {isLive ? (
@@ -183,11 +161,19 @@ export function TranscriptList({
                 {segCount} segments{hourCount > 0 ? ` · ${hourCount} ${hourCount === 1 ? "hour" : "hours"}` : ""}
               </span>
             </div>
-            {/* Chevron */}
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="shrink-0">
+            {/* Chevron — fades out in selection mode */}
+            <motion.svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              className="shrink-0"
+              animate={{ opacity: isSelecting ? 0 : 1, width: isSelecting ? 0 : 14 }}
+              transition={{ type: "tween", duration: 0.22, ease: "easeOut" }}
+            >
               <path d="m9 18 6-6-6-6" stroke="#D6D3D1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
+            </motion.svg>
+          </motion.div>
         );
       })}
     </>

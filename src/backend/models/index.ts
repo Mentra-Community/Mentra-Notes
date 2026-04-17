@@ -24,6 +24,7 @@ export {
   saveHourSummary,
   getHourSummaries,
   getHourSummary,
+  deleteHourSummariesForDate,
 } from "./hour-summary.model";
 
 // Note

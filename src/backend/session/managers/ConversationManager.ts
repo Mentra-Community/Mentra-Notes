@@ -33,6 +33,9 @@ export class ConversationManager extends SyncedManager {
   @synced conversations = synced<Conversation[]>([]);
   @synced activeConversationId: string | null = null;
   @synced isHydrated = false;
+  // Monotonic counter + message pair; frontend watches counter to trigger a toast.
+  @synced lastAutoNoteErrorSeq = 0;
+  @synced lastAutoNoteErrorMessage: string | null = null;
 
   // Pipeline components (not synced)
   private triageClassifier: TriageClassifier | null = null;
@@ -107,7 +110,10 @@ export class ConversationManager extends SyncedManager {
           if (idx >= 0) list[idx].generatingSummary = true;
         });
         this.onConversationUpdate(conv, "ended");
-        this.generateAISummary(conv);
+        // Summary first (for a sensible title), then auto-generate the note.
+        this.generateAISummary(conv)
+          .then(() => this.autoGenerateNoteForConversation(convId))
+          .catch(() => {});
       });
 
       // Auto-end any stale active/paused conversations from before this restart
@@ -469,6 +475,60 @@ ${transcript}
         const idx = list.findIndex((c) => c.id === convId);
         if (idx >= 0) list[idx].generatingSummary = false;
       });
+    }
+  }
+
+  // =========================================================================
+  // Auto-Note Generation (runs after AI summary on conversation end)
+  // =========================================================================
+
+  private async autoGenerateNoteForConversation(convId: string): Promise<void> {
+    try {
+      // Re-read the conversation so we have the final title from summary + any
+      // state mutations that happened while the summary was running.
+      const { getConversationById } = await import("../../models/conversation.model");
+      const conv = await getConversationById(convId);
+      if (!conv) return;
+
+      // Guard: if the conversation already has a note, don't double-generate.
+      if (conv.noteId) return;
+
+      // Guard: no chunks = nothing to generate from.
+      if (!conv.chunkIds || conv.chunkIds.length === 0) return;
+
+      // Minimum transcript length guard — avoid garbage notes from trivial conversations.
+      const { TranscriptChunk } = await import("../../models/transcript-chunk.model");
+      const chunks = await TranscriptChunk.find({ _id: { $in: conv.chunkIds } });
+      const totalWords = chunks.reduce((sum, c) => sum + (c.wordCount ?? 0), 0);
+      if (totalWords < 50) {
+        console.log(`[ConvManager] Skipping auto-note for ${convId}: only ${totalWords} words`);
+        return;
+      }
+
+      const notesManager = (this._session as any)?.notes;
+      if (!notesManager?.generateNote) {
+        console.warn("[ConvManager] NotesManager unavailable, cannot auto-generate note");
+        return;
+      }
+
+      const title = conv.title || undefined;
+      const startTime = conv.startTime;
+      const endTime = conv.endTime ?? new Date();
+
+      const note = await notesManager.generateNote(title, startTime, endTime);
+
+      if (note?.id) {
+        await updateConversation(convId, { noteId: note.id });
+        this.conversations.mutate((list) => {
+          const idx = list.findIndex((c) => c.id === convId);
+          if (idx >= 0) list[idx].noteId = note.id;
+        });
+        console.log(`[ConvManager] Auto-note generated for ${convId}: "${note.title}"`);
+      }
+    } catch (err) {
+      console.error(`[ConvManager] Auto-note generation failed for ${convId}:`, err);
+      this.lastAutoNoteErrorSeq = (this.lastAutoNoteErrorSeq ?? 0) + 1;
+      this.lastAutoNoteErrorMessage = "Couldn't auto-generate note from conversation";
     }
   }
 

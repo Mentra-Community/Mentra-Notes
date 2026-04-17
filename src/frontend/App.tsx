@@ -9,7 +9,7 @@ import { useState, useEffect, useRef, createContext, useContext } from "react";
 import { motion } from "framer-motion";
 import { useLocation } from "wouter";
 import { useMentraAuth } from "@mentra/react";
-import { Toaster } from "sonner";
+import { Toaster, toast } from "sonner";
 import { clsx } from "clsx";
 import { Router } from "./router";
 import { Shell } from "./components/layout/Shell";
@@ -74,6 +74,17 @@ export function App() {
     }
   });
 
+
+  // Auto-note error toast — reacts when the backend bumps lastAutoNoteErrorSeq
+  const autoNoteErrorSeq = session?.conversation?.lastAutoNoteErrorSeq ?? 0;
+  const autoNoteErrorMessage = session?.conversation?.lastAutoNoteErrorMessage;
+  const lastSeenErrorSeqRef = useRef(0);
+  useEffect(() => {
+    if (autoNoteErrorSeq > lastSeenErrorSeqRef.current) {
+      lastSeenErrorSeqRef.current = autoNoteErrorSeq;
+      if (autoNoteErrorMessage) toast.error(autoNoteErrorMessage);
+    }
+  }, [autoNoteErrorSeq, autoNoteErrorMessage]);
 
   // Theme state — forced to light mode (dark mode disabled)
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -157,7 +168,7 @@ export function App() {
           theme,
         )}
       >
-        <Toaster position="top-center" theme={theme} />
+        <Toaster position="bottom-center" theme={theme} />
         <Shell>
           <Router />
         </Shell>

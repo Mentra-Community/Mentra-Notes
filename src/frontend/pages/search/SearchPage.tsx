@@ -242,7 +242,6 @@ export function SearchPage() {
             value={query}
             onChange={(e) => handleInputChange(e.target.value)}
             placeholder="Search notes & conversations..."
-            autoFocus
             className={`text-[15px] leading-5 grow bg-transparent border-none focus:outline-none text-[#1C1917] font-red-hat font-medium placeholder-[#A8A29E]`}
           />
           {query ? (

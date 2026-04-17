@@ -12,7 +12,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect, memo } from "react";
 import { clsx } from "clsx";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowDown, ChevronDown, Loader2 } from "lucide-react";
+import { ArrowDown, ChevronDown, Loader2, MessagesSquare } from "lucide-react";
 import { DotsSpinner } from "../../../../components/shared/DotsSpinner";
 import { WaveIndicator } from "../../../../components/shared/WaveIndicator";
 import type {
@@ -528,22 +528,12 @@ export function TranscriptTab({
 
   if (isLoading) {
     return (
-      <div className="h-full overflow-y-auto">
-        <div className="pb-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="border-b border-zinc-100 dark:border-[#3f4147] last:border-0">
-              <div className="flex items-start gap-3 px-4 py-4">
-                <div className="flex items-center gap-2 shrink-0 w-20">
-                  <div className="h-5 w-14 bg-zinc-200 dark:bg-zinc-800 rounded animate-pulse" />
-                </div>
-                <div className="flex-1 min-w-0 space-y-1.5">
-                  <div className="h-4 w-3/4 bg-zinc-200 dark:bg-zinc-800 rounded animate-pulse" />
-                  <div className="h-3 w-1/2 bg-zinc-100 dark:bg-zinc-800/60 rounded animate-pulse" />
-                </div>
-                <div className="h-4 w-4 bg-zinc-200 dark:bg-zinc-800 rounded animate-pulse shrink-0 ml-auto" />
-              </div>
-            </div>
-          ))}
+      <div className="h-full flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4 py-12 px-6">
+          <Loader2 size={36} strokeWidth={2} className="text-[#B0AAA2] animate-spin" />
+          <p className="text-[13px] leading-4 text-[#A8A29E] font-red-hat">
+            Loading transcription…
+          </p>
         </div>
       </div>
     );
@@ -552,10 +542,15 @@ export function TranscriptTab({
   if (segments.length === 0 && sortedHours.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="text-center py-12 text-zinc-400">
-          <p className="text-sm">No transcript for this day</p>
-          <p className="text-xs mt-1">
-            Transcriptions will appear here when you record
+        <div className="flex flex-col items-center gap-5 py-12 px-6">
+          <div className="flex items-center justify-center size-32 rounded-full bg-[#F5F3F0]">
+            <MessagesSquare size={56} strokeWidth={1.5} className="text-[#B0AAA2]" />
+          </div>
+          <p className="text-[15px] leading-5 text-[#1C1917] font-red-hat font-semibold">
+            No transcript yet
+          </p>
+          <p className="text-[13px] leading-4 text-[#A8A29E] font-red-hat text-center">
+            Start talking and your words will appear here
           </p>
         </div>
       </div>
@@ -615,14 +610,28 @@ export function TranscriptTab({
               data-hour-section={hourKey}
               className="flex gap-3 mb-1"
             >
-              {/* Left: hour label + vertical line */}
+              {/* Left: hour label + vertical line.
+                  Label and (when expanded) collapse affordance stay sticky to the
+                  top of the scroll viewport so the reader always knows which hour
+                  they're inside and can collapse from anywhere within it. */}
               <div className="flex flex-col items-center w-11 shrink-0">
-                <span className={clsx(
-                  "text-[12px] font-red-hat font-bold leading-4 pt-0.5 shrink-0",
-                  isCurrentHour ? "text-[#C9573A]" : "text-[#1C1917]",
-                )}>
-                  {hourLabel}
-                </span>
+                <div className="sticky top-0 z-10 bg-[#FAFAF9] pt-0.5 pb-1 flex flex-col items-center gap-1 shrink-0">
+                  <span className={clsx(
+                    "text-[12px] font-red-hat font-bold leading-4",
+                    isCurrentHour ? "text-[#C9573A]" : "text-[#1C1917]",
+                  )}>
+                    {hourLabel}
+                  </span>
+                  {isExpanded && (
+                    <button
+                      onClick={() => toggleHour(hourKey)}
+                      aria-label="Collapse hour"
+                      className="flex items-center justify-center w-5 h-5 rounded-full bg-[#F5F3F0] text-[#A8A29E] active:bg-[#E7E5E0]"
+                    >
+                      <ChevronDown size={11} className="rotate-180" />
+                    </button>
+                  )}
+                </div>
                 <div className="w-px grow mt-1.5 bg-[#E7E5E0]" />
               </div>
 
@@ -772,17 +781,6 @@ export function TranscriptTab({
                           />
                         )}
 
-                        {/* Collapse button */}
-                        <button
-                          onClick={() => toggleHour(hourKey)}
-                          className="flex items-center px-1 gap-1.5 py-0.5 mt-1"
-                        >
-                          <div className="grow h-px bg-[#E7E5E0]" />
-                          <span className="text-[11px] font-red-hat text-[#A8A29E] shrink-0 flex items-center gap-1">
-                            <ChevronDown size={11} className="rotate-180" /> collapse
-                          </span>
-                          <div className="grow h-px bg-[#E7E5E0]" />
-                        </button>
                       </motion.div>
                     )}
                   </div>

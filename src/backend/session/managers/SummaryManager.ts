@@ -91,7 +91,24 @@ export class SummaryManager extends SyncedManager {
         this.hourSummaries.set(loadedSummaries);
       }
 
+      // Seed lastSummaryHour from existing data so the rolling timer doesn't
+      // think the hour just changed and re-finalize an already-saved hour.
+      // Pick the highest hour we already have a summary for today.
+      const todayHoursWithSummary = (this.hourSummaries as unknown as HourSummary[])
+        .filter((s) => s.date === today)
+        .map((s) => s.hour);
+      if (todayHoursWithSummary.length > 0) {
+        this.lastSummaryHour = Math.max(...todayHoursWithSummary);
+      }
+
       this.startRollingSummaryTimer();
+
+      // Backfill any past hours of today that have segments but no saved
+      // summary. Runs in the background — frontend will see titles stream in
+      // via @synced as each LLM call completes.
+      this.backfillMissingHourSummaries(today).catch((err) =>
+        console.error(`[SummaryManager] Today backfill failed:`, err),
+      );
     } catch (error) {
       console.error("[SummaryManager] Failed to hydrate:", error);
     }
@@ -158,6 +175,16 @@ export class SummaryManager extends SyncedManager {
       return;
     }
 
+    // Hour just rolled over — generate a final summary for the previous hour
+    // so it persists in MongoDB instead of being lost when we move on. Without
+    // this, past hours of "today" never get a title shown in the UI.
+    if (hourChanged && this.lastSummaryHour >= 0 && this.lastSummaryHour !== currentHour) {
+      const prevHour = this.lastSummaryHour;
+      this.generateHourSummary(prevHour).catch((err) =>
+        console.error(`[SummaryManager] Failed to finalize summary for hour ${prevHour}:`, err),
+      );
+    }
+
     try {
       const summary = await this.generateHourSummary(currentHour);
       this.currentHourSummary = summary.summary;
@@ -220,6 +247,69 @@ export class SummaryManager extends SyncedManager {
 
     this.hourSummaries.set([]);
     return [];
+  }
+
+  /**
+   * Backfill any hours that have segments but no saved summary.
+   * Called after a historical date loads, so titles get generated lazily and
+   * persist for next time. Runs LLM calls sequentially to keep load light.
+   *
+   * Assumes `this.segments` already holds the date's segments and `loadedDate`
+   * has been set, since `generateHourSummary` reads from those.
+   */
+  async backfillMissingHourSummaries(date: string): Promise<void> {
+    const userId = this._session?.userId;
+    if (!userId) return;
+
+    const timeManager = this.getTimeManager();
+    const segments = this.getTranscriptSegments();
+
+    // Bucket segments by hour for this date
+    const hoursWithSegments = new Set<number>();
+    for (const seg of segments) {
+      const segDateStr = timeManager.toDateString(new Date(seg.timestamp));
+      if (segDateStr !== date) continue;
+      hoursWithSegments.add(timeManager.hourFrom(seg.timestamp));
+    }
+
+    if (hoursWithSegments.size === 0) return;
+
+    // For today, skip the current hour — it's still active and the rolling
+    // timer will own it. Only finalize past hours.
+    const today = timeManager.today();
+    const currentHour = timeManager.currentHour();
+    const isToday = date === today;
+
+    const existing = new Set(
+      this.hourSummaries
+        .filter((s) => s.date === date)
+        .map((s) => s.hour),
+    );
+
+    const missing: number[] = [];
+    for (const h of hoursWithSegments) {
+      if (existing.has(h)) continue;
+      if (isToday && h === currentHour) continue;
+      missing.push(h);
+    }
+
+    if (missing.length === 0) return;
+
+    console.log(
+      `[SummaryManager] Backfilling ${missing.length} hour summaries for ${date}: ${missing.sort((a, b) => a - b).join(", ")}`,
+    );
+
+    // Sequential generation to avoid hammering the LLM on large days
+    for (const hour of missing.sort((a, b) => a - b)) {
+      try {
+        await this.generateHourSummary(hour);
+      } catch (err) {
+        console.error(
+          `[SummaryManager] Backfill failed for ${date} hour ${hour}:`,
+          err,
+        );
+      }
+    }
   }
 
   /**
