@@ -11,8 +11,10 @@
 
 /**
  * Check if we're in development mode
+ *
+ * Bun replaces `process.env.NODE_ENV` at bundle time for HTML routes.
  */
-export const isDevelopmentMode = import.meta.env.DEV;
+export const isDevelopmentMode = process.env.NODE_ENV !== "production";
 
 /**
  * Get current mock data mode setting

@@ -26,14 +26,15 @@ RUN bun install
 # Copy the rest of the application code
 COPY . .
 
-# Build webview for production
-# RUN bun run build:webview
+# Note: no separate webview build step — Bun.serve bundles HTML routes
+# (src/frontend/index.prod.html → frontend.tsx) on demand at request time.
 
 # Set production environment
 ENV NODE_ENV=production
+ENV PORT=80
+ENV HOST=0.0.0.0
 
 # Expose the port
 EXPOSE 80
 
-# dont' Start the application, the porter.yaml file has cmd to start it.
-# CMD ["bun", "src/index.ts"]
+# porter.yaml's `run:` field starts the app.

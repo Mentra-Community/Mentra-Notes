@@ -18,3 +18,4 @@ services:
       NODE_ENV: ${NODE_ENV}
       PORTER_APP_NAME: ${PORTER_APP_NAME}
       HOST: "0.0.0.0"
+      PORT: "80"
