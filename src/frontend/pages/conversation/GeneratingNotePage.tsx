@@ -8,7 +8,8 @@
  */
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useLocation, useParams } from "wouter";
+import { useParams } from "wouter";
+import { useNavigation } from "../../navigation/NavigationStack";
 import { useMentraAuth } from "@mentra/react";
 import { format } from "date-fns";
 import { useSynced } from "../../hooks/useSynced";
@@ -26,7 +27,7 @@ export function GeneratingNotePage() {
   const { id } = useParams<{ id: string }>();
   const { userId } = useMentraAuth();
   const { session } = useSynced<SessionI>(userId || "");
-  const [, setLocation] = useLocation();
+  const { replace, back } = useNavigation();
   const [activeStep, setActiveStep] = useState(0);
   const generationStartedRef = useRef(false);
   const [progressPercent, setProgressPercent] = useState(0);
@@ -79,10 +80,10 @@ export function GeneratingNotePage() {
         setGenerateDone(true);
       } catch (err) {
         console.error("[GeneratingNotePage] Note generation failed:", err);
-        setLocation(`/conversation/${id}`);
+        back();
       }
     })();
-  }, [session, conversation, chunks, id, setLocation]);
+  }, [session, conversation, chunks, id, back]);
 
   // Animate steps forward — random delay between 500ms and 2s per step
   // Steps 0-2 animate on their own schedule; step 3 waits for API to finish
@@ -100,7 +101,7 @@ export function GeneratingNotePage() {
         setProgressPercent(100);
         setActiveStep(5);
         if (generatedNoteId.current) {
-          setTimeout(() => setLocation(`/note/${generatedNoteId.current}`), 600);
+          setTimeout(() => replace(`/note/${generatedNoteId.current}`), 600);
         }
       }, 600);
       return () => clearTimeout(timer);
@@ -109,7 +110,7 @@ export function GeneratingNotePage() {
     const delay = Math.random() * 1500 + 500; // 500ms – 2000ms
     const timer = setTimeout(() => setActiveStep((s) => s + 1), delay);
     return () => clearTimeout(timer);
-  }, [activeStep, generateDone, setLocation]);
+  }, [activeStep, generateDone, replace]);
 
   // Animate progress bar — starts immediately
   useEffect(() => {
@@ -148,7 +149,7 @@ export function GeneratingNotePage() {
     <div className="flex h-full flex-col bg-[#FAFAF9] overflow-y-auto">
       {/* Header */}
       <div className="flex items-center pt-6 pb-4 gap-3 px-6 shrink-0">
-        <button onClick={() => setLocation(`/conversation/${id}`)} className="-ml-1">
+        <button onClick={() => back()} className="-ml-1">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="m15 18-6-6 6-6" stroke="#1C1917" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>

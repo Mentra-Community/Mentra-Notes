@@ -11,7 +11,7 @@
  */
 
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useNavigation } from "../../navigation/NavigationStack";
 import { useMentraAuth } from "@mentra/react";
 import { format, isToday, isYesterday } from "date-fns";
 import { LoadingState } from "../../components/shared/LoadingState";
@@ -177,7 +177,7 @@ function truncateAroundMatch(
 }
 
 export function SearchPage() {
-  const [, setLocation] = useLocation();
+  const { push } = useNavigation();
   const { userId } = useMentraAuth();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -354,7 +354,7 @@ export function SearchPage() {
   };
 
   const handleSentenceClick = (row: SentenceRow) => {
-    setLocation(`/transcript/${row.date}#seg-${encodeURIComponent(row.segId)}`);
+    push(`/transcript/${row.date}#seg-${encodeURIComponent(row.segId)}`);
   };
 
   const handleRecentTap = (q: string) => {
@@ -369,10 +369,10 @@ export function SearchPage() {
 
   const handleResultClick = (result: SearchResult) => {
     if (result.type === "note") {
-      setLocation(`/note/${result.id}`);
+      push(`/note/${result.id}`);
     } else {
       // Deep-link to that day's transcript page, scrolled to the matching hour
-      setLocation(`/transcript/${result.date}#hour-${result.hour}`);
+      push(`/transcript/${result.date}#hour-${result.hour}`);
     }
   };
 

@@ -4,7 +4,8 @@
  */
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { useParams, useLocation } from "wouter";
+import { useParams } from "wouter";
+import { useNavigation } from "../../navigation/NavigationStack";
 import { useMentraAuth } from "@mentra/react";
 import { format, parse } from "date-fns";
 import { toast } from "../../components/shared/toast";
@@ -18,7 +19,7 @@ import { StopTranscriptionDialog } from "../home/components/StopTranscriptionDia
 
 export function TranscriptPage() {
   const params = useParams<{ date: string }>();
-  const [, setLocation] = useLocation();
+  const { back } = useNavigation();
   const { userId } = useMentraAuth();
   const { session, isReconnecting } = useSynced<SessionI>(userId || "");
 
@@ -259,8 +260,8 @@ export function TranscriptPage() {
     if (!confirm(`Delete the transcript for ${isToday ? "today" : format(date, "MMMM d, yyyy")}? This cannot be undone.`)) return;
     await session.file.trashFile(dateString);
     await session.transcript.removeDates([dateString]);
-    setLocation("/");
-  }, [session?.file, session?.transcript, dateString, isToday, date, setLocation]);
+    back();
+  }, [session?.file, session?.transcript, dateString, isToday, date, back]);
 
   const handleEmailSend = useCallback(async (to: string, cc: string) => {
     const finalSegments = daySegments
@@ -318,7 +319,7 @@ export function TranscriptPage() {
       <div className="shrink-0 flex items-end justify-between pt-4 pb-4 px-6">
         <div className="flex items-center grow gap-3">
           <button
-            onClick={() => setLocation("/")}
+            onClick={() => back()}
             className="p-1 -ml-1 text-[#1A1A1A]"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>

@@ -5,7 +5,7 @@
  * - Masonry grid of note cards (manual and AI-generated)
  */
 
-import { useLocation } from "wouter";
+import { useNavigation } from "../../../../navigation/NavigationStack";
 import { clsx } from "clsx";
 import { FileText } from "lucide-react";
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
@@ -21,14 +21,14 @@ interface NotesTabProps {
 }
 
 export function NotesTab({ notes, isLoading = false, selectionMode = false, selectedNoteIds, onToggleSelection }: NotesTabProps) {
-  const [, setLocation] = useLocation();
+  const { push } = useNavigation();
 
   const handleNoteClick = (note: Note) => {
     if (selectionMode && onToggleSelection) {
       onToggleSelection(note.id);
       return;
     }
-    setLocation(`/note/${note.id}`);
+    push(`/note/${note.id}`);
   };
 
   // Loading state

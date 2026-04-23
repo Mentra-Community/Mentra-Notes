@@ -11,7 +11,8 @@
  */
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { useParams, useLocation } from "wouter";
+import { useParams } from "wouter";
+import { useNavigation } from "../../navigation/NavigationStack";
 import { useMentraAuth } from "@mentra/react";
 import { isToday, isYesterday, format } from "date-fns";
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -35,7 +36,7 @@ import { rewriteR2Urls } from "../../../shared/constants";
 
 export function NotePage() {
   const params = useParams<{ id: string }>();
-  const [, setLocation] = useLocation();
+  const { push, back } = useNavigation();
   const { userId } = useMentraAuth();
   const { session } = useSynced<SessionI>(userId || "");
 
@@ -228,7 +229,7 @@ export function NotePage() {
           Note not found
         </div>
         <button
-          onClick={() => setLocation("/notes")}
+          onClick={() => back()}
           className={`mt-4 text-[14px] text-[#78716C] underline font-red-hat`}
         >
           Go back
@@ -240,7 +241,7 @@ export function NotePage() {
   const handleBack = () => {
     // Save pending changes before leaving
     if (editor) handleAutoSave(editor.getHTML());
-    setLocation("/notes");
+    back();
   };
 
   const handleExport = useCallback(async (options: ExportOptions) => {
@@ -267,8 +268,8 @@ export function NotePage() {
     }
     await session.notes.permanentlyDeleteNote(note.id);
     setShowDeleteConfirm(false);
-    setLocation("/notes");
-  }, [session, note, setLocation]);
+    back();
+  }, [session, note, back]);
 
   const handleEmailSend = async (to: string, cc: string) => {
     if (!note) return;
@@ -390,7 +391,7 @@ export function NotePage() {
           {/* Dev-only "From: …" conversation link */}
           {isDevelopmentMode && sourceLabel && sourceConversation && (
             <button
-              onClick={() => setLocation(`/conversation/${sourceConversation.id}`)}
+              onClick={() => push(`/conversation/${sourceConversation.id}`)}
               className="flex items-center gap-2 active:opacity-70 transition-opacity self-start"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">

@@ -7,7 +7,7 @@
  */
 
 import { useState, useMemo } from "react";
-import { useLocation } from "wouter";
+import { useNavigation } from "../../navigation/NavigationStack";
 import { useMentraAuth } from "@mentra/react";
 import { useSynced } from "../../hooks/useSynced";
 import type { SessionI, FolderColor } from "../../../shared/types";
@@ -25,7 +25,7 @@ const FOLDER_COLOR_MAP: Record<FolderColor, string> = {
 export function CollectionsPage() {
   const { userId } = useMentraAuth();
   const { session } = useSynced<SessionI>(userId || "");
-  const [, setLocation] = useLocation();
+  const { push, replace, switchTab } = useNavigation();
   const [activeFilter, setActiveFilter] = useState<CollectionFilter>("all");
   const [showCreateFolder, setShowCreateFolder] = useState(false);
 
@@ -54,7 +54,7 @@ export function CollectionsPage() {
     if (!session?.notes?.createManualNote) return;
     const note = await session.notes.createManualNote("", "");
     if (note?.id) {
-      setLocation(`/note/${note.id}`);
+      push(`/note/${note.id}`);
     }
   };
 
@@ -148,7 +148,7 @@ export function CollectionsPage() {
             {/* List/Grid toggle */}
             <div className="flex items-center rounded-[10px] py-[3px] px-[3px] bg-[#F5F5F4]">
               <button
-                onClick={() => setLocation("/notes")}
+                onClick={() => replace("/notes")}
                 className="flex items-center justify-center w-8.5 h-7.5 rounded-lg shrink-0"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -201,7 +201,7 @@ export function CollectionsPage() {
               return (
                 <button
                   key={collection.id}
-                  onClick={() => setLocation(`/notes?filter=${collection.id}`)}
+                  onClick={() => push(`/notes?filter=${collection.id}`)}
                   className={`flex items-center py-3.5 text-left ${
                     !isLast ? "border-b border-b-[#E7E5E4]" : ""
                   }`}
@@ -242,7 +242,7 @@ export function CollectionsPage() {
                   items.push(
                     <button
                       key={folder.id}
-                      onClick={() => setLocation(`/folder/${folder.id}`)}
+                      onClick={() => push(`/folder/${folder.id}`)}
                       className="flex flex-col grow shrink basis-0 rounded-xl overflow-hidden bg-[#FAFAF9] border border-[#E7E5E4] text-left"
                     >
                       <div className="h-1 shrink-0" style={{ backgroundColor: FOLDER_COLOR_MAP[folder.color] }} />
@@ -292,7 +292,7 @@ export function CollectionsPage() {
       {/* FAB Menu */}
       <NotesFABMenu
         onAddNote={handleAddNote}
-        onAskAI={() => setLocation("/")}
+        onAskAI={() => switchTab("transcripts")}
         onCreateFolder={() => setShowCreateFolder(true)}
       />
 

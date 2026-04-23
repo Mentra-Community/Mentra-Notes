@@ -13,7 +13,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useNavigation } from "../../navigation/NavigationStack";
 import { useMentraAuth } from "@mentra/react";
 import { clsx } from "clsx";
 import { FileText, Sparkles, Loader2, Clock } from "lucide-react";
@@ -34,7 +34,7 @@ export function QuickActionsDrawer({
 }: QuickActionsDrawerProps) {
   const { userId } = useMentraAuth();
   const { session } = useSynced<SessionI>(userId || "");
-  const [, setLocation] = useLocation();
+  const { push } = useNavigation();
 
   const [showTimeRangePicker, setShowTimeRangePicker] = useState(false);
   const [startTime, setStartTime] = useState("");
@@ -81,7 +81,7 @@ export function QuickActionsDrawer({
     try {
       const note = await session.notes.createManualNote("New Note", "");
       onClose();
-      setLocation(`/note/${note.id}`);
+      push(`/note/${note.id}`);
     } catch (err) {
       console.error("[QuickActionsDrawer] Failed to create note:", err);
     }
@@ -116,7 +116,7 @@ export function QuickActionsDrawer({
       );
       onClose();
       if (note?.id) {
-        setLocation(`/note/${note.id}`);
+        push(`/note/${note.id}`);
       }
     } catch (err: any) {
       console.error("[QuickActionsDrawer] Failed to generate note:", err);

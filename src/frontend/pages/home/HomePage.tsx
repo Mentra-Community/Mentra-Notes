@@ -9,7 +9,7 @@
  */
 
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useNavigation } from "../../navigation/NavigationStack";
 import { useMentraAuth } from "@mentra/react";
 import { AnimatePresence } from "motion/react";
 import { Drawer } from "vaul";
@@ -28,7 +28,7 @@ import { useTabBar } from "../../components/layout/Shell";
 export function HomePage() {
   const { userId } = useMentraAuth();
   const { session } = useSynced<SessionI>(userId || "");
-  const [, setLocation] = useLocation();
+  const { push } = useNavigation();
 
   const transcriptSelect = useMultiSelect();
   const tabBar = useTabBar();
@@ -303,7 +303,7 @@ export function HomePage() {
             files={files}
             isRecording={isRecording}
             transcriptionPaused={transcriptionPaused}
-            onSelect={(dateStr) => setLocation(`/transcript/${dateStr}`)}
+            onSelect={(dateStr) => push(`/transcript/${dateStr}`)}
             isSelecting={transcriptSelect.isSelecting}
             selectedDates={transcriptSelect.selectedIds}
             onToggleSelect={(dateStr) => transcriptSelect.toggleItem(dateStr)}

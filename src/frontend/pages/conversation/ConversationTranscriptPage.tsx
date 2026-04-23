@@ -9,7 +9,8 @@
  */
 
 import { useMemo, useEffect, useState } from "react";
-import { useLocation, useParams } from "wouter";
+import { useParams } from "wouter";
+import { useNavigation } from "../../navigation/NavigationStack";
 import { useMentraAuth } from "@mentra/react";
 import { format } from "date-fns";
 import { useSynced } from "../../hooks/useSynced";
@@ -47,7 +48,7 @@ export function ConversationTranscriptPage() {
   const { id } = useParams<{ id: string }>();
   const { userId } = useMentraAuth();
   const { session } = useSynced<SessionI>(userId || "");
-  const [, setLocation] = useLocation();
+  const { back } = useNavigation();
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const { scrollContainerRef, showScrollButton, scrollToBottom } = useAutoScroll({
     deps: [!!session],
@@ -87,7 +88,7 @@ export function ConversationTranscriptPage() {
   const handleStop = () => {
     session?.settings?.updateSettings({ transcriptionPaused: true });
     setShowStopDrawer(false);
-    setLocation(`/conversation/${id}`);
+    back();
   };
 
   if (!session || !conversation) {
@@ -104,7 +105,7 @@ export function ConversationTranscriptPage() {
     <div className="flex h-full flex-col bg-[#FAFAF9]">
       {/* Header */}
       <div className="flex items-center gap-3 pt-6 pb-4 px-6 shrink-0">
-        <button onClick={() => setLocation(`/conversation/${id}`)} className="-ml-1 p-1 shrink-0">
+        <button onClick={() => back()} className="-ml-1 p-1 shrink-0">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="m15 18-6-6 6-6" stroke="#1C1917" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>

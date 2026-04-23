@@ -10,12 +10,13 @@
 import { ReactNode, createContext, useContext, useState, useCallback, useTransition, useEffect } from "react";
 import { useLocation } from "wouter";
 import { AnimatePresence, motion } from "motion/react";
+import { useNavigation, type TabId } from "../../navigation/NavigationStack";
 
 interface ShellProps {
   children: ReactNode;
 }
 
-type Tab = "transcripts" | "search" | "notes" | "settings";
+type Tab = TabId;
 
 interface TabBarContextValue {
   setHidden: (hidden: boolean) => void;
@@ -29,7 +30,8 @@ export function useTabBar() {
 }
 
 export function Shell({ children }: ShellProps) {
-  const [location, setLocation] = useLocation();
+  const [location] = useLocation();
+  const nav = useNavigation();
   const [pageHidesTabBar, setPageHidesTabBar] = useState(false);
 
   const setHidden = useCallback((hidden: boolean) => {
@@ -43,43 +45,27 @@ export function Shell({ children }: ShellProps) {
 
   const hideTabBar = routeHidesTabBar || pageHidesTabBar;
 
-  const routeTab: Tab =
-    location === "/" ? "transcripts" :
-    location.startsWith("/search") ? "search" :
-    location.startsWith("/notes") || location.startsWith("/note/") || location.startsWith("/collections") || location.startsWith("/folder/") ? "notes" :
-    location.startsWith("/settings") ? "settings" :
-    "transcripts";
-
-  // Optimistic active tab — flips immediately on click so the indicator animation
-  // starts on its own frame, before the page swap mounts the next route.
-  const [activeTab, setActiveTab] = useState<Tab>(routeTab);
+  // Optimistic indicator — flips immediately on tap so the spring starts on its
+  // own frame, before the page swap. The provider is the source of truth for
+  // which tab "owns" the current location (important for cross-tab pushes), so
+  // we mirror `nav.activeTab` here and only diverge during the rAF window.
+  const [activeTab, setActiveTab] = useState<Tab>(nav.activeTab);
   const [, startTransition] = useTransition();
 
-  // Keep optimistic state in sync when the route changes from elsewhere (back/forward, deep links)
   useEffect(() => {
-    setActiveTab(routeTab);
-  }, [routeTab]);
+    setActiveTab(nav.activeTab);
+  }, [nav.activeTab]);
 
   const handleNavigate = (tab: Tab) => {
-    if (tab === activeTab) return;
+    if (tab === activeTab) {
+      // Same-tab tap → pop that tab's stack back to its root (iOS-style).
+      nav.popToRoot(tab);
+      return;
+    }
     setActiveTab(tab); // paint the indicator slide first
-    // Defer the heavy page swap so motion gets the next frame for the layout animation
     requestAnimationFrame(() => {
       startTransition(() => {
-        switch (tab) {
-          case "transcripts":
-            setLocation("/");
-            break;
-          case "search":
-            setLocation("/search");
-            break;
-          case "notes":
-            setLocation("/notes");
-            break;
-          case "settings":
-            setLocation("/settings");
-            break;
-        }
+        nav.switchTab(tab);
       });
     });
   };

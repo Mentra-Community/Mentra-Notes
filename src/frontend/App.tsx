@@ -14,6 +14,7 @@ import { toast } from "./components/shared/toast";
 import { clsx } from "clsx";
 import { Router } from "./router";
 import { Shell } from "./components/layout/Shell";
+import { NavigationStackProvider } from "./navigation/NavigationStack";
 import { useFeatureFlag, FLAGS } from "./services/posthog";
 import { SplashScreen } from "./components/shared/SplashScreen";
 import { useSynced } from "./hooks/useSynced";
@@ -213,9 +214,11 @@ export function App() {
             },
           }}
         />
-        <Shell>
-          <Router />
-        </Shell>
+        <NavigationStackProvider>
+          <Shell>
+            <Router />
+          </Shell>
+        </NavigationStackProvider>
         <SplashScreen
           visible={postOnboardingSplash}
           message="Getting you set up"

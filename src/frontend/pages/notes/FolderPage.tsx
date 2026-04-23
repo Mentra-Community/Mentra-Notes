@@ -6,7 +6,8 @@
  */
 
 import { useState, useMemo } from "react";
-import { useLocation, useParams } from "wouter";
+import { useParams } from "wouter";
+import { useNavigation } from "../../navigation/NavigationStack";
 import { useMentraAuth } from "@mentra/react";
 import { format, isToday, isYesterday } from "date-fns";
 import { useSynced } from "../../hooks/useSynced";
@@ -45,7 +46,7 @@ export function FolderPage() {
   const { id: folderId } = useParams<{ id: string }>();
   const { userId } = useMentraAuth();
   const { session } = useSynced<SessionI>(userId || "");
-  const [, setLocation] = useLocation();
+  const { push, back } = useNavigation();
 
   const folders = session?.folders?.folders ?? [];
   const notes = session?.notes?.notes ?? [];
@@ -56,7 +57,7 @@ export function FolderPage() {
   }, [notes, folderId]);
 
   const handleSelectNote = (note: Note) => {
-    setLocation(`/note/${note.id}`);
+    push(`/note/${note.id}`);
   };
 
   const handleTrashNote = async (note: Note) => {
@@ -87,7 +88,7 @@ export function FolderPage() {
     if (!session?.folders?.deleteFolder || !folderId) return;
     setShowDeleteConfirm(false);
     await session.folders.deleteFolder(folderId);
-    setLocation("/collections");
+    back();
   };
 
   const folderColor = folder ? FOLDER_COLOR_MAP[folder.color] : "#78716C";
@@ -99,7 +100,7 @@ export function FolderPage() {
         <div className="flex items-end justify-between">
           <div className="flex items-center gap-2.5">
             <button
-              onClick={() => setLocation("/collections")}
+              onClick={() => back()}
               className="shrink-0 p-1 -ml-1"
             >
               <svg

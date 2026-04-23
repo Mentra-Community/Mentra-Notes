@@ -10,7 +10,8 @@
  */
 
 import { useMemo, useState, useEffect, useRef } from "react";
-import { useLocation, useParams } from "wouter";
+import { useParams } from "wouter";
+import { useNavigation } from "../../navigation/NavigationStack";
 import { useMentraAuth } from "@mentra/react";
 import { format } from "date-fns";
 import { useSynced } from "../../hooks/useSynced";
@@ -67,7 +68,7 @@ export function ConversationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { userId } = useMentraAuth();
   const { session } = useSynced<SessionI>(userId || "");
-  const [, setLocation] = useLocation();
+  const { push, back } = useNavigation();
   const [showFullTranscript, setShowFullTranscript] = useState(false);
   const transcriptBottomRef = useRef<HTMLDivElement>(null);
 
@@ -155,11 +156,11 @@ export function ConversationDetailPage() {
   }, [convDate, isActive, session?.file?.files]);
 
   const handleBack = () => {
-    setLocation("/");
+    back();
   };
 
   const handleGenerateNote = () => {
-    setLocation(`/conversation/${conversation.id}/generating`);
+    push(`/conversation/${conversation.id}/generating`);
   };
 
   return (
@@ -264,7 +265,7 @@ export function ConversationDetailPage() {
                       await convManager.untrashConversation(conversation.id);
                     } else {
                       await convManager.trashConversation(conversation.id);
-                      setLocation("/");
+                      back();
                     }
                   },
                 },
@@ -321,7 +322,7 @@ export function ConversationDetailPage() {
           {!isActive && (
             conversation.noteId && linkedNote ? (
               <button
-                onClick={() => setLocation(`/note/${conversation.noteId}`)}
+                onClick={() => push(`/note/${conversation.noteId}`)}
                 className="flex items-center justify-between w-full rounded-xl py-3.5 px-4 bg-[#F5F5F4] active:scale-[0.98] transition-transform mt-4"
               >
                 <div className="flex items-center gap-2.5">
@@ -402,7 +403,7 @@ export function ConversationDetailPage() {
               )}
               {/* View transcript link — always shown when active */}
               <button
-                onClick={() => setLocation(`/conversation/${id}/transcript`)}
+                onClick={() => push(`/conversation/${id}/transcript`)}
                 className="flex items-center gap-1.5 pt-1"
               >
                 <span className="text-[13px] leading-4 text-[#71717A] font-red-hat font-medium">

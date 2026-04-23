@@ -8,7 +8,7 @@
  */
 
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useNavigation } from "../../navigation/NavigationStack";
 import { useMentraAuth } from "@mentra/react";
 import { AnimatePresence, motion } from "motion/react";
 import { format, isToday, isYesterday } from "date-fns";
@@ -60,7 +60,7 @@ function localDateKey(d: Date): string {
 export function NotesPage() {
   const { userId } = useMentraAuth();
   const { session } = useSynced<SessionI>(userId || "");
-  const [, setLocation] = useLocation();
+  const { push } = useNavigation();
 
   const [showExportDrawer, setShowExportDrawer] = useState(false);
   const [showEmailDrawer, setShowEmailDrawer] = useState(false);
@@ -106,7 +106,7 @@ export function NotesPage() {
   }, [visibleNotes]);
 
   const handleSelectNote = (note: Note) => {
-    setLocation(`/note/${note.id}`);
+    push(`/note/${note.id}`);
   };
 
   // ── Multi-select handlers ──
