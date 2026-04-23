@@ -170,14 +170,19 @@ export function NavigationStackProvider({ children }: ProviderProps) {
     (path: string) => {
       if (stripHash(location).startsWith("/onboarding")) {
         // Inside onboarding the tab model doesn't apply — let the caller navigate raw.
-        setLocation(path);
+        setLocation(path, { replace: true });
         return;
       }
       const tab = activeTabRef.current;
       const nextStack = [...stacksRef.current[tab], path];
       stacksRef.current = { ...stacksRef.current, [tab]: nextStack };
       setStacks((prev) => ({ ...prev, [tab]: nextStack }));
-      setLocation(path);
+      // All in-app navigation uses replace so the browser history stays at a
+      // single entry. Our `stacks` state is the logical history; the sentinel
+      // is the only extra browser entry we ever add (and only when we need to
+      // intercept the next back). Without this, OS back would walk through
+      // prior pushes left over in browser history after tab switches.
+      setLocation(path, { replace: true });
     },
     [location, setLocation],
   );
