@@ -749,7 +749,7 @@ export function TranscriptTab({
           flashEl.classList.add("!bg-yellow-200");
           setTimeout(() => {
             flashEl.classList.remove("!bg-yellow-200");
-          }, 1500);
+          }, 6000);
         }, 400);
 
         // Re-scroll once the layout likely settled (hour expand animations

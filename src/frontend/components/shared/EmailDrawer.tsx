@@ -209,12 +209,17 @@ export function EmailDrawer({
     <Drawer.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50" />
-        <Drawer.Content className="bg-white dark:bg-zinc-900 flex flex-col rounded-t-2xl mt-24 fixed bottom-0 left-0 right-0 z-50 max-w-lg mx-auto outline-none border-t border-zinc-100 dark:border-zinc-800">
+        <Drawer.Content
+          className={clsx(
+            "bg-white dark:bg-zinc-900 flex flex-col rounded-t-2xl fixed bottom-0 left-0 right-0 z-50 max-w-lg mx-auto outline-none border-t border-zinc-100 dark:border-zinc-800 max-h-[3000svh] transition-[min-height] duration-200 ease-out",
+            showCc ? "min-h-[350px]" : "min-h-[250px]",
+          )}
+        >
           {/* Handle */}
-          <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-zinc-300 dark:bg-zinc-700 mt-4 mb-2" />
+          <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-zinc-300 dark:bg-zinc-700 mt-4 mb-2 " />
 
           {/* Header */}
-          <div className="px-6 pb-3">
+          <div className="px-6 pb-3 flex-shrink-0">
             <Drawer.Title className="text-lg font-semibold text-zinc-900 dark:text-white">
               Send {itemLabel}
             </Drawer.Title>
@@ -223,8 +228,10 @@ export function EmailDrawer({
             </Drawer.Description>
           </div>
 
-          {/* Content */}
-          <div className="px-6 pb-8 space-y-5">
+          {/* Content — scroll internally if it overflows (e.g. when CC is
+              expanded and the webview viewport is short). Otherwise the Send
+              button can get pushed off-screen. */}
+          <div className="px-6 pb-8 space-y-5 overflow-y-auto flex-1 min-h-0">
             {/* To */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}

@@ -44,7 +44,7 @@ export function BottomDrawer({
           <Drawer.Description className="sr-only">Drawer menu</Drawer.Description>
 
           {/* Content */}
-          <div className="px-6 pt-4 pb-8">
+          <div className="px-6 pt-4 pb-8 ">
             {children}
           </div>
 

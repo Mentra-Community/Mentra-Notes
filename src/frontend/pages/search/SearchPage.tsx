@@ -77,6 +77,7 @@ type SentenceRow = {
   matchRanges: Array<[number, number]>;
   before?: { text: string; segId: string };
   after?: { text: string; segId: string };
+  hourTitle?: string;
 };
 
 function stripHtml(html: string, maxWords = 30): string {
@@ -435,8 +436,8 @@ export function SearchPage() {
         </div>
       )}
 
-      {/* Scrollable results */}
-      <div className="flex-1 overflow-y-auto flex flex-col">
+      {/* Scrollable results — pb-24 keeps the last row clear of the bottom nav bar */}
+      <div className="flex-1 overflow-y-auto flex flex-col pb-24">
         {/* Loading */}
         {isSearching && (
           <div className="flex flex-col items-center justify-center flex-1 min-h-[300px]">
@@ -539,6 +540,11 @@ export function SearchPage() {
                       className="flex items-center py-3 gap-2.5 border-t border-[#F0EDEA] text-left"
                     >
                       <div className="flex flex-col grow shrink basis-0 gap-1 min-w-0">
+                        {row.hourTitle && (
+                          <div className="text-[#1A1A1A] font-red-hat font-bold text-[15px] leading-[18px] truncate">
+                            {row.hourTitle}
+                          </div>
+                        )}
                         {row.before?.text && (
                           <div className="text-[#B0AAA2] font-red-hat text-[12px] leading-4 line-clamp-1 italic">
                             {row.before.text}

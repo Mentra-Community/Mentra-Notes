@@ -11,6 +11,7 @@
  */
 
 import mongoose, { Schema, Document, Model } from "mongoose";
+import { HourSummary } from "./hour-summary.model";
 
 // =============================================================================
 // Interfaces
@@ -250,6 +251,194 @@ export function findMatchRanges(
   return ranges;
 }
 
+// ============================================================================
+// Fuzzy matching (used only as fallback when exact match returns 0 results).
+// ============================================================================
+
+/**
+ * Levenshtein distance between two strings, capped at `max`. Returns `max + 1`
+ * if the distance exceeds `max` — saves us computing irrelevant large values.
+ * Uses the classic two-row dynamic-programming approach.
+ */
+function levenshteinAtMost(a: string, b: string, max: number): number {
+  if (a === b) return 0;
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  let prev = new Array(b.length + 1);
+  let curr = new Array(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    let rowMin = curr[0];
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+      curr[j] = Math.min(
+        prev[j] + 1,      // deletion
+        curr[j - 1] + 1,  // insertion
+        prev[j - 1] + cost, // substitution
+      );
+      if (curr[j] < rowMin) rowMin = curr[j];
+    }
+    if (rowMin > max) return max + 1; // early exit: no path stays within `max`
+    [prev, curr] = [curr, prev];
+  }
+  return prev[b.length];
+}
+
+/**
+ * Two words are "fuzzy-equal" at edit distance ≤1 when both are ≥3 chars.
+ * Shorter words (1-2 chars) must match exactly to avoid matching EVERY
+ * 3-letter word as a 1-char substitution away from the query.
+ */
+function wordsFuzzyEqual(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (a.length < 3 || b.length < 3) return false;
+  return levenshteinAtMost(a, b, 1) <= 1;
+}
+
+/**
+ * Tokenize a normalized string into words.
+ */
+function tokenize(s: string): string[] {
+  return s.split(" ").filter(Boolean);
+}
+
+/**
+ * Find ranges in `rawText` that correspond to a fuzzy phrase match.
+ *
+ * Rules (locked with user):
+ * - Each query word can be off by ≤1 edit (insertion/deletion/substitution)
+ *   against the target word at the same position (min length 3 for fuzziness).
+ * - For phrases of 3+ words: one extra word in the target OR one missing
+ *   word in the query is allowed, but only at the edges — the matched span
+ *   cannot skip a word in the middle.
+ * - Word ORDER is preserved. Always.
+ *
+ * Returns [] if no fuzzy match found.
+ */
+export function findFuzzyMatchRanges(
+  rawText: string,
+  normalizedPhrase: string,
+): Array<[number, number]> {
+  if (!normalizedPhrase) return [];
+  const queryWords = tokenize(normalizedPhrase);
+  if (queryWords.length === 0) return [];
+
+  // Build the same compact/trimmed representation + compact→orig index map
+  // used by the exact matcher, but keep word boundaries so we can walk
+  // word-by-word instead of char-by-char.
+  const norm: string[] = new Array(rawText.length);
+  for (let i = 0; i < rawText.length; i++) {
+    const ch = rawText[i]
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .toLowerCase();
+    const base = ch[0] || " ";
+    norm[i] = /[a-z0-9]/.test(base) ? base : " ";
+  }
+
+  // Walk target, emitting words with their original start/end indices.
+  const targetWords: Array<{ word: string; origStart: number; origEnd: number }> = [];
+  let wStart = -1;
+  let wBuf = "";
+  for (let i = 0; i < norm.length; i++) {
+    const c = norm[i];
+    if (c === " ") {
+      if (wStart !== -1) {
+        targetWords.push({ word: wBuf, origStart: wStart, origEnd: i });
+        wStart = -1;
+        wBuf = "";
+      }
+    } else {
+      if (wStart === -1) wStart = i;
+      wBuf += c;
+    }
+  }
+  if (wStart !== -1) {
+    targetWords.push({ word: wBuf, origStart: wStart, origEnd: rawText.length });
+  }
+  if (targetWords.length === 0) return [];
+
+  // Phrase-level edge tolerance (decision A): for queries with 3+ words,
+  // allow either dropping the first or last query word, OR padding the
+  // target window by one word on either side. Implemented as: generate
+  // acceptable query variants, try each at every target start position.
+  const variants: string[][] = [queryWords];
+  if (queryWords.length >= 3) {
+    variants.push(queryWords.slice(1));           // missing first word in query
+    variants.push(queryWords.slice(0, -1));       // missing last word in query
+  }
+
+  const ranges: Array<[number, number]> = [];
+
+  // Try matching each variant against every possible starting window.
+  for (const qw of variants) {
+    const n = qw.length;
+    // Scan every possible start; also try target-skip-at-edges variants
+    // (target has one extra word at start or end).
+    for (let start = 0; start + n <= targetWords.length; start++) {
+      // Standard window: same length as the query variant.
+      if (matchWordWindow(qw, targetWords, start, n)) {
+        const r: [number, number] = [
+          targetWords[start].origStart,
+          targetWords[start + n - 1].origEnd,
+        ];
+        if (!rangeOverlaps(ranges, r)) ranges.push(r);
+        continue;
+      }
+    }
+    // Try padded-target windows (one extra word included at the start or end
+    // of the target span — matches "missing word in query" via the other side).
+    // Only meaningful when the ORIGINAL query had 3+ words.
+    if (queryWords.length >= 3 && qw === queryWords) {
+      for (let start = 0; start + n + 1 <= targetWords.length; start++) {
+        // Target has n+1 words; try matching query against target[start+1..start+n]
+        if (matchWordWindow(qw, targetWords, start + 1, n)) {
+          const r: [number, number] = [
+            targetWords[start].origStart,
+            targetWords[start + n].origEnd,
+          ];
+          if (!rangeOverlaps(ranges, r)) ranges.push(r);
+        }
+        // ...or target[start..start+n-1]
+        if (matchWordWindow(qw, targetWords, start, n)) {
+          const r: [number, number] = [
+            targetWords[start].origStart,
+            targetWords[start + n].origEnd,
+          ];
+          if (!rangeOverlaps(ranges, r)) ranges.push(r);
+        }
+      }
+    }
+  }
+
+  // Sort ranges by start, stable.
+  ranges.sort((a, b) => a[0] - b[0]);
+  return ranges;
+}
+
+function matchWordWindow(
+  query: string[],
+  target: Array<{ word: string }>,
+  start: number,
+  n: number,
+): boolean {
+  for (let i = 0; i < n; i++) {
+    if (!wordsFuzzyEqual(query[i], target[start + i].word)) return false;
+  }
+  return true;
+}
+
+function rangeOverlaps(existing: Array<[number, number]>, r: [number, number]): boolean {
+  for (const [s, e] of existing) {
+    if (r[0] < e && r[1] > s) return true;
+  }
+  return false;
+}
+
 /**
  * Cross-segment stitching for phrases longer than any single segment.
  *
@@ -262,9 +451,11 @@ async function stitchPhraseAcrossSegments(
   userId: string,
   normalizedPhrase: string,
   unmatched: TranscriptSegmentSearchI[],
+  fuzzy: boolean = false,
 ): Promise<PhraseSearchRow[]> {
   const WINDOW = 4; // look up to N segments before/after
   const GLUE = " "; // joiner between segments — a single space matches the normalizer
+  const matchFn = fuzzy ? findFuzzyMatchRanges : findMatchRanges;
 
   // Build a single $or query for all neighbor segments we might need.
   const neighborFilter: Array<{ userId: string; date: string; segIndex: number }> = [];
@@ -326,7 +517,7 @@ async function stitchPhraseAcrossSegments(
           }
         }
 
-        const ranges = findMatchRanges(concat, normalizedPhrase);
+        const ranges = matchFn(concat, normalizedPhrase);
         if (ranges.length === 0) continue;
 
         // Anchor the hit to whichever segment holds the start of the first match.
@@ -394,6 +585,8 @@ export interface PhraseSearchRow {
   matchRanges: Array<[number, number]>;
   before?: { text: string; segId: string };
   after?: { text: string; segId: string };
+  /** AI-generated title for the segment's hour (from HourSummary). */
+  hourTitle?: string;
 }
 
 export interface PhraseSearchResult {
@@ -592,6 +785,54 @@ export async function searchSegmentsByPhrase(params: {
     `[TranscriptSegmentSearch] Total matches after stage 2: ${matches.length}`,
   );
 
+  // Stage 3 (fallback): fuzzy match. Only runs when exact match found nothing.
+  // Same two passes (in-segment + stitched-across), but using fuzzy range
+  // detection that tolerates ≤1 edit per word (min word length 3) and
+  // missing/extra word at phrase edges for 3+ word queries.
+  if (matches.length === 0) {
+    console.log(`[TranscriptSegmentSearch] Exact returned 0 — trying fuzzy fallback`);
+    const fuzzyMatches: PhraseSearchRow[] = [];
+    const fuzzyUnmatched: TranscriptSegmentSearchI[] = [];
+    for (const c of candidates) {
+      const ranges = findFuzzyMatchRanges(c.text, normalized);
+      if (ranges.length > 0) {
+        fuzzyMatches.push({
+          segId: c.segId,
+          date: c.date,
+          hour: c.hour,
+          segIndex: c.segIndex,
+          text: c.text,
+          timestamp: c.timestamp,
+          speakerId: c.speakerId,
+          matchRanges: ranges,
+        });
+      } else if (words.length >= 2) {
+        fuzzyUnmatched.push(c);
+      }
+    }
+    if (fuzzyUnmatched.length > 0) {
+      const stitched = await stitchPhraseAcrossSegments(
+        userId,
+        normalized,
+        fuzzyUnmatched,
+        /* fuzzy */ true,
+      );
+      console.log(
+        `[TranscriptSegmentSearch] Fuzzy stitcher: ${fuzzyUnmatched.length} candidates → ${stitched.length} stitched matches`,
+      );
+      for (const m of stitched) {
+        if (!fuzzyMatches.some((existing) => existing.segId === m.segId)) {
+          fuzzyMatches.push(m);
+        }
+      }
+    }
+    fuzzyMatches.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    matches.push(...fuzzyMatches);
+    console.log(
+      `[TranscriptSegmentSearch] After fuzzy fallback: ${matches.length} matches`,
+    );
+  }
+
   // Slice into the requested page.
   const page = matches.slice(offset, offset + limit);
   const hasMore = matches.length > offset + limit;
@@ -616,6 +857,32 @@ export async function searchSegmentsByPhrase(params: {
       const after = byKey.get(`${m.date}|${m.segIndex + 1}`);
       if (before) m.before = { text: before.text, segId: before.segId };
       if (after) m.after = { text: after.text, segId: after.segId };
+    }
+
+    // Hydrate the hour title (AI-generated summary's first line) so each
+    // sentence row can show the surrounding topic at a glance.
+    const hourKeys = page.map((m) => ({ userId, date: m.date, hour: m.hour }));
+    const uniqueHourKeySet = new Set<string>();
+    const hourLookup = hourKeys.filter((k) => {
+      const key = `${k.date}|${k.hour}`;
+      if (uniqueHourKeySet.has(key)) return false;
+      uniqueHourKeySet.add(key);
+      return true;
+    });
+    if (hourLookup.length > 0) {
+      const summaries = (await HourSummary.find({ $or: hourLookup })
+        .select({ date: 1, hour: 1, summary: 1 })
+        .lean()) as unknown as Array<{ date: string; hour: number; summary: string }>;
+      const titleByKey = new Map<string, string>();
+      for (const s of summaries) {
+        // Summary is stored as "Title\nBody" — take just the title line.
+        const title = (s.summary || "").split("\n").find((l) => l.trim())?.trim();
+        if (title) titleByKey.set(`${s.date}|${s.hour}`, title);
+      }
+      for (const m of page) {
+        const t = titleByKey.get(`${m.date}|${m.hour}`);
+        if (t) m.hourTitle = t;
+      }
     }
   }
 
