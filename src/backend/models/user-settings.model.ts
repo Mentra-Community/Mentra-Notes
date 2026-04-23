@@ -26,6 +26,9 @@ export interface UserSettingsI extends Document {
   contacts?: string[];
   topics?: string[];
   transcriptionPaused: boolean;
+  // Phrase-search backfill: set once the R2 → TranscriptSegmentSearch backfill
+  // finishes for this user. While null, the Search UI shows an "indexing…" hint.
+  searchBackfilledAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -55,6 +58,7 @@ const UserSettingsSchema = new Schema<UserSettingsI>(
     contacts: { type: [String], default: [] },
     topics: { type: [String], default: [] },
     transcriptionPaused: { type: Boolean, default: false },
+    searchBackfilledAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
@@ -119,6 +123,7 @@ export async function updateUserSettings(
     contacts: string[];
     topics: string[];
     transcriptionPaused: boolean;
+    searchBackfilledAt: Date | null;
   }>,
 ): Promise<UserSettingsI | null> {
   return UserSettings.findOneAndUpdate(

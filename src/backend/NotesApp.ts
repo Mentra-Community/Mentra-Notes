@@ -63,7 +63,6 @@ export class NotesApp extends AppServer {
     userId: string,
   ): Promise<void> {
     console.log(`\n📝 Notes session started for ${userId}`);
-    session.dashboard.content.write("// Notes Ready");
 
     // Get user's timezone from MentraOS settings (if set)
     const timezone = session.settings.getMentraOS<string>('userTimezone');
@@ -71,8 +70,9 @@ export class NotesApp extends AppServer {
     const timeManager = new TimeManager(timezone);
     // Get or create NotesSession for this user (may already exist from webview)
     const notesSession = await sessions.getOrCreate(userId);
-    // Set the AppSession (glasses are now connected)
+    // Set the AppSession (glasses are now connected) — wires DisplayManager
     notesSession.setAppSession(session);
+    notesSession.display.showStatus("| Notes Running");
 
     // Log device capabilities
     const caps = session.capabilities;
@@ -95,13 +95,6 @@ export class NotesApp extends AppServer {
         await notesSession.r2.checkAndRunBatch();
       }
     });
-
-    // Show initial ready state
-    setTimeout(() => {
-      if (notesSession.settings.showLiveTranscript) {
-        session.dashboard.content.write("Notes - Recording");
-      }
-    }, 2000);
 
     console.log(`✅ Notes ready for ${userId}\n`);
   }

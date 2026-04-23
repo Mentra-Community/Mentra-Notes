@@ -7,7 +7,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
 import { useMentraAuth } from "@mentra/react";
 import { format, parse } from "date-fns";
-import { toast } from "sonner";
+import { toast } from "../../components/shared/toast";
 import { useSynced } from "../../hooks/useSynced";
 import type { SessionI } from "../../../shared/types";
 import { TranscriptTab } from "../day/components/tabs/TranscriptTab";
@@ -35,15 +35,39 @@ export function TranscriptPage() {
   const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const isToday = dateString === todayString;
 
-  // Deep-link support: /transcript/{date}#hour-N expands and scrolls to that hour.
-  // Parsed once on mount; the TranscriptTab effect handles the actual scroll once
-  // segments are hydrated.
-  const targetHour = useMemo<number | undefined>(() => {
-    if (typeof window === "undefined") return undefined;
-    const m = window.location.hash.match(/^#hour-(\d{1,2})$/);
-    if (!m) return undefined;
-    const h = parseInt(m[1], 10);
-    return Number.isFinite(h) && h >= 0 && h <= 23 ? h : undefined;
+  // Deep-link support:
+  //   /transcript/{date}#hour-N  — expand + scroll to that hour
+  //   /transcript/{date}#seg-<segId>  — expand the segment's hour, scroll to it,
+  //                                     yellow-flash it for ~1.5s
+  // Parsed once on mount; the TranscriptTab effect handles the actual scroll
+  // once segments are hydrated.
+  const { targetHour, targetSegId } = useMemo<{
+    targetHour: number | undefined;
+    targetSegId: string | undefined;
+  }>(() => {
+    if (typeof window === "undefined") return { targetHour: undefined, targetSegId: undefined };
+    const hash = window.location.hash || "";
+    console.log(`[TranscriptPage] URL: ${window.location.href} | hash: "${hash}"`);
+    const hourMatch = hash.match(/^#hour-(\d{1,2})$/);
+    if (hourMatch) {
+      const h = parseInt(hourMatch[1], 10);
+      if (Number.isFinite(h) && h >= 0 && h <= 23) {
+        console.log(`[TranscriptPage] Parsed targetHour=${h}`);
+        return { targetHour: h, targetSegId: undefined };
+      }
+    }
+    const segMatch = hash.match(/^#seg-(.+)$/);
+    if (segMatch) {
+      try {
+        const segId = decodeURIComponent(segMatch[1]);
+        console.log(`[TranscriptPage] Parsed targetSegId=${segId}`);
+        return { targetHour: undefined, targetSegId: segId };
+      } catch {
+        // fall through
+      }
+    }
+    console.log(`[TranscriptPage] No deep-link target in hash`);
+    return { targetHour: undefined, targetSegId: undefined };
   }, []);
 
   // Session data
@@ -181,16 +205,33 @@ export function TranscriptPage() {
 
   const daySegments = useMemo(() => {
     if (isDataLoading) return [];
+    let filtered: typeof allSegments;
     if (loadedDate === dateString) {
       if (!isToday && historicalSegmentCountRef.current !== null) {
-        return allSegments.slice(0, historicalSegmentCountRef.current);
+        filtered = allSegments.slice(0, historicalSegmentCountRef.current);
+      } else if (isToday) {
+        filtered = allSegments.filter((s) => !s.timestamp || getSegmentDate(s.timestamp) === dateString);
+      } else {
+        filtered = allSegments;
       }
-      if (isToday) {
-        return allSegments.filter((s) => !s.timestamp || getSegmentDate(s.timestamp) === dateString);
-      }
-      return allSegments;
+    } else {
+      filtered = allSegments.filter((s) => s.timestamp && getSegmentDate(s.timestamp) === dateString);
     }
-    return allSegments.filter((s) => s.timestamp && getSegmentDate(s.timestamp) === dateString);
+
+    // Dedupe by id. R2 transcript files from older sessions can contain
+    // duplicate `seg.index` values (merge bugs in r2Upload.service), which
+    // gives multiple segments the same `seg_N` id. React warns about the
+    // collision AND the deep-link's querySelector can land on the wrong
+    // node. Keep the first occurrence of each id.
+    const seen = new Set<string>();
+    const deduped: typeof filtered = [];
+    for (const s of filtered) {
+      const id = s.id || "";
+      if (seen.has(id)) continue;
+      seen.add(id);
+      deduped.push(s);
+    }
+    return deduped;
   }, [allSegments, dateString, loadedDate, isDataLoading, isToday, getSegmentDate]);
 
   const handleCopyTranscript = useCallback(async () => {
@@ -207,9 +248,9 @@ export function TranscriptPage() {
     const text = `# Transcript — ${dateLabel}\n${lines.join("\n")}`;
     try {
       await navigator.clipboard.writeText(text);
-      toast.success("Copied to clipboard", { position: "bottom-center" });
+      toast.success("Copied to clipboard");
     } catch {
-      toast.error("Failed to copy", { position: "bottom-center" });
+      toast.error("Failed to copy");
     }
   }, [daySegments, isToday, date]);
 
@@ -246,6 +287,7 @@ export function TranscriptPage() {
     });
     const data = await res.json();
     if (!data.success) throw new Error(data.error || "Failed to send email");
+    toast.success(`Email sent to ${to}`);
   }, [daySegments, dateString, userId]);
 
   if (!session || isReconnecting) {
@@ -356,6 +398,7 @@ export function TranscriptPage() {
           isSyncingPhoto={isToday ? isSyncingPhoto : false}
           isLoading={isDataLoading}
           targetHour={targetHour}
+          targetSegId={targetSegId}
         />
       </div>
 

@@ -23,12 +23,14 @@ import type {
 // Memoized segment row to prevent re-renders when siblings update
 const SegmentRow = memo(function SegmentRow({
   segment,
+  segId,
   formatTime,
   getPhotoSrc,
   onImageLoad,
   isLive,
 }: {
   segment: TranscriptSegment;
+  segId?: string;
   formatTime: (timestamp: Date | string) => string;
   getPhotoSrc: (url: string) => string;
   onImageLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
@@ -36,7 +38,7 @@ const SegmentRow = memo(function SegmentRow({
 }) {
   if (segment.type === "photo" && segment.photoUrl) {
     return (
-      <div className="rounded-[10px] overflow-hidden bg-white">
+      <div data-seg-id={segId} className="rounded-[10px] overflow-hidden bg-white">
         <img
           src={getPhotoSrc(segment.photoUrl)}
           alt="Photo capture"
@@ -52,10 +54,13 @@ const SegmentRow = memo(function SegmentRow({
   const timeLabel = segment.timestamp ? formatTime(segment.timestamp) : "";
 
   return (
-    <div className={clsx(
-      "flex flex-col rounded-[10px] py-2.5 px-3 gap-[3px] bg-white",
-      isLive && "border-[1.5px] border-[#F5C9BC]",
-    )}>
+    <div
+      data-seg-id={segId}
+      className={clsx(
+        "flex flex-col rounded-[10px] py-2.5 px-3 gap-[3px] bg-white transition-colors duration-700",
+        isLive && "border-[1.5px] border-[#F5C9BC]",
+      )}
+    >
       <div className="flex items-center justify-between">
         <span className={clsx(
           "text-[11px] font-red-hat font-semibold leading-3.5",
@@ -68,13 +73,6 @@ const SegmentRow = memo(function SegmentRow({
       <p className="text-[13px] leading-[1.5] font-red-hat text-[#1C1917]">
         {segment.text}
       </p>
-      {/* {isLive && (
-        <div className="flex items-center mt-0.5 gap-1">
-          <div className="rounded-full bg-[#A8A29E] size-1" />
-          <div className="rounded-full bg-[#A8A29E] size-1" />
-          <div className="rounded-full bg-[#A8A29E] size-1" />
-        </div>
-      )} */}
     </div>
   );
 });
@@ -92,6 +90,8 @@ interface TranscriptTabProps {
   isLoading?: boolean; // When true, show skeleton loading state
   /** Hour (0-23) to auto-expand + scroll to on mount (e.g. from #hour-N deep-link) */
   targetHour?: number;
+  /** Segment id (`${date}-${segIndex}`) to expand + scroll + yellow-flash (from #seg-<id>) */
+  targetSegId?: string;
 }
 
 interface GroupedSegments {
@@ -110,6 +110,18 @@ function getPhotoSrc(url: string): string {
 // Hour display states: veryCollapsed (minimal) → collapsed (banner) → expanded (segments)
 type HourState = "veryCollapsed" | "collapsed" | "expanded";
 
+/**
+ * Build the stable segId used by the deep-link (#seg-<id>) and by the backend
+ * phrase-search collection. Derived from the segment's local id "seg_N" so
+ * the frontend doesn't need a parallel id field.
+ */
+function toSegId(dateString: string, segmentId: string | undefined): string | undefined {
+  if (!segmentId) return undefined;
+  const m = segmentId.match(/^seg_(\d+)$/);
+  if (!m) return undefined;
+  return `${dateString}-${m[1]}`;
+}
+
 export function TranscriptTab({
   segments,
   hourSummaries = [],
@@ -122,6 +134,7 @@ export function TranscriptTab({
   isSyncingPhoto = false,
   isLoading = false,
   targetHour,
+  targetSegId,
 }: TranscriptTabProps) {
   // Track expanded state for each hour (only used when not in compact mode)
   const [expandedHours, setExpandedHours] = useState<Set<string>>(new Set());
@@ -513,6 +526,271 @@ export function TranscriptTab({
     });
   }, [targetHour, dateString, isLoading, scrollHeaderToTop]);
 
+  // Deep-link: when `targetSegId` is provided (e.g. /transcript/{date}#seg-<id>),
+  // find that segment, expand its hour, scroll it into view, and briefly
+  // flash it yellow. Runs once per (date, segId) pair so repeat visits re-fire.
+  //
+  // Robust against R2 race: when the user deep-links into a historical day,
+  // `isLoading` flips false but `segments` can still arrive over several
+  // @synced updates. The effect keeps a cancelable poller that retries for
+  // up to 6s waiting for both segments to populate AND the hour DOM to mount.
+  const lastTargetSegRef = useRef<string | null>(null);
+  const segmentsRef = useRef(segments);
+  segmentsRef.current = segments;
+
+  // Reset the deep-link lock whenever we start loading a new date, so a
+  // successful "find" in the PREVIOUS date's still-resident segments can't
+  // claim the lock before the new date's data arrives. Without this reset,
+  // the effect correctly re-fires when segments hydrate but then skips
+  // because the key matches a lock set against stale data.
+  useEffect(() => {
+    if (isLoading) {
+      lastTargetSegRef.current = null;
+    }
+  }, [isLoading, dateString]);
+
+  useEffect(() => {
+    console.log(
+      `[TranscriptTab] deep-link effect fired: targetSegId=${targetSegId} isLoading=${isLoading} dateString=${dateString} segments=${segments.length} lastKey=${lastTargetSegRef.current}`,
+    );
+    if (!targetSegId) return;
+    if (isLoading) return;
+    const key = `${dateString}|${targetSegId}`;
+    if (lastTargetSegRef.current === key) {
+      console.log(`[TranscriptTab] skipping — same key as last run`);
+      return;
+    }
+
+    // Guard against the stale-segments race: only proceed if the segments
+    // actually belong to the target date. R2 historical loads go through
+    // three states — (A) initial render with prior date's segments still
+    // resident, (B) segments.set([]) + isLoading=true, (C) new data arrives.
+    // If we hit (A) and the target was in the previous date, we'd mark the
+    // lock prematurely. Check the target segment's matching date prefix.
+    const match = targetSegId.match(/^(\d{4}-\d{2}-\d{2})-(\d+)$/);
+    if (!match) {
+      console.warn(`[TranscriptTab] Bad targetSegId format: ${targetSegId}`);
+      return;
+    }
+    if (match[1] !== dateString) {
+      console.log(
+        `[TranscriptTab] target seg date (${match[1]}) != dateString (${dateString}), waiting`,
+      );
+      return;
+    }
+    // Also require that at least one rendered segment has a timestamp whose
+    // date (in the user's tz) matches — proves we're looking at the RIGHT
+    // day's data, not the previous day's lingering segments.
+    const hasCorrectDateSegments = segments.some((s) => {
+      if (!s.timestamp) return false;
+      const d = typeof s.timestamp === "string" ? new Date(s.timestamp) : s.timestamp;
+      // Cheap check: format the timestamp into YYYY-MM-DD in the user's tz
+      // and compare. Using Intl.DateTimeFormat keeps us consistent with
+      // getHourInTimezone below.
+      const parts = new Intl.DateTimeFormat("en-US", {
+        year: "numeric", month: "2-digit", day: "2-digit",
+        ...(timezone && { timeZone: timezone }),
+      }).formatToParts(d);
+      const y = parts.find((p) => p.type === "year")?.value;
+      const m = parts.find((p) => p.type === "month")?.value;
+      const dd = parts.find((p) => p.type === "day")?.value;
+      return `${y}-${m}-${dd}` === dateString;
+    });
+    if (!hasCorrectDateSegments) {
+      // Sample 3 segment timestamps so we can see what dates they DO match.
+      const sample = segments.slice(0, 3).map((s) => {
+        if (!s.timestamp) return `${s.id}:no-ts`;
+        const d = typeof s.timestamp === "string" ? new Date(s.timestamp) : s.timestamp;
+        return `${s.id}:${d.toISOString()}`;
+      }).join(", ");
+      console.log(
+        `[TranscriptTab] no segments yet match dateString=${dateString} (sample: ${sample})`,
+      );
+      return;
+    }
+    console.log(
+      `[TranscriptTab] proceeding past date gate — starting poll for segment`,
+    );
+
+    const [, , segIndexStr] = match;
+    const targetIndex = parseInt(segIndexStr, 10);
+
+    let cancelled = false;
+    let success = false;
+
+    const findSegment = (): TranscriptSegment | null => {
+      const segs = segmentsRef.current;
+      if (segs.length === 0) return null;
+      // Only consider segments whose timestamp falls on dateString (user tz).
+      // This blocks stale residual segments from a previous date from being
+      // picked up during the brief render window where they're still in state.
+      const dateSegs = segs.filter((s) => {
+        if (!s.timestamp) return false;
+        const d = typeof s.timestamp === "string" ? new Date(s.timestamp) : s.timestamp;
+        const parts = new Intl.DateTimeFormat("en-US", {
+          year: "numeric", month: "2-digit", day: "2-digit",
+          ...(timezone && { timeZone: timezone }),
+        }).formatToParts(d);
+        const y = parts.find((p) => p.type === "year")?.value;
+        const m = parts.find((p) => p.type === "month")?.value;
+        const dd = parts.find((p) => p.type === "day")?.value;
+        return `${y}-${m}-${dd}` === dateString;
+      });
+      if (dateSegs.length === 0) return null;
+
+      // Primary: exact id match.
+      let segment = dateSegs.find((s) => s.id === `seg_${segIndexStr}`);
+      // Fallback 1: numeric tail match.
+      if (!segment?.timestamp) {
+        segment = dateSegs.find((s) => {
+          const m = s.id?.match(/(\d+)$/);
+          return m ? parseInt(m[1], 10) === targetIndex : false;
+        });
+      }
+      // Fallback 2: nearest index within ±5.
+      if (!segment?.timestamp) {
+        let best: { seg: TranscriptSegment; delta: number } | null = null;
+        for (const s of dateSegs) {
+          const m = s.id?.match(/(\d+)$/);
+          if (!m) continue;
+          const delta = Math.abs(parseInt(m[1], 10) - targetIndex);
+          if (!best || delta < best.delta) best = { seg: s, delta };
+        }
+        if (best && best.delta <= 5) {
+          console.log(
+            `[TranscriptTab] Exact seg_${targetIndex} not found, using nearest (delta=${best.delta}): ${best.seg.id}`,
+          );
+          segment = best.seg;
+        }
+      }
+      return segment?.timestamp ? segment : null;
+    };
+
+    const tryOnce = () => {
+      if (cancelled || success) return true;
+      const segment = findSegment();
+      if (!segment?.timestamp) {
+        console.log(`[TranscriptTab] tryOnce: segment not found yet`);
+        return false;
+      }
+
+      const hour = getHourInTimezone(segment.timestamp);
+      const hourKey = createHourKey(hour);
+
+      const container = scrollContainerRef.current;
+      if (!container) {
+        console.log(`[TranscriptTab] tryOnce: scroll container not mounted`);
+        return false;
+      }
+      const hourSection = container.querySelector(`[data-hour-section="${hourKey}"]`);
+      if (!hourSection) {
+        console.log(`[TranscriptTab] tryOnce: hour section ${hourKey} not in DOM`);
+        return false;
+      }
+
+      console.log(
+        `[TranscriptTab] tryOnce SUCCESS: segment.id=${segment.id} hour=${hour} hourKey=${hourKey}`,
+      );
+      // Success path begins — claim the ref so later effect re-runs don't refire.
+      lastTargetSegRef.current = key;
+      success = true;
+
+      // Expand the hour.
+      setExpandedHours((prev) => {
+        if (prev.has(hourKey)) return prev;
+        const next = new Set(prev);
+        next.add(hourKey);
+        return next;
+      });
+
+      const actualSegId = (() => {
+        const m = segment.id?.match(/^seg_(\d+)$/);
+        return m ? `${dateString}-${m[1]}` : undefined;
+      })();
+
+      const attemptFlash = (attemptsLeft: number) => {
+        if (cancelled) return;
+        let el = container.querySelector<HTMLElement>(
+          `[data-seg-id="${CSS.escape(targetSegId)}"]`,
+        );
+        if (!el && actualSegId && actualSegId !== targetSegId) {
+          el = container.querySelector<HTMLElement>(
+            `[data-seg-id="${CSS.escape(actualSegId)}"]`,
+          );
+        }
+        if (!el) {
+          if (attemptsLeft > 0) {
+            setTimeout(() => attemptFlash(attemptsLeft - 1), 120);
+          } else {
+            console.warn(
+              `[TranscriptTab] Deep-link: segment DOM node never appeared for ${targetSegId} (tried actualSegId=${actualSegId})`,
+            );
+          }
+          return;
+        }
+        console.log(
+          `[TranscriptTab] Flashing DOM node: data-seg-id=${el.getAttribute("data-seg-id")} rect.top=${el.getBoundingClientRect().top}`,
+        );
+
+        // Use scrollIntoView — the native API re-measures layout on each call
+        // and handles mid-animation cases better than a manual scrollTo with a
+        // precomputed offset. The hour-expand animation is typically still
+        // running when we get here; scrollIntoView with block:"center" puts
+        // the segment in the middle of the viewport, survives re-layout, and
+        // is the most reliable cross-browser behavior.
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+
+        // Flash after a beat so the scroll animation doesn't fight the class
+        // change. Color stays for 1.5s, then fades via the SegmentRow's
+        // `transition-colors duration-700`.
+        const flashEl = el;
+        setTimeout(() => {
+          if (cancelled) return;
+          flashEl.classList.add("!bg-yellow-200");
+          setTimeout(() => {
+            flashEl.classList.remove("!bg-yellow-200");
+          }, 1500);
+        }, 400);
+
+        // Re-scroll once the layout likely settled (hour expand animations
+        // typically run ~300-500ms). Without this, the smooth scroll started
+        // above can land at the wrong position because the segment's real
+        // final y changes as sibling hours expand/collapse.
+        setTimeout(() => {
+          if (cancelled) return;
+          // Confirm the element is still in the DOM before re-scrolling
+          if (!document.body.contains(flashEl)) return;
+          flashEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 700);
+      };
+      requestAnimationFrame(() => attemptFlash(30));
+      return true;
+    };
+
+    // Try immediately; if not ready, poll for up to 6 seconds waiting for
+    // segments to hydrate + hour DOM to render.
+    if (tryOnce()) return;
+    let attempts = 0;
+    const maxAttempts = 60; // 60 × 100ms = 6s
+    const poller = setInterval(() => {
+      attempts++;
+      if (tryOnce() || attempts >= maxAttempts) {
+        clearInterval(poller);
+        if (!success && attempts >= maxAttempts) {
+          console.warn(
+            `[TranscriptTab] Deep-link: gave up waiting for ${targetSegId} ` +
+              `(segments=${segmentsRef.current.length})`,
+          );
+        }
+      }
+    }, 100);
+
+    return () => {
+      cancelled = true;
+      clearInterval(poller);
+    };
+  }, [targetSegId, dateString, isLoading]);
+
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -704,6 +982,7 @@ export function TranscriptTab({
                       <SegmentRow
                         key={segment.id || `prev-${idx}`}
                         segment={segment}
+                        segId={toSegId(dateString, segment.id)}
                         formatTime={formatTime}
                         getPhotoSrc={getPhotoSrc}
                       />
@@ -797,6 +1076,7 @@ export function TranscriptTab({
                             <SegmentRow
                               key={segment.id || `idx-${idx}`}
                               segment={segment}
+                              segId={toSegId(dateString, segment.id)}
                               formatTime={formatTime}
                               getPhotoSrc={getPhotoSrc}
                               onImageLoad={(e) => handleImageLoad(e, hourKey)}

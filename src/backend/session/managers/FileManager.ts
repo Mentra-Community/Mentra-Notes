@@ -21,6 +21,7 @@ import {
   deleteChatHistory,
   HourSummary,
   deleteHourSummariesForDate,
+  deleteSearchSegmentsForDate,
   type FileI,
 } from "../../models";
 import { deleteFromR2 } from "../../services/r2Upload.service";
@@ -953,6 +954,10 @@ export class FileManager extends SyncedManager {
     const deletedTranscript = await deleteDailyTranscript(userId, date);
     console.log(`[FileManager] DailyTranscript deleted: ${deletedTranscript}`);
 
+    // Delete phrase-search index rows for this date
+    const deletedSearch = await deleteSearchSegmentsForDate(userId, date);
+    console.log(`[FileManager] Deleted ${deletedSearch} search-index rows for ${date}`);
+
     // Delete File record
     const deletedFile = await deleteFileFromDb(userId, date, true);
     console.log(`[FileManager] File deleted: ${deletedFile}`);
@@ -1013,6 +1018,10 @@ export class FileManager extends SyncedManager {
         // 4. Delete DailyTranscript
         await deleteDailyTranscript(userId, date);
         console.log(`[FileManager] Deleted DailyTranscript for ${date}`);
+
+        // 4a. Delete phrase-search index rows for this date
+        const deletedSearch = await deleteSearchSegmentsForDate(userId, date);
+        console.log(`[FileManager] Deleted ${deletedSearch} search-index rows for ${date}`);
 
         // 5. Delete File record
         await deleteFileFromDb(userId, date, true);

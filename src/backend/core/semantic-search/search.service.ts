@@ -14,6 +14,11 @@ import { generateEmbedding } from "../../services/embedding.service";
 import { Note } from "../../models/note.model";
 import { Conversation } from "../../models/conversation.model";
 import { searchHourSummaries } from "../../models/hour-summary.model";
+import {
+  searchSegmentsByPhrase,
+  type PhraseSearchResult,
+} from "../../models/transcript-segment-search.model";
+import { getFiles } from "../../models/file.model";
 
 export type SearchResult =
   | {
@@ -222,6 +227,45 @@ async function searchTranscripts(
     console.error("[SearchService] Transcript search failed:", error?.message || error);
     return [];
   }
+}
+
+// ---------------------------------------------------------------------------
+// Transcript-sentence phrase search (issue #26). Paginated; separate branch
+// from `semanticSearch` because notes/hour-summaries return small fixed
+// result sets while this one can scroll indefinitely.
+// ---------------------------------------------------------------------------
+
+export const PHRASE_SEARCH_MIN_QUERY = 3;
+
+export async function searchTranscriptSentences(params: {
+  userId: string;
+  query: string;
+  offset: number;
+  limit: number;
+}): Promise<PhraseSearchResult> {
+  const { userId, query, offset, limit } = params;
+  if (query.trim().length < PHRASE_SEARCH_MIN_QUERY) {
+    return { rows: [], hasMore: false, nextOffset: offset };
+  }
+
+  // Trashed dates must not surface phrase matches. Pulling a plain date list
+  // is cheap (one indexed query) — easier than cascading deletes through every
+  // trash path.
+  let excludeDates: string[] = [];
+  try {
+    const trashed = await getFiles(userId, { isTrashed: true });
+    excludeDates = trashed.map((f) => f.date);
+  } catch (err) {
+    console.warn("[SearchService] Failed to load trashed dates, proceeding without exclusion:", err);
+  }
+
+  return searchSegmentsByPhrase({
+    userId,
+    query,
+    offset,
+    limit,
+    excludeDates,
+  });
 }
 
 // ---------------------------------------------------------------------------

@@ -23,6 +23,7 @@ import { useSynced } from "../../hooks/useSynced";
 import type { SessionI, Note } from "../../../shared/types";
 import { NotePageSkeleton } from "../../components/shared/SkeletonLoader";
 import { EmailDrawer } from "../../components/shared/EmailDrawer";
+import { toast } from "../../components/shared/toast";
 import { ExportDrawer, type ExportOptions } from "../../components/shared/ExportDrawer";
 import { useTabBar } from "../../components/layout/Shell";
 import { isDevelopmentMode } from "../../lib/devMode";
@@ -251,7 +252,12 @@ export function NotePage() {
     const content = editor?.getHTML() || note.content || "";
     const text = content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     const title = editTitle || note.title || "Untitled Note";
-    await navigator.clipboard.writeText(`# ${title}\n\n${text}`);
+    try {
+      await navigator.clipboard.writeText(`# ${title}\n\n${text}`);
+      toast.success("Copied to clipboard");
+    } catch {
+      toast.error("Failed to copy");
+    }
   }, [note, editor, editTitle]);
 
   const handleDeleteConfirmed = useCallback(async () => {
@@ -318,6 +324,7 @@ export function NotePage() {
     });
     const data = await res.json();
     if (!data.success) throw new Error(data.error || "Failed to send email");
+    toast.success(`Email sent to ${to}`);
   };
 
   return (

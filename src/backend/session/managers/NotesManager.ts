@@ -41,6 +41,89 @@ export interface NoteData {
 }
 
 // =============================================================================
+// Helpers
+// =============================================================================
+
+/**
+ * Convert any stray markdown syntax the LLM slipped into the note body into
+ * the HTML tags TipTap expects. Also wraps bare text lines in <p>.
+ *
+ * The prompt tells the model "HTML only, no markdown" but providers still
+ * occasionally emit `**bold**`, `## heading`, or `- item` lines. TipTap
+ * renders those as literal characters, so we normalize server-side before
+ * persisting the note.
+ */
+function normalizeToHtml(raw: string): string {
+  if (!raw) return raw;
+
+  // If the output already looks like clean HTML (has block tags and no
+  // obvious markdown markers), still run a light pass to catch inline **bold**.
+  let html = raw.trim();
+
+  // Strip any leading/trailing code fences the LLM might wrap output in.
+  html = html.replace(/^```(?:html)?\s*\n?/i, "").replace(/\n?```\s*$/i, "");
+
+  // Inline conversions — safe to run on HTML too (no `**` exists in valid HTML).
+  //   **bold** / __bold__ → <strong>bold</strong>
+  html = html.replace(/\*\*([^*\n]+?)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/__([^_\n]+?)__/g, "<strong>$1</strong>");
+  //   *italic* / _italic_ → <em>italic</em>   (skip if adjacent to word chars to avoid false positives)
+  html = html.replace(/(^|[\s>])\*([^*\n]+?)\*(?=[\s<.,!?;:]|$)/g, "$1<em>$2</em>");
+  html = html.replace(/(^|[\s>])_([^_\n]+?)_(?=[\s<.,!?;:]|$)/g, "$1<em>$2</em>");
+
+  // If the body already has block-level HTML tags, don't touch line structure.
+  const hasBlockTags = /<(h[1-6]|p|ul|ol|li|img|div)\b/i.test(html);
+  if (hasBlockTags) return html;
+
+  // Otherwise, model gave us a markdown-ish document. Convert block structure.
+  const lines = html.split(/\r?\n/);
+  const out: string[] = [];
+  let inList = false;
+
+  const closeList = () => {
+    if (inList) {
+      out.push("</ul>");
+      inList = false;
+    }
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) {
+      closeList();
+      continue;
+    }
+
+    // Headings: `# `, `## `, `### `
+    const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
+    if (headingMatch) {
+      closeList();
+      const level = Math.min(headingMatch[1].length + 1, 6); // bump `#` → <h2> (we never use <h1>)
+      out.push(`<h${level}>${headingMatch[2]}</h${level}>`);
+      continue;
+    }
+
+    // Bullet list items: `- `, `* `, `• `
+    const bulletMatch = line.match(/^[-*•]\s+(.+)$/);
+    if (bulletMatch) {
+      if (!inList) {
+        out.push("<ul>");
+        inList = true;
+      }
+      out.push(`<li>${bulletMatch[1]}</li>`);
+      continue;
+    }
+
+    // Regular paragraph
+    closeList();
+    out.push(`<p>${line}</p>`);
+  }
+
+  closeList();
+  return out.join("\n");
+}
+
+// =============================================================================
 // Manager
 // =============================================================================
 
@@ -399,13 +482,29 @@ CONTENT:
             tier: "fast",
             maxTokens: 2048,
             systemPrompt: `You are a note-taking assistant that creates well-structured notes from transcripts.
-Output your notes in clean HTML format using ONLY these tags:
+
+CRITICAL: Output raw HTML only. Do NOT output markdown. The output is rendered directly by a TipTap HTML editor — any markdown syntax will appear to the user as literal text (e.g. \`**word**\` renders as the four characters \`*\`, \`*\`, \`w\`…, not as bold).
+
+Allowed tags (use ONLY these):
 - <h2> for section headings
-- <p> for paragraphs
-- <strong> for bold/important text
-- <em> for italic/emphasized text
-- <ul> and <li> for bulleted lists
+- <p> for paragraphs — every paragraph MUST be wrapped in <p>...</p>
+- <strong> for bold/important text — NEVER use **text** or __text__
+- <em> for italic text — NEVER use *text* or _text_
+- <ul> and <li> for bulleted lists — NEVER use "- item" or "* item" lines
 ${photos.length > 0 ? "- <img> for photos (use the exact URLs provided, do NOT invent URLs)\n\nPhoto rules:\n- Only include a photo if it is relevant to the note content\n- Place photos near the text they relate to\n- If a photo doesn't relate to any section, leave it out" : ""}
+
+Correct example:
+<h2>Project Overview</h2>
+<p>The project revolves around <strong>AI motion graphics</strong>.</p>
+<ul>
+  <li><strong>Integration</strong>: connects to Claude.</li>
+  <li><strong>Functionality</strong>: users specify what to generate.</li>
+</ul>
+
+Wrong example (DO NOT do this):
+## Project Overview
+The project revolves around **AI motion graphics**.
+- **Integration**: connects to Claude.
 
 Rules:
 - Write between 100-500 words
@@ -446,7 +545,16 @@ Rules:
             if (htmlStart !== -1) {
               summary = responseText.substring(htmlStart).trim();
             }
+          } else if (!contentMatch) {
+            // LLM returned markdown or plain text with no CONTENT: prefix either.
+            // Everything after the TITLE line (if any) is note body.
+            const afterTitle = responseText.replace(/^TITLE:[^\n]*\n?/i, "").trim();
+            summary = afterTitle || responseText.trim();
           }
+
+          // Safety net: normalize any stray markdown the LLM slipped in
+          // (despite the HTML-only instruction) so TipTap renders correctly.
+          summary = normalizeToHtml(summary);
 
         } catch (error) {
           console.error("[NotesManager] AI generation failed:", error);

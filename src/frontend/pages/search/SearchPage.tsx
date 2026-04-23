@@ -10,7 +10,7 @@
  * hour-summary titles stored per-hour on each transcript.
  */
 
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useMentraAuth } from "@mentra/react";
 import { format, isToday, isYesterday } from "date-fns";
@@ -18,6 +18,8 @@ import { LoadingState } from "../../components/shared/LoadingState";
 
 const RECENT_SEARCHES_KEY = "mentra_recent_searches";
 const MAX_RECENT = 5;
+const PHRASE_MIN_QUERY = 3;
+const SENTENCE_PAGE_SIZE = 50;
 
 function getRecentSearches(): string[] {
   try {
@@ -64,6 +66,19 @@ type TranscriptResult = {
 
 type SearchResult = NoteResult | TranscriptResult;
 
+type SentenceRow = {
+  segId: string;
+  date: string;
+  hour: number;
+  segIndex: number;
+  text: string;
+  timestamp: string;
+  speakerId?: string;
+  matchRanges: Array<[number, number]>;
+  before?: { text: string; segId: string };
+  after?: { text: string; segId: string };
+};
+
 function stripHtml(html: string, maxWords = 30): string {
   if (!html) return "";
   const text = html
@@ -98,6 +113,68 @@ function formatTranscriptDate(dateStr: string, hourLabel: string): string {
   return hourLabel ? `${base}, ${hourLabel}` : base;
 }
 
+function formatSentenceDate(dateStr: string, timestampStr: string): string {
+  const base = formatNoteDate(dateStr);
+  try {
+    const t = new Date(timestampStr);
+    const time = t.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    return `${base}, ${time}`;
+  } catch {
+    return base;
+  }
+}
+
+/**
+ * Split a segment's text around its match ranges, returning alternating
+ * plain + highlighted spans. Safe against overlapping ranges.
+ */
+function splitByRanges(
+  text: string,
+  ranges: Array<[number, number]>,
+): Array<{ text: string; highlight: boolean }> {
+  if (!ranges || ranges.length === 0) return [{ text, highlight: false }];
+  const sorted = [...ranges].sort((a, b) => a[0] - b[0]);
+  const out: Array<{ text: string; highlight: boolean }> = [];
+  let cursor = 0;
+  for (const [start, end] of sorted) {
+    if (start > cursor) out.push({ text: text.slice(cursor, start), highlight: false });
+    out.push({ text: text.slice(start, end), highlight: true });
+    cursor = Math.max(cursor, end);
+  }
+  if (cursor < text.length) out.push({ text: text.slice(cursor), highlight: false });
+  return out;
+}
+
+/**
+ * Truncate a long segment text around the first match so the highlighted word
+ * is always visible in the row preview. Returns the new text + re-based ranges.
+ */
+function truncateAroundMatch(
+  text: string,
+  ranges: Array<[number, number]>,
+  window = 120,
+): { text: string; ranges: Array<[number, number]> } {
+  if (!ranges.length || text.length <= window * 2) return { text, ranges };
+  const [firstStart] = ranges[0];
+  const half = Math.floor(window / 2);
+  const start = Math.max(0, firstStart - half);
+  const end = Math.min(text.length, start + window * 2);
+  const prefix = start > 0 ? "…" : "";
+  const suffix = end < text.length ? "…" : "";
+  const delta = prefix.length - start;
+  const nextRanges: Array<[number, number]> = [];
+  for (const [s, e] of ranges) {
+    const ns = s + delta;
+    const ne = e + delta;
+    if (ne <= prefix.length || ns >= prefix.length + (end - start)) continue;
+    nextRanges.push([
+      Math.max(prefix.length, ns),
+      Math.min(prefix.length + (end - start), ne),
+    ]);
+  }
+  return { text: prefix + text.slice(start, end) + suffix, ranges: nextRanges };
+}
+
 export function SearchPage() {
   const [, setLocation] = useLocation();
   const { userId } = useMentraAuth();
@@ -111,10 +188,63 @@ export function SearchPage() {
   const searchAbortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Transcript-sentence phrase search — independent from the main results state
+  // because it paginates and can balloon past 50 rows.
+  const [sentences, setSentences] = useState<SentenceRow[]>([]);
+  const [sentenceOffset, setSentenceOffset] = useState(0);
+  const [sentenceHasMore, setSentenceHasMore] = useState(false);
+  const [sentenceLoading, setSentenceLoading] = useState(false);
+  const [sentenceLoadingMore, setSentenceLoadingMore] = useState(false);
+  const sentenceAbortRef = useRef<AbortController | null>(null);
+  const sentenceQueryRef = useRef<string>("");
+  const sentenceSentinelRef = useRef<HTMLDivElement | null>(null);
+  const [backfillInProgress, setBackfillInProgress] = useState(false);
+
+  // Kick the backfill check once per mount. The endpoint itself fires the job
+  // in the background if the user isn't yet backfilled.
+  useEffect(() => {
+    if (!userId) return;
+    const userParam = `?userId=${encodeURIComponent(userId)}`;
+    fetch(`/api/search/backfill-status${userParam}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        setBackfillInProgress(!!data.inProgress && !data.backfilled);
+      })
+      .catch(() => {
+        // Silent — banner is nice-to-have
+      });
+  }, [userId]);
+
+  const fetchSentencePage = useCallback(
+    async (q: string, offset: number, signal: AbortSignal): Promise<void> => {
+      const userParam = userId ? `&userId=${encodeURIComponent(userId)}` : "";
+      const res = await fetch(
+        `/api/search/sentences?q=${encodeURIComponent(q)}&offset=${offset}&limit=${SENTENCE_PAGE_SIZE}${userParam}`,
+        { credentials: "include", signal },
+      ).then((r) => r.json());
+      if (signal.aborted) return;
+
+      const rows: SentenceRow[] = Array.isArray(res?.rows) ? res.rows : [];
+      if (offset === 0) {
+        setSentences(rows);
+      } else {
+        setSentences((prev) => [...prev, ...rows]);
+      }
+      setSentenceHasMore(!!res?.hasMore);
+      setSentenceOffset(typeof res?.nextOffset === "number" ? res.nextOffset : offset + rows.length);
+    },
+    [userId],
+  );
+
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) {
       setResults([]);
       setHasSearched(false);
+      setSentences([]);
+      setSentenceOffset(0);
+      setSentenceHasMore(false);
+      sentenceAbortRef.current?.abort();
+      sentenceQueryRef.current = "";
       return;
     }
 
@@ -122,20 +252,39 @@ export function SearchPage() {
     const abortController = new AbortController();
     searchAbortRef.current = abortController;
 
+    // Reset sentence pagination whenever the query changes
+    sentenceAbortRef.current?.abort();
+    const sentenceAbort = new AbortController();
+    sentenceAbortRef.current = sentenceAbort;
+    sentenceQueryRef.current = q.trim();
+
     setIsSearching(true);
     setHasSearched(true);
     setLoadingKey((k) => k + 1);
+    setSentences([]);
+    setSentenceOffset(0);
+    setSentenceHasMore(false);
 
     const minDelay = new Promise((r) => setTimeout(r, 600));
 
+    const trimmed = q.trim();
+    const shouldSearchSentences = trimmed.length >= PHRASE_MIN_QUERY;
+
     try {
       const userParam = userId ? `&userId=${encodeURIComponent(userId)}` : "";
-      const fetchPromise = fetch(
-        `/api/search?q=${encodeURIComponent(q.trim())}&limit=10${userParam}`,
+      const mainPromise = fetch(
+        `/api/search?q=${encodeURIComponent(trimmed)}&limit=10${userParam}`,
         { credentials: "include", signal: abortController.signal },
       ).then((r) => r.json());
 
-      const [data] = await Promise.all([fetchPromise, minDelay]);
+      setSentenceLoading(shouldSearchSentences);
+      const sentencesPromise = shouldSearchSentences
+        ? fetchSentencePage(trimmed, 0, sentenceAbort.signal).catch((err) => {
+            if (err?.name !== "AbortError") console.error("[Search] sentences failed:", err);
+          })
+        : Promise.resolve();
+
+      const [data] = await Promise.all([mainPromise, sentencesPromise, minDelay]);
       if (!abortController.signal.aborted) {
         setResults(data.results || []);
       }
@@ -147,12 +296,40 @@ export function SearchPage() {
       }
     } finally {
       if (!abortController.signal.aborted) {
-        saveRecentSearch(q.trim());
+        saveRecentSearch(trimmed);
         setRecentSearches(getRecentSearches());
         setIsSearching(false);
+        setSentenceLoading(false);
       }
     }
-  }, [userId]);
+  }, [userId, fetchSentencePage]);
+
+  // Infinite scroll: load next page when sentinel enters viewport.
+  useEffect(() => {
+    if (!sentenceHasMore) return;
+    const el = sentenceSentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry?.isIntersecting) return;
+        if (sentenceLoadingMore || sentenceLoading) return;
+        const q = sentenceQueryRef.current;
+        if (!q) return;
+        const abort = sentenceAbortRef.current;
+        if (!abort || abort.signal.aborted) return;
+        setSentenceLoadingMore(true);
+        fetchSentencePage(q, sentenceOffset, abort.signal)
+          .catch((err) => {
+            if (err?.name !== "AbortError") console.error("[Search] next page failed:", err);
+          })
+          .finally(() => setSentenceLoadingMore(false));
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [sentenceHasMore, sentenceOffset, sentenceLoading, sentenceLoadingMore, fetchSentencePage]);
 
   const handleInputChange = useCallback(
     (value: string) => {
@@ -167,7 +344,16 @@ export function SearchPage() {
     setQuery("");
     setResults([]);
     setHasSearched(false);
+    setSentences([]);
+    setSentenceOffset(0);
+    setSentenceHasMore(false);
+    sentenceAbortRef.current?.abort();
+    sentenceQueryRef.current = "";
     inputRef.current?.focus();
+  };
+
+  const handleSentenceClick = (row: SentenceRow) => {
+    setLocation(`/transcript/${row.date}#seg-${encodeURIComponent(row.segId)}`);
   };
 
   const handleRecentTap = (q: string) => {
@@ -198,7 +384,7 @@ export function SearchPage() {
     [results],
   );
 
-  const totalCount = results.length;
+  const totalCount = results.length + sentences.length;
 
   return (
     <div className="[font-synthesis:none] flex h-full flex-col bg-[#FCFBFA] overflow-hidden antialiased">
@@ -324,8 +510,95 @@ export function SearchPage() {
           </div>
         )}
 
+        {/* Transcript sentences section — exact phrase matches with yellow highlight */}
+        {!isSearching && hasSearched && query.trim().length >= PHRASE_MIN_QUERY && (
+          <>
+            {(sentences.length > 0 || sentenceLoading || backfillInProgress) && (
+              <div className="flex flex-col px-6">
+                <div className="pt-4 pb-2 flex items-baseline justify-between">
+                  <div className="tracking-[1.2px] uppercase text-[#D32F2F] font-red-hat font-bold text-[11px] leading-3.5">
+                    Transcript sentences · {sentences.length}
+                    {sentenceHasMore ? "+" : ""}
+                  </div>
+                  {backfillInProgress && (
+                    <div className="text-[11px] text-[#B0AAA2] font-red-hat italic">
+                      still indexing older days…
+                    </div>
+                  )}
+                </div>
+                {sentences.map((row) => {
+                  const { text: previewText, ranges: previewRanges } = truncateAroundMatch(
+                    row.text,
+                    row.matchRanges,
+                  );
+                  const parts = splitByRanges(previewText, previewRanges);
+                  return (
+                    <button
+                      key={`sentence-${row.segId}`}
+                      onClick={() => handleSentenceClick(row)}
+                      className="flex items-center py-3 gap-2.5 border-t border-[#F0EDEA] text-left"
+                    >
+                      <div className="flex flex-col grow shrink basis-0 gap-1 min-w-0">
+                        {row.before?.text && (
+                          <div className="text-[#B0AAA2] font-red-hat text-[12px] leading-4 line-clamp-1 italic">
+                            {row.before.text}
+                          </div>
+                        )}
+                        <div className="text-[#1A1A1A] font-red-hat text-[14px] leading-5 line-clamp-2">
+                          {parts.map((p, i) =>
+                            p.highlight ? (
+                              <mark
+                                key={i}
+                                className="bg-yellow-200 text-[#1A1A1A] rounded-[2px] px-0.5"
+                              >
+                                {p.text}
+                              </mark>
+                            ) : (
+                              <span key={i}>{p.text}</span>
+                            ),
+                          )}
+                        </div>
+                        {row.after?.text && (
+                          <div className="text-[#B0AAA2] font-red-hat text-[12px] leading-4 line-clamp-1 italic">
+                            {row.after.text}
+                          </div>
+                        )}
+                        <div className="text-[#B0AAA2] font-red-hat font-medium text-[11px] leading-3.5 pt-0.5">
+                          {formatSentenceDate(row.date, row.timestamp)}
+                        </div>
+                      </div>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#C5C0B8"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="shrink-0"
+                      >
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
+                    </button>
+                  );
+                })}
+                {/* Infinite-scroll sentinel */}
+                {sentenceHasMore && (
+                  <div
+                    ref={sentenceSentinelRef}
+                    className="flex items-center justify-center py-4 text-[11px] text-[#B0AAA2] font-red-hat"
+                  >
+                    {sentenceLoadingMore ? "Loading more…" : " "}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
         {/* Empty / No results — preserves the existing dot-art halftone SVG */}
-        {!isSearching && hasSearched && results.length === 0 && (
+        {!isSearching && hasSearched && results.length === 0 && sentences.length === 0 && !sentenceLoading && (
           <div className="flex flex-col items-center justify-center flex-1 min-h-[300px] gap-3">
             <svg width="140" height="130" viewBox="0 0 140 130" fill="none">
               <circle cx="30" cy="90" r="3" fill="#D94F3B66" />

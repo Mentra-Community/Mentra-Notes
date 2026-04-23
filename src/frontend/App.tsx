@@ -9,7 +9,8 @@ import { useState, useEffect, useRef, createContext, useContext } from "react";
 import { motion } from "framer-motion";
 import { useLocation } from "wouter";
 import { useMentraAuth } from "@mentra/react";
-import { Toaster, toast } from "sonner";
+import { Toaster } from "sonner";
+import { toast } from "./components/shared/toast";
 import { clsx } from "clsx";
 import { Router } from "./router";
 import { Shell } from "./components/layout/Shell";
@@ -168,7 +169,50 @@ export function App() {
           theme,
         )}
       >
-        <Toaster position="bottom-center" theme={theme} />
+        <Toaster
+          position="top-center"
+          theme={theme}
+          icons={{
+            success: (
+              <svg
+                aria-hidden
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            ),
+            error: (
+              <svg
+                aria-hidden
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            ),
+          }}
+          toastOptions={{
+            classNames: {
+              toast: "!font-red-hat !rounded-xl !shadow-[0px_4px_16px_rgba(0,0,0,0.08)]",
+              success: "!bg-[#FAFAF9] !text-[#1C1917] !border !border-[#E7E5E4]",
+              error: "!bg-[#1C1917] !text-[#FAFAF9] !border !border-[#1C1917]",
+            },
+          }}
+        />
         <Shell>
           <Router />
         </Shell>

@@ -10,6 +10,7 @@ import { useSynced } from "../../hooks/useSynced";
 import type { SessionI } from "../../../shared/types";
 import { SettingsPageSkeleton } from "../../components/shared/SkeletonLoader";
 import { BottomDrawer } from "../../components/shared/BottomDrawer";
+import { toast } from "../../components/shared/toast";
 
 export function SettingsPage() {
   const { userId } = useMentraAuth();
@@ -18,13 +19,6 @@ export function SettingsPage() {
   const [photoError, setPhotoError] = useState(false);
   const [showExportDrawer, setShowExportDrawer] = useState(false);
   const [showDeleteDrawer, setShowDeleteDrawer] = useState(false);
-  const [banner, setBanner] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!banner) return;
-    const t = setTimeout(() => setBanner(null), 2500);
-    return () => clearTimeout(t);
-  }, [banner]);
 
   const displayName = session?.settings?.displayName ?? null;
   const role = session?.settings?.role ?? null;
@@ -150,20 +144,13 @@ export function SettingsPage() {
         </div>
       </div>
 
-      {/* Transient success banner */}
-      {banner && (
-        <div className="pointer-events-none fixed top-6 left-1/2 -translate-x-1/2 z-50 rounded-xl bg-[#1C1917] text-[#FAFAF9] text-[13px] leading-4 font-red-hat font-medium px-4 py-2.5 shadow-lg">
-          {banner}
-        </div>
-      )}
-
       <BottomDrawer isOpen={showExportDrawer} onClose={() => setShowExportDrawer(false)}>
         <ExportAllDialog
           key={showExportDrawer ? "open" : "closed"}
           onClose={() => setShowExportDrawer(false)}
           onDone={(summary) => {
             setShowExportDrawer(false);
-            setBanner(summary);
+            toast.success(summary);
           }}
           session={session}
           defaultEmail={userId || ""}
@@ -176,7 +163,7 @@ export function SettingsPage() {
           onClose={() => setShowDeleteDrawer(false)}
           onDone={() => {
             setShowDeleteDrawer(false);
-            setBanner("All data deleted");
+            toast.success("All data deleted");
           }}
           session={session}
         />

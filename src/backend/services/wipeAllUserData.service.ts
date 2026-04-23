@@ -14,6 +14,7 @@ import {
   Conversation,
   TranscriptChunk,
   File as FileModel,
+  TranscriptSegmentSearch,
 } from "../models";
 
 export interface WipeResult {
@@ -25,6 +26,7 @@ export interface WipeResult {
   conversations: number;
   transcriptChunks: number;
   files: number;
+  searchSegments: number;
 }
 
 export async function wipeAllUserData(userId: string): Promise<WipeResult> {
@@ -37,6 +39,7 @@ export async function wipeAllUserData(userId: string): Promise<WipeResult> {
     conversationsRes,
     chunksRes,
     filesRes,
+    searchRes,
   ] = await Promise.all([
     Note.deleteMany({ userId }),
     DailyTranscript.deleteMany({ userId }),
@@ -46,6 +49,7 @@ export async function wipeAllUserData(userId: string): Promise<WipeResult> {
     Conversation.deleteMany({ userId }),
     TranscriptChunk.deleteMany({ userId }),
     FileModel.deleteMany({ userId }),
+    TranscriptSegmentSearch.deleteMany({ userId }),
   ]);
 
   return {
@@ -57,5 +61,6 @@ export async function wipeAllUserData(userId: string): Promise<WipeResult> {
     conversations: conversationsRes.deletedCount ?? 0,
     transcriptChunks: chunksRes.deletedCount ?? 0,
     files: filesRes.deletedCount ?? 0,
+    searchSegments: searchRes.deletedCount ?? 0,
   };
 }

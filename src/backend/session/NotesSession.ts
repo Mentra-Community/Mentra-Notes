@@ -22,6 +22,7 @@ import {
   ChunkBufferManager,
   ConversationManager,
   FoldersManager,
+  DisplayManager,
 } from "./managers";
 import { InputManager } from "./managers/InputManager";
 import { createUserState } from "../services/userState.service";
@@ -43,6 +44,7 @@ export class NotesSession extends SyncedSession {
   @manager chunkBuffer = new ChunkBufferManager();
   @manager conversation = new ConversationManager();
   @manager folders = new FoldersManager();
+  @manager display = new DisplayManager();
 
   // MentraOS AppSession - null if no glasses connected (not synced)
   private _appSession: AppSession | null = null;
@@ -100,6 +102,8 @@ export class NotesSession extends SyncedSession {
       this.broadcastStateChange("session", "hasGlassesConnected", true);
       // Wire up button + touch listeners for this user's session
       this.input.setup(appSession);
+      // Wire DisplayManager so all glass writes flow through it
+      this.display.setup(appSession);
 
       // Now that glasses are connected, get the user's IANA timezone
       const timezone = appSession.settings.getMentraOS<string>("userTimezone");
@@ -140,6 +144,7 @@ export class NotesSession extends SyncedSession {
     if (this._appSession === null) return;
 
     this._appSession = null;
+    this.display.clear();
 
     // Reset recording state since glasses are disconnected
     this.transcript.stopRecording();
@@ -174,13 +179,11 @@ export class NotesSession extends SyncedSession {
 
     // Feed final segments into the auto-notes chunk buffer
     if (isFinal && text.trim()) {
-      this.chunkBuffer.addText(text);
+      this.chunkBuffer.addText(text); 
     }
 
     // Show on glasses display based on display mode
-    if (this._appSession) {
-      this.updateGlassesDisplay(text);
-    }
+    // this.display.showTranscript(text);
   }
 
   // ===========================================================================
@@ -193,46 +196,6 @@ export class NotesSession extends SyncedSession {
    */
   async dispose(): Promise<void> {
     await super.dispose();
-  }
-
-  /**
-   * Update glasses display based on current display mode
-   */
-  private updateGlassesDisplay(transcriptText: string): void {
-    if (!this._appSession) return;
-
-    const mode = this.settings.glassesDisplayMode;
-
-    switch (mode) {
-      case "off":
-        // Don't show anything on glasses
-        break;
-
-      case "live_transcript":
-        // Show real-time transcription (original behavior)
-        if (this.settings.showLiveTranscript) {
-          this._appSession.dashboard.content.write(transcriptText);
-        }
-        break;
-
-      case "hour_summary":
-        // Show the rolling hour summary instead of raw text
-        // Only update on final segments to avoid flickering
-        const summary = this.summary.getCurrentHourSummary();
-        this._appSession.dashboard.content.write(`📝 ${summary}`);
-        break;
-
-      case "key_points":
-        // Future: Show only AI-detected important moments
-        // For now, treat as "off" until we implement key point detection
-        break;
-
-      default:
-        // Fallback to live transcript
-        if (this.settings.showLiveTranscript) {
-          this._appSession.dashboard.content.write(transcriptText);
-        }
-    }
   }
 
   // ===========================================================================

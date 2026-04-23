@@ -22,6 +22,7 @@ import { SelectionHeader } from "../../components/shared/SelectionHeader";
 import { MultiSelectBar, ExportIcon, DeleteIcon } from "../../components/shared/MultiSelectBar";
 import { ExportDrawer, type ExportOptions } from "../../components/shared/ExportDrawer";
 import { EmailDrawer } from "../../components/shared/EmailDrawer";
+import { toast } from "../../components/shared/toast";
 import { useTabBar } from "../../components/layout/Shell";
 
 export function HomePage() {
@@ -88,7 +89,13 @@ export function HomePage() {
     }
 
     const text = textParts.join("\n\n---\n\n");
-    await navigator.clipboard.writeText(text);
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Copied to clipboard");
+    } catch {
+      toast.error("Failed to copy");
+      return;
+    }
     transcriptSelect.cancel();
   }, [transcriptSelect, session]);
 
@@ -157,6 +164,7 @@ export function HomePage() {
 
     const data = await res.json();
     if (!data.success) throw new Error(data.error || "Failed to send email");
+    toast.success(`Email sent to ${to}`);
     transcriptSelect.cancel();
   }, [session, transcriptSelect]);
 

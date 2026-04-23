@@ -1244,6 +1244,83 @@ api.get("/search", authMiddleware, async (c) => {
   }
 });
 
+/**
+ * GET /search/backfill-status — phrase-search index state for this user.
+ * Kicks the backfill off in the background the first time it's called if
+ * the user hasn't been backfilled yet.
+ */
+api.get("/search/backfill-status", authMiddleware, async (c) => {
+  try {
+    const userId = getUserId(c) || (c.req.query("userId") as string);
+    if (!userId) throw { error: "Unauthorized", status: 401 };
+    const { getBackfillStatus, backfillUserSearchIndex } = await import(
+      "../services/searchBackfill.service"
+    );
+    const status = await getBackfillStatus(userId);
+    if (!status.backfilled && !status.inProgress) {
+      // Fire and forget
+      void backfillUserSearchIndex(userId);
+    }
+    return c.json({
+      backfilled: status.backfilled,
+      inProgress: status.backfilled ? false : true,
+      backfilledAt: status.backfilledAt,
+    });
+  } catch (err: any) {
+    console.error("[SearchBackfillStatus] Error:", err);
+    return c.json({ error: err.error || "Failed" }, err.status || 500);
+  }
+});
+
+/**
+ * GET /search/sentences?q=<query>&offset=<n>&limit=<n>
+ *
+ * Exact-phrase search over raw transcript segments. Paginated independently
+ * from /search because matches can be huge (infinite scroll in the UI).
+ */
+api.get("/search/sentences", authMiddleware, async (c) => {
+  try {
+    const userId = getUserId(c) || (c.req.query("userId") as string);
+    if (!userId) {
+      throw { error: "Unauthorized", status: 401 };
+    }
+    const query = c.req.query("q");
+    if (!query || !query.trim()) {
+      return c.json({ error: "Query parameter 'q' is required" }, 400);
+    }
+
+    const offsetParam = c.req.query("offset");
+    const limitParam = c.req.query("limit");
+    const offset = offsetParam ? Math.max(0, parseInt(offsetParam, 10) || 0) : 0;
+    const limit = limitParam ? Math.min(100, Math.max(1, parseInt(limitParam, 10) || 50)) : 50;
+
+    const { searchTranscriptSentences, PHRASE_SEARCH_MIN_QUERY } = await import(
+      "../core/semantic-search/search.service"
+    );
+
+    if (query.trim().length < PHRASE_SEARCH_MIN_QUERY) {
+      return c.json({
+        rows: [],
+        hasMore: false,
+        nextOffset: offset,
+        minQuery: PHRASE_SEARCH_MIN_QUERY,
+      });
+    }
+
+    const result = await searchTranscriptSentences({
+      userId,
+      query: query.trim(),
+      offset,
+      limit,
+    });
+
+    return c.json(result);
+  } catch (err: any) {
+    console.error("[Search Sentences] Error:", err);
+    return c.json({ error: err.error || "Search failed" }, err.status || 500);
+  }
+});
+
 // =============================================================================
 // PostHog Reverse Proxy (bypasses ad blockers)
 // =============================================================================

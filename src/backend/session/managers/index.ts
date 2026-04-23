@@ -16,3 +16,4 @@ export { PhotoManager, type PhotoSize } from "./PhotoManager";
 export { ChunkBufferManager } from "./ChunkBufferManager";
 export { ConversationManager } from "./ConversationManager";
 export { FoldersManager, type FolderData } from "./FoldersManager";
+export { DisplayManager } from "./DisplayManager";

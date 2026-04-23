@@ -10,7 +10,9 @@ import {
   getOrCreateDailyTranscript,
   getAvailableDates,
   appendTranscriptSegments,
+  bulkUpsertSearchSegments,
   type TranscriptSegmentI,
+  type UpsertSegmentInput,
 } from "../../models";
 import type { R2TranscriptSegment } from "../../services/r2Upload.service";
 import { TimeManager } from "./TimeManager";
@@ -242,10 +244,54 @@ export class TranscriptManager extends SyncedManager {
         console.log(
           `[TranscriptManager] Persisted ${segments.length} segments for ${userId} on ${date}`,
         );
+
+        // Mirror final text-only segments into the phrase-search collection.
+        // Skip photo segments entirely (decision locked in issue #26).
+        const searchInputs: UpsertSegmentInput[] = segments
+          .filter((s) => s.type !== "photo" && s.isFinal && s.text?.trim())
+          .map((s) => {
+            const ts = s.timestamp instanceof Date ? s.timestamp : new Date(s.timestamp);
+            return {
+              userId,
+              date,
+              hour: this.getHourInTimezone(ts, timeManager.getTimezone()),
+              segIndex: s.index,
+              text: s.text,
+              timestamp: ts,
+              speakerId: s.speakerId,
+            };
+          });
+        if (searchInputs.length > 0) {
+          try {
+            await bulkUpsertSearchSegments(searchInputs);
+          } catch (err) {
+            console.error(
+              `[TranscriptManager] Failed to mirror ${searchInputs.length} segments to search index:`,
+              err,
+            );
+          }
+        }
       }
     } catch (error) {
       console.error("[TranscriptManager] Failed to persist:", error);
     }
+  }
+
+  /**
+   * Hour (0-23) in the user's timezone. Mirrors TranscriptTab's grouping so
+   * segIndex → hour stays consistent between the DB, the search results,
+   * and the rendered transcript page.
+   */
+  private getHourInTimezone(timestamp: Date, timezone: string | undefined): number {
+    if (timezone) {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        hour: "2-digit",
+        hour12: false,
+        timeZone: timezone,
+      }).formatToParts(timestamp);
+      return parseInt(parts.find((p) => p.type === "hour")?.value || "0", 10);
+    }
+    return timestamp.getHours();
   }
 
   destroy(): void {
