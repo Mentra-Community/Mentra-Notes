@@ -118,29 +118,40 @@ export function SettingsPage() {
             </button>
           </div>
 
-          {/* Timezone (inline, informational) */}
+          {/* Timezone — informational. Styled as a soft info card so it reads
+              as a note, not a tappable row. No border, no chevron, no hover. */}
           {savedTimezone && (
-            <div className="flex flex-col pt-2">
-              <span className="tracking-[1px] uppercase py-3 text-[11px] leading-3.5 text-[#9C958D] font-red-hat">
-                Timezone
-              </span>
-              <div className="py-4 border-t border-[#F0EDEA]">
-                <span className="text-[15px] leading-[18px] text-[#1A1A1A] font-red-hat">
-                  {savedTimezone}
-                </span>
-                <p className="text-[12px] leading-4 text-[#9C958D] font-red-hat mt-0.5">
-                  Days and times are shown in your local timezone
-                </p>
+            <div className="pt-6 select-none">
+              <div className="flex items-start gap-3 rounded-[14px] bg-[#F5F3F0] border border-[#ECE8E2] px-4 py-3.5">
+                <svg
+                  aria-hidden
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#B0AAA2"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="shrink-0 mt-px"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 15 14" />
+                </svg>
+                <div className="flex flex-col gap-1.5 min-w-0">
+                  <p className="text-[12px] leading-4 text-[#6B655D] font-red-hat">
+                    Days and times are shown in your local timezone.
+                  </p>
+                  <span className="inline-flex self-start items-center rounded-full bg-[#ECE8E2] px-2 py-0.5 text-[11px] leading-4 tracking-[0.2px] text-[#6B655D] font-red-hat font-medium">
+                    {savedTimezone}
+                  </span>
+                </div>
               </div>
             </div>
           )}
 
           {/* Version footer */}
-          <div className="flex justify-center py-10">
-            <span className="text-[12px] leading-4 text-[#B0AAA2] font-red-hat">
-              Mentra Notes v0.1.0
-            </span>
-          </div>
+          
         </div>
       </div>
 

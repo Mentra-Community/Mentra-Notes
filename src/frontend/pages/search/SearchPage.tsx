@@ -196,6 +196,9 @@ export function SearchPage() {
   const [sentenceHasMore, setSentenceHasMore] = useState(false);
   const [sentenceLoading, setSentenceLoading] = useState(false);
   const [sentenceLoadingMore, setSentenceLoadingMore] = useState(false);
+  // Debug-only: isolate the hour-level "Transcripts" section so you can see
+  // exactly what it's rendering. Hides Notes and the sentence section.
+  const [isolateHourTranscripts, setIsolateHourTranscripts] = useState(false);
   const sentenceAbortRef = useRef<AbortController | null>(null);
   const sentenceQueryRef = useRef<string>("");
   const sentenceSentinelRef = useRef<HTMLDivElement | null>(null);
@@ -429,10 +432,21 @@ export function SearchPage() {
 
       {/* Result count */}
       {hasSearched && !isSearching && (
-        <div className="pb-1 px-6 shrink-0">
+        <div className="pb-1 px-6 shrink-0 flex items-center justify-between">
           <span className="text-[#D32F2F] font-red-hat font-medium text-[13px] leading-4">
             {totalCount} {totalCount === 1 ? "result" : "results"}
           </span>
+          {/* Debug-only isolate toggle — shows ONLY the hour-level Transcripts block */}
+          <button
+            onClick={() => setIsolateHourTranscripts((v) => !v)}
+            className={`text-[11px] font-red-hat font-medium rounded-md px-2 py-1 border ${
+              isolateHourTranscripts
+                ? "bg-[#D32F2F] text-white border-[#D32F2F]"
+                : "bg-transparent text-[#9C958D] border-[#E8E5E1]"
+            }`}
+          >
+            {isolateHourTranscripts ? "Isolate: on" : "Isolate hour-transcripts"}
+          </button>
         </div>
       )}
 
@@ -446,7 +460,7 @@ export function SearchPage() {
         )}
 
         {/* Notes section */}
-        {!isSearching && noteResults.length > 0 && (
+        {!isSearching && !isolateHourTranscripts && noteResults.length > 0 && (
           <div className="flex flex-col px-6">
             <div className="pt-3 pb-2">
               <div className="tracking-[1.2px] uppercase text-[#D32F2F] font-red-hat font-bold text-[11px] leading-3.5">
@@ -479,46 +493,16 @@ export function SearchPage() {
         )}
 
         {/* Transcripts section */}
-        {!isSearching && transcriptResults.length > 0 && (
-          <div className="flex flex-col px-6">
-            <div className="pt-4 pb-2">
-              <div className="tracking-[1.2px] uppercase text-[#D32F2F] font-red-hat font-bold text-[11px] leading-3.5">
-                Transcripts · {transcriptResults.length}
-              </div>
-            </div>
-            {transcriptResults.map((result) => (
-              <button
-                key={`transcript-${result.id}`}
-                onClick={() => handleResultClick(result)}
-                className="flex items-center py-3 gap-2.5 border-t border-[#F0EDEA] text-left"
-              >
-                <div className="flex flex-col grow shrink basis-0 gap-1 min-w-0">
-                  <div className="text-[#1A1A1A] font-red-hat font-semibold text-[15px] leading-[18px] truncate">
-                    {result.title || result.hourLabel}
-                  </div>
-                  <div className="text-[#6B655D] font-red-hat text-[13px] leading-4 line-clamp-2">
-                    {result.summary}
-                  </div>
-                  <div className="text-[#B0AAA2] font-red-hat font-medium text-[11px] leading-3.5">
-                    {formatTranscriptDate(result.date, result.hourLabel)}
-                  </div>
-                </div>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C5C0B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-              </button>
-            ))}
-          </div>
-        )}
+ 
 
         {/* Transcript sentences section — exact phrase matches with yellow highlight */}
-        {!isSearching && hasSearched && query.trim().length >= PHRASE_MIN_QUERY && (
+        {!isSearching && !isolateHourTranscripts && hasSearched && query.trim().length >= PHRASE_MIN_QUERY && (
           <>
             {(sentences.length > 0 || sentenceLoading || backfillInProgress) && (
               <div className="flex flex-col px-6">
                 <div className="pt-4 pb-2 flex items-baseline justify-between">
                   <div className="tracking-[1.2px] uppercase text-[#D32F2F] font-red-hat font-bold text-[11px] leading-3.5">
-                    Transcript sentences · {sentences.length}
+                    Transcripts · {sentences.length}
                     {sentenceHasMore ? "+" : ""}
                   </div>
                   {backfillInProgress && (

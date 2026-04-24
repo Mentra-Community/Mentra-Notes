@@ -48,6 +48,12 @@ export function NotePage() {
   const [showSaved, setShowSaved] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const titleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Pending title value captured when the debounce timer was set. Used by
+  // flushTitle() so we write the exact value that was queued, independent of
+  // whether editTitle has since changed.
+  const pendingTitleRef = useRef<string | null>(null);
+  const titleInputFocusedRef = useRef(false);
 
   // Hide the bottom tab bar while on this route (spec: detail page is full-bleed)
   const tabBar = useTabBar();
@@ -180,12 +186,27 @@ export function NotePage() {
     }
   }, [note?.id, editor, buildEditorContent]);
 
-  // Auto-save content
+  // Resync editTitle when the note's title changes server-side (e.g. AI
+  // populates it async after the page was opened). Skipped while the user is
+  // actively editing the title — we don't want to clobber their in-progress
+  // edit — and skipped if a local title save is queued for flushing.
+  useEffect(() => {
+    if (!note) return;
+    if (titleInputFocusedRef.current) return;
+    if (titleTimeoutRef.current !== null) return;
+    const serverTitle = note.title || "";
+    if (serverTitle !== editTitle) setEditTitle(serverTitle);
+  }, [note?.title]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-save content. Title is intentionally NOT written here — it has its
+  // own debounce effect below. Including title in this patch caused a silent
+  // title-wipe: if `editTitle` was a stale "" (e.g. note's title was generated
+  // server-side after mount), any content save would clobber the real title.
   const handleAutoSave = async (content: string) => {
     if (!session?.notes?.updateNote || !note) return;
     setIsSaving(true);
     try {
-      await session.notes.updateNote(noteId, { title: editTitle, content });
+      await session.notes.updateNote(noteId, { content });
       setShowSaved(true);
       if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current);
       savedTimeoutRef.current = setTimeout(() => setShowSaved(false), 2000);
@@ -196,27 +217,67 @@ export function NotePage() {
     }
   };
 
-  // Save on title change (debounced)
+  // Persist whatever title is queued right now (or the current editTitle if
+  // no timer is pending but the input diverges from the store). No-op if
+  // nothing is pending and the title already matches the store.
+  const flushTitle = useCallback(() => {
+    if (!session?.notes?.updateNote || !note) return;
+    // Only trust pendingTitleRef when a debounce timer is actually active.
+    // Without this guard, a stale pending value from a previous debounce
+    // cycle (one that was superseded by a resync) can clobber the current
+    // title when handleBack calls flushTitle.
+    const hasActiveTimer = titleTimeoutRef.current !== null;
+    const value = hasActiveTimer && pendingTitleRef.current !== null
+      ? pendingTitleRef.current
+      : editTitle;
+    if (value === note.title) {
+      if (titleTimeoutRef.current) clearTimeout(titleTimeoutRef.current);
+      titleTimeoutRef.current = null;
+      pendingTitleRef.current = null;
+      return;
+    }
+    if (titleTimeoutRef.current) clearTimeout(titleTimeoutRef.current);
+    titleTimeoutRef.current = null;
+    pendingTitleRef.current = null;
+    session.notes.updateNote(noteId, { title: value })
+      .then(() => {
+        setShowSaved(true);
+        if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current);
+        savedTimeoutRef.current = setTimeout(() => setShowSaved(false), 2000);
+      })
+      .catch(() => {});
+  }, [session?.notes, note, editTitle, noteId]);
+
+  // Save on title change (debounced, 1000ms). Queue the pending value in a ref
+  // so flushTitle() from handleBack can fire it synchronously if the user
+  // navigates before the timer lands.
   useEffect(() => {
-    if (!note || editTitle === note.title) return;
-    const timeout = setTimeout(() => {
-      session?.notes
-        ?.updateNote(noteId, { title: editTitle })
-        .then(() => {
-          setShowSaved(true);
-          if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current);
-          savedTimeoutRef.current = setTimeout(() => setShowSaved(false), 2000);
-        })
-        .catch(() => {});
+    if (!note) return;
+    if (editTitle === note.title) {
+      // Nothing to queue — clear any stale pending from a prior divergent
+      // state (e.g. initial editTitle="" before the resync caught up).
+      if (titleTimeoutRef.current) clearTimeout(titleTimeoutRef.current);
+      titleTimeoutRef.current = null;
+      pendingTitleRef.current = null;
+      return;
+    }
+    pendingTitleRef.current = editTitle;
+    if (titleTimeoutRef.current) clearTimeout(titleTimeoutRef.current);
+    titleTimeoutRef.current = setTimeout(() => {
+      flushTitle();
     }, 1000);
-    return () => clearTimeout(timeout);
-  }, [editTitle, note?.title, noteId, session?.notes]);
+    return () => {
+      if (titleTimeoutRef.current) clearTimeout(titleTimeoutRef.current);
+      titleTimeoutRef.current = null;
+    };
+  }, [editTitle, note?.title, flushTitle]);
 
   // Cleanup
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current);
+      if (titleTimeoutRef.current) clearTimeout(titleTimeoutRef.current);
     };
   }, []);
 
@@ -239,7 +300,9 @@ export function NotePage() {
   }
 
   const handleBack = () => {
-    // Save pending changes before leaving
+    // Flush both pending saves before leaving. Title first so the content
+    // save doesn't race with a stale editTitle closure.
+    flushTitle();
     if (editor) handleAutoSave(editor.getHTML());
     back();
   };
@@ -357,6 +420,15 @@ export function NotePage() {
                 setEditTitle(e.target.value);
                 e.target.style.height = "auto";
                 e.target.style.height = e.target.scrollHeight + "px";
+              }}
+              onFocus={() => {
+                titleInputFocusedRef.current = true;
+              }}
+              onBlur={() => {
+                titleInputFocusedRef.current = false;
+                // On blur, flush immediately so tapping outside the title then
+                // navigating can't drop the edit.
+                flushTitle();
               }}
               ref={(el) => {
                 if (el) {
